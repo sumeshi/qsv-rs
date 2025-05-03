@@ -1,0 +1,17 @@
+{
+    "name": "dev",
+    "dockerFile": "Dockerfile",
+    "remoteUser": "dev",
+    "postCreateCommand": "/usr/bin/fish ./.devcontainer/postCreateCommands.fish",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "rust-lang.rust-analyzer",
+                "cordx56.rustowl-vscode"
+            ],
+            "settings": {
+            }
+        }
+    }
+}
