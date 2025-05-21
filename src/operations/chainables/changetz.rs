@@ -48,7 +48,7 @@ pub fn changetz(df: &LazyFrame, colname: &str, tz_from: &str, tz_to: &str, dt_fo
             match NaiveDateTime::parse_from_str(s, fmt) {
                 Ok(dt) => dt,
                 Err(e) => {
-                    eprintln!("Error parsing date '{}' with format '{}': {}", s, fmt, e);
+                    LogController::debug(&format!("Error parsing date '{}' with format '{}': {}", s, fmt, e));
                     return s.to_string();
                 }
             }
@@ -65,9 +65,15 @@ pub fn changetz(df: &LazyFrame, colname: &str, tz_from: &str, tz_to: &str, dt_fo
                             // さらに別のフォーマットを試す
                             match NaiveDateTime::parse_from_str(s, "%m/%d/%Y %I:%M:%S %p") {
                                 Ok(dt) => dt,
-                                Err(e) => {
-                                    eprintln!("Error auto-detecting date format for '{}': {}", s, e);
-                                    return s.to_string();
+                                Err(_) => {
+                                    // MM/DD/YYYY HH:MM形式を試す (Security.csvファイル形式)
+                                    match NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M") {
+                                        Ok(dt) => dt,
+                                        Err(e) => {
+                                            LogController::debug(&format!("Error auto-detecting date format for '{}': {}", s, e));
+                                            return s.to_string();
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -96,6 +102,12 @@ pub fn changetz(df: &LazyFrame, colname: &str, tz_from: &str, tz_to: &str, dt_fo
         let result: Vec<String> = ca.into_iter()
             .map(|opt_s| opt_s.map(|s| time_conversion(s)).unwrap_or_default())
             .collect();
+        
+        // 変換したデータのサンプルをログに出力
+        if !result.is_empty() {
+            LogController::debug(&format!("Sample converted time: {}", result[0]));
+        }
+        
         Ok(Some(Series::new(s.name(), result)))
     };
     

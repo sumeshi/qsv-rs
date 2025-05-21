@@ -1,0 +1,21 @@
+title: "Test Quilt Configuration"
+description: "A simple test configuration for quilt and quilt-visualize tests"
+version: "1.0"
+author: "QSV Test Suite"
+
+stages:
+  load_data:
+    type: load
+    source: "../sample/simple.csv"
+  
+  filter_data:
+    type: transform
+    steps:
+      select:
+        columns: ["col1", "col2"]
+      
+  visualize_data:
+    type: visualize
+    params:
+      chart_type: "table"
+      title: "Simple Data Visualization"
