@@ -1,0 +1,12 @@
+pub mod select;
+pub mod isin;
+pub mod contains;
+pub mod sed;
+pub mod grep;
+pub mod head;
+pub mod tail;
+pub mod sort;
+pub mod count;
+pub mod uniq;
+pub mod changetz;
+pub mod renamecol;
