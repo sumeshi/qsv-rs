@@ -9,7 +9,7 @@ use encoding_rs::SHIFT_JIS;
 // ファイルパスの存在確認ユーティリティ関数
 pub fn exists_path(paths: &[impl AsRef<Path>]) -> bool {
     for path in paths {
-        if (!path.as_ref().exists()) {
+        if !path.as_ref().exists() {
             eprintln!("Error: File not found: {}", path.as_ref().display());
             return false;
         }
@@ -83,7 +83,7 @@ impl CsvController {
             .with_ignore_errors(true)
             .with_quote_char(Some(b'"'))
             .with_infer_schema_length(Some(1000))
-            .low_memory(true)
+            .low_memory(low_memory)  // Use the low_memory parameter
             .truncate_ragged_lines(true);
             
         match csv_reader.finish() {
@@ -107,7 +107,7 @@ impl CsvController {
     fn detect_best_parser_for_file(&self, path: &PathBuf) -> ParserMode {
         // ファイルの先頭部分を読み取り、複雑さを判断
         if let Ok(content) = std::fs::read(path) {
-            // BOMチェック - BOМがあるファイルは複雑かもしれない
+            // BOMチェック - BOмがあるファイルは複雑かもしれない
             if content.len() >= 3 && content[0] == 0xEF && content[1] == 0xBB && content[2] == 0xBF {
                 return ParserMode::StandardCsv;
             }
@@ -201,7 +201,6 @@ impl CsvController {
         
         // 各列のSeriesを作成
         let mut series_vec = Vec::new();
-        let num_cols = headers.len();
         
         for (col_idx, col_name) in headers.iter().enumerate() {
             // 最初にデータを文字列として収集
@@ -230,7 +229,7 @@ impl CsvController {
     }
     
     // CSVファイルを前処理する関数（問題のある行を修正し、一時ファイルに保存）
-    fn preprocess_csv_file(&self, path: &PathBuf, separator: &str) -> io::Result<PathBuf> {
+    fn preprocess_csv_file(&self, path: &PathBuf, _separator: &str) -> io::Result<PathBuf> {
         let temp_path = PathBuf::from(format!("{}.tmp", path.display()));
         
         // ファイルをバイト列として読み込み

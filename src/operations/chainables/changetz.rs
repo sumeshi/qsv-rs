@@ -1,7 +1,8 @@
 use polars::prelude::*;
-use chrono::{DateTime, TimeZone, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use chrono_tz::Tz;
 use std::str::FromStr;
+
 use crate::controllers::log::LogController;
 use crate::controllers::dataframe::exists_colname;
 

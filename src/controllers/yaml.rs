@@ -1,13 +1,15 @@
 use serde_yaml::Value;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::Read;
 use std::path::Path;
 use crate::controllers::log::LogController;
 
+#[allow(dead_code)]
 pub struct YamlController;
 
 impl YamlController {
     /// YAMLファイルを読み込んでValueオブジェクトを返す
+    #[allow(dead_code)]
     pub fn load_yaml<P: AsRef<Path>>(path: P) -> Result<Value, String> {
         let path_str = path.as_ref().to_string_lossy();
         LogController::debug(&format!("Loading YAML file: {}", path_str));
@@ -29,6 +31,7 @@ impl YamlController {
     }
     
     /// ValueオブジェクトをYAMLファイルに保存する
+    #[allow(dead_code)]
     pub fn save_yaml<P: AsRef<Path>>(path: P, value: &Value) -> Result<(), String> {
         let path_str = path.as_ref().to_string_lossy();
         LogController::debug(&format!("Saving YAML file: {}", path_str));
@@ -46,6 +49,7 @@ impl YamlController {
     }
     
     /// YAML文字列をValueオブジェクトにパースする
+    #[allow(dead_code)]
     pub fn parse_yaml(content: &str) -> Result<Value, String> {
         match serde_yaml::from_str(content) {
             Ok(value) => Ok(value),
@@ -54,6 +58,7 @@ impl YamlController {
     }
     
     /// ValueオブジェクトをYAML文字列に変換する
+    #[allow(dead_code)]
     pub fn to_string(value: &Value) -> Result<String, String> {
         match serde_yaml::to_string(value) {
             Ok(s) => Ok(s),

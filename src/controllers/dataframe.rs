@@ -110,6 +110,7 @@ impl DataFrameController {
         self
     }
     
+    #[allow(dead_code)]
     pub fn drop(&mut self) -> &mut Self {
         self.df = None;
         self

@@ -24,7 +24,7 @@ pub fn stats(df: &LazyFrame) {
     table.load_preset(UTF8_FULL);
     
     // ヘッダー行を設定
-    let mut headers = vec!["Column", "Type", "Non-Null Count", "Null Count"];
+    let headers = vec!["Column", "Type", "Non-Null Count", "Null Count"];
     table.set_header(headers);
     
     // 各列の情報を追加

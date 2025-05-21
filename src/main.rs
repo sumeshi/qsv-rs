@@ -8,7 +8,7 @@ mod operations;
 
 use controllers::dataframe::DataFrameController;
 // command_parserをcontrollers::commandに変更
-use controllers::command::{Command, parse_commands};
+use controllers::command::{parse_commands};
 
 fn main() {
     // Initialize logger to only show errors by default

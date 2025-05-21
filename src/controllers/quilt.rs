@@ -6,6 +6,7 @@ use crate::controllers::log::LogController;
 use crate::controllers::yaml::YamlController;
 use crate::controllers::csv::CsvController;
 
+#[allow(dead_code)]
 pub struct QuiltController {
     config: Value,
     paths: Vec<PathBuf>,
@@ -13,6 +14,7 @@ pub struct QuiltController {
 }
 
 impl QuiltController {
+    #[allow(dead_code)]
     pub fn new(config_path: &str, paths: &[PathBuf], debug: bool) -> Result<Self, String> {
         // YAMLコンフィグファイルを読み込む
         let config = match YamlController::load_yaml(config_path) {
@@ -27,6 +29,7 @@ impl QuiltController {
         })
     }
     
+    #[allow(dead_code)]
     pub fn process(&self) -> Result<LazyFrame, String> {
         if self.debug {
             LogController::debug("Processing quilt with debug mode enabled");
@@ -46,6 +49,7 @@ impl QuiltController {
         Ok(df)
     }
     
+    #[allow(dead_code)]
     pub fn visualize(&self) -> Result<String, String> {
         LogController::debug(&format!("Visualizing quilt configuration: {:?}", self.config));
         
