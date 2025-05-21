@@ -8,77 +8,82 @@ pub struct Command {
     pub options: HashMap<String, Option<String>>,
 }
 
-pub fn parse_commands(args: &[String]) -> Vec<Command> {
-    let mut result = Vec::new();
-    let mut current_group = Vec::new();
-    
-    // コマンド区切り文字として `-` を使用
-    let delimiter = "-";
-    
-    for arg in args {
-        if arg == delimiter {
-            if !current_group.is_empty() {
-                if let Some(cmd) = parse_command_group(&current_group) {
-                    result.push(cmd);
-                }
-                current_group = Vec::new();
-            }
-        } else {
-            current_group.push(arg.clone());
+impl Command {
+    pub fn new(name: String) -> Self {
+        Command {
+            name,
+            args: Vec::new(),
+            options: HashMap::new(),
         }
     }
-    
-    if !current_group.is_empty() {
-        if let Some(cmd) = parse_command_group(&current_group) {
-            result.push(cmd);
-        }
-    }
-    
-    result
 }
 
-fn parse_command_group(args: &[String]) -> Option<Command> {
-    if args.is_empty() {
-        return None;
-    }
+pub fn parse_commands(args: &[String]) -> Vec<Command> {
+    let mut commands = Vec::new();
+    let mut current_command = Command::new(String::new());
+    let mut is_first_arg = true;
     
-    let name = args[0].clone();
-    let mut cmd_args = Vec::new();
-    let mut options = HashMap::new();
-    let mut i = 1;
-    
-    while i < args.len() {
-        let arg = &args[i];
+    for arg in args {
+        if arg == "-" {
+            // Finalize the current command if it has a name
+            if !current_command.name.is_empty() {
+                commands.push(current_command);
+                current_command = Command::new(String::new());
+                is_first_arg = true;
+            }
+            continue;
+        }
         
+        // Handle command name
+        if is_first_arg {
+            current_command.name = arg.clone();
+            is_first_arg = false;
+            continue;
+        }
+        
+        // Parse options and arguments
         if arg.starts_with("--") {
-            let option_name = arg[2..].to_string();
-            
-            if i + 1 < args.len() && !args[i + 1].starts_with("-") {
-                options.insert(option_name, Some(args[i + 1].clone()));
-                i += 2;
-            } else {
-                options.insert(option_name, None);
-                i += 1;
-            }
-        } else if arg.starts_with("-") {
-            let option_name = arg[1..].to_string();
-            
-            if i + 1 < args.len() && !args[i + 1].starts_with("-") {
-                options.insert(option_name, Some(args[i + 1].clone()));
-                i += 2;
-            } else {
-                options.insert(option_name, None);
-                i += 1;
-            }
+            // Long option format: --option[=value]
+            let option_str = &arg[2..];
+            parse_option(&mut current_command, option_str);
+        } else if arg.starts_with('-') {
+            // Short option format: -o[=value]
+            let option_str = &arg[1..];
+            parse_option(&mut current_command, option_str);
         } else {
-            cmd_args.push(arg.clone());
-            i += 1;
+            // Regular argument
+            current_command.args.push(arg.clone());
         }
     }
     
-    Some(Command {
-        name,
-        args: cmd_args,
-        options,
-    })
+    // Add the last command if it has a name
+    if !current_command.name.is_empty() {
+        commands.push(current_command);
+    }
+    
+    commands
+}
+
+fn parse_option(cmd: &mut Command, option_str: &str) {
+    if let Some((key, value)) = option_str.split_once('=') {
+        // キーと値がある場合 (--key=value または -k=value)
+        cmd.options.insert(key.to_string(), Some(value.to_string()));
+    } else if option_str.contains('=') {
+        // =が含まれているが、分割できない場合（例：-o=value）
+        let parts: Vec<&str> = option_str.split('=').collect();
+        if parts.len() >= 2 {
+            let key = parts[0];
+            let value = if parts.len() > 2 {
+                parts[1..].join("=")
+            } else {
+                parts[1].to_string()
+            };
+            cmd.options.insert(key.to_string(), Some(value));
+        } else {
+            cmd.options.insert(option_str.to_string(), None);
+        }
+    } else {
+        // フラグオプション（値なし）
+        cmd.options.insert(option_str.to_string(), None);
+    }
 }

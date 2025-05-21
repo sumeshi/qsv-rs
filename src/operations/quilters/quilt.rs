@@ -1,10 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use crate::controllers::dataframe::DataFrameController;
 use crate::controllers::log::LogController;
-use crate::controllers::yaml::YamlController;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QuiltConfig {
@@ -85,9 +84,30 @@ pub fn quilt(controller: &mut DataFrameController, config_path: &str, output_pat
             },
             "transform" => {
                 if let Some(steps) = &stage_config.steps {
-                    for (step_name, _) in steps {
+                    for (step_name, step_value) in steps {
                         LogController::debug(&format!("Applying transformation: {}", step_name));
-                        // 実際の変換処理はここに実装
+                        
+                        // 変換処理の実装
+                        match step_name.as_str() {
+                            "select" => {
+                                if let Some(columns) = step_value.get("columns") {
+                                    if let Some(columns_array) = columns.as_sequence() {
+                                        let column_names: Vec<String> = columns_array.iter()
+                                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                            .collect();
+                                        
+                                        if !column_names.is_empty() {
+                                            LogController::debug(&format!("Selecting columns: {}", column_names.join(", ")));
+                                            controller.select(&column_names);
+                                        }
+                                    }
+                                }
+                            },
+                            // 他の変換処理を追加
+                            _ => {
+                                LogController::warn(&format!("Unknown transform step: {}", step_name));
+                            }
+                        }
                     }
                 }
             },
@@ -121,8 +141,28 @@ pub fn quilt(controller: &mut DataFrameController, config_path: &str, output_pat
     
     // 出力パスが指定されていれば結果を保存
     if let Some(path) = output_path {
-        LogController::info(&format!("Saving results to: {}", path));
-        controller.dump(Some(path));
+        // 絶対パスか相対パスかを確認
+        let output_path = Path::new(path);
+        let absolute_path = if output_path.is_absolute() {
+            output_path.to_path_buf()
+        } else {
+            // 相対パスの場合は現在のディレクトリからの相対パスとして解決
+            std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()).join(output_path)
+        };
+        
+        LogController::info(&format!("Saving results to absolute path: {}", absolute_path.display()));
+        
+        // 出力ディレクトリが存在することを確認
+        if let Some(parent) = absolute_path.parent() {
+            if !parent.exists() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    eprintln!("Error creating directory {}: {}", parent.display(), e);
+                    // ディレクトリ作成に失敗してもファイル出力は試行する
+                }
+            }
+        }
+        
+        controller.dump(Some(absolute_path.to_str().unwrap_or(path)));
     } else {
         // 指定がなければ結果を表示
         controller.showtable();

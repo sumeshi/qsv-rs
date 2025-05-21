@@ -25,15 +25,14 @@ class TestSort(QsvTestBase):
         output = self.run_qsv_command("load sample/simple.csv - sort col1 -d - show")
         
         # Check output based on actual behavior
-        # NOTE: There appears to be an issue with the descending sort implementation
-        # Current behavior seems to still produce ascending order
-        lines = output.strip().split('\n')
         # Header + 3 data rows
+        lines = output.strip().split('\n')
         self.assertEqual(len(lines), 4)
         self.assertEqual(lines[0], "col1,col2,col3")
-        self.assertEqual(lines[1], "1,2,3")  # Should be 7,8,9 if descending worked correctly
+        # Expecting descending order (7,8,9 first)
+        self.assertEqual(lines[1], "7,8,9")
         self.assertEqual(lines[2], "4,5,6")
-        self.assertEqual(lines[3], "7,8,9")  # Should be 1,2,3 if descending worked correctly
+        self.assertEqual(lines[3], "1,2,3")
     
     def test_sort_multiple_columns(self):
         """Test sorting rows by multiple columns"""

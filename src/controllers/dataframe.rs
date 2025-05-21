@@ -154,11 +154,13 @@ impl DataFrameController {
     }
     
     // -- quilters --
+    #[allow(dead_code)]
     pub fn quilt(&mut self, config_path: &str, output_path: Option<&str>, title: Option<&str>) {
         // If data is empty, the quilt function will attempt to load from the config file
         quilt::quilt(self, config_path, output_path, title);
     }
     
+    #[allow(dead_code)]
     pub fn quilt_visualize(&self, config_path: &str, output_path: Option<&str>, title: Option<&str>) {
         quilt_visualize::quilt_visualize(config_path, output_path, title);
     }

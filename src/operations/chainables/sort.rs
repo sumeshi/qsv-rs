@@ -14,13 +14,7 @@ pub fn sort(df: &LazyFrame, colnames: &[String], desc: bool) -> LazyFrame {
     
     // ソート式を作成
     let sort_exprs: Vec<_> = colnames.iter()
-        .map(|colname| {
-            if desc {
-                col(colname).sort(true)
-            } else {
-                col(colname).sort(false)
-            }
-        })
+        .map(|colname| col(colname))
         .collect();
     
     // 新しいAPI: sort_by_exprsは4つの引数が必要で、descending引数はベクトルが必要

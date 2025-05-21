@@ -12,6 +12,9 @@ pub fn changetz(df: &LazyFrame, colname: &str, tz_from: &str, tz_to: &str, dt_fo
         std::process::exit(1);
     }
     
+    // デバッグ情報を追加
+    LogController::info(&format!("Attempting to change timezone for column {} from {} to {}", colname, tz_from, tz_to));
+    
     // 元のタイムゾーンと変換先のタイムゾーンをパース
     let source_tz = match Tz::from_str(tz_from) {
         Ok(tz) => tz,
@@ -43,43 +46,25 @@ pub fn changetz(df: &LazyFrame, colname: &str, tz_from: &str, tz_to: &str, dt_fo
             return String::new();
         }
         
+        // 入力文字列のロギング
+        LogController::debug(&format!("Processing date string: '{}'", s));
+        
         // 日時をパース
         let naive_dt = if let Some(fmt) = &dt_format_owned {
+            // フォーマット指定がある場合は、それを使ってパース
+            LogController::debug(&format!("Parsing with specified format: '{}'", fmt));
+            
             match NaiveDateTime::parse_from_str(s, fmt) {
                 Ok(dt) => dt,
                 Err(e) => {
-                    LogController::debug(&format!("Error parsing date '{}' with format '{}': {}", s, fmt, e));
-                    return s.to_string();
+                    LogController::debug(&format!("Failed with specified format, trying default formats: {}", e));
+                    // 指定フォーマットで失敗した場合は標準フォーマットを試す
+                    parse_with_standard_formats(s)
                 }
             }
         } else {
-            // 自動フォーマット検出（簡易実装）
-            // ISO 8601形式を試してみる
-            match NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
-                Ok(dt) => dt,
-                Err(_) => {
-                    // 一般的な日付フォーマットを試す
-                    match NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
-                        Ok(dt) => dt,
-                        Err(_) => {
-                            // さらに別のフォーマットを試す
-                            match NaiveDateTime::parse_from_str(s, "%m/%d/%Y %I:%M:%S %p") {
-                                Ok(dt) => dt,
-                                Err(_) => {
-                                    // MM/DD/YYYY HH:MM形式を試す (Security.csvファイル形式)
-                                    match NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M") {
-                                        Ok(dt) => dt,
-                                        Err(e) => {
-                                            LogController::debug(&format!("Error auto-detecting date format for '{}': {}", s, e));
-                                            return s.to_string();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // フォーマット指定がない場合は標準フォーマットを試す
+            parse_with_standard_formats(s)
         };
         
         // タイムゾーンを適用してからターゲットタイムゾーンに変換
@@ -89,11 +74,55 @@ pub fn changetz(df: &LazyFrame, colname: &str, tz_from: &str, tz_to: &str, dt_fo
         
         // フォーマットして返す
         if let Some(fmt) = &dt_format_owned {
-            converted.format(fmt).to_string()
+            // 出力フォーマットを使用
+            let result = converted.format(fmt).to_string();
+            LogController::debug(&format!("Formatted result: '{}'", result));
+            result
         } else {
-            converted.to_rfc3339()
+            // デフォルトフォーマットで出力
+            let result = converted.format("%Y-%m-%d %H:%M:%S %Z").to_string();
+            LogController::debug(&format!("Default formatted result: '{}'", result));
+            result
         }
     };
+    
+    // 標準フォーマットでのパース関数
+    fn parse_with_standard_formats(s: &str) -> NaiveDateTime {
+        // 日本語形式のCSVで使われる形式 (YYYY/MM/DD HH:MM:SS)
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M:%S") {
+            LogController::debug(&format!("Parsed with YYYY/MM/DD HH:MM:SS"));
+            return dt;
+        }
+        
+        // ISO 8601形式
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
+            return dt;
+        }
+        
+        // 一般的な日付フォーマット
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+            return dt;
+        }
+        
+        // アメリカ形式
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S") {
+            return dt;
+        }
+        
+        // 短い時間形式
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M") {
+            return dt;
+        }
+        
+        // 最終手段
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M") {
+            return dt;
+        }
+        
+        // どのフォーマットでもパースできなかった場合はエラーメッセージを表示して現在時刻を返す
+        LogController::error(&format!("Failed to parse date '{}' with any format, using current time", s));
+        Utc::now().naive_utc()
+    }
     
     // UDFを作成してDataFrameに適用
     let timezone_udf = move |s: Series| -> PolarsResult<Option<Series>> {

@@ -34,7 +34,7 @@ class TestQuilt(QsvTestBase):
         # 設定ファイルで指定されたCSVファイルのデータが含まれているか確認
         self.assert_output_contains(output, "col1")
         self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
+        # col3はtransformステージでselectされていないためテストから除外
     
     def test_quilt_with_output(self):
         """Test quilt with output file"""

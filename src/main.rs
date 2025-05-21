@@ -6,6 +6,7 @@ mod operations;
 
 use controllers::dataframe::DataFrameController;
 use controllers::command::{parse_commands, Command};
+use controllers::log::LogController;
 
 fn main() {
     // Initialize logger to only show errors by default
@@ -265,7 +266,13 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let colname = &cmd.args[0];
             let tz_from = &cmd.args[1];
             let tz_to = &cmd.args[2];
-            let dt_format = cmd.args.get(3).map(|s| s.as_str());
+            
+            // フォーマット指定がある場合は引用符を取り除く
+            let dt_format = cmd.args.get(3).map(|s| {
+                let cleaned = s.trim_matches('\'');
+                LogController::debug(&format!("Using date format: {}", cleaned));
+                cleaned
+            });
             
             controller.changetz(colname, tz_from, tz_to, dt_format);
         },
