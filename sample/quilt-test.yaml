@@ -1,0 +1,45 @@
+title: 'Test Data Processing Pipeline - Simple'
+description: 'test pipeline'
+version: '0.1.0'
+author: 'John Doe <john@example.com>'
+stages:
+  load_stage:
+    type: process
+    steps:
+      load:
+
+  stage_1:
+    type: process
+    source: load_stage
+    steps:
+      select:
+        colnames: 
+          - datetime
+          - col1
+
+  stage_2:
+    type: process
+    source: load_stage
+    steps:
+      select:
+        colnames: 
+          - datetime
+          - col3
+
+  merge_stage:
+    type: join
+    sources:
+      - stage_1
+      - stage_2
+    params:
+      how: full
+      key: datetime
+      coalesce: True
+  
+  stage_3:
+    type: process
+    source: merge_stage
+    steps:
+      tail:
+        number: 1
+      showtable:
