@@ -1,4 +1,4 @@
-FROM rust:1.86.0-slim-bullseye
+FROM rust:1.87-slim-bullseye
 
 RUN apt -y update && apt upgrade -qqy && apt -y install \
     curl \

@@ -10,25 +10,24 @@ class TestChangetz(QsvTestBase):
     def test_changetz_basic(self):
         """Test converting timezone of a datetime column"""
         # Use Security_test.csv which has a simpler date/time column
-        output = self.run_qsv_command("load sample/Security_test.csv - changetz Time UTC EST - show")
+        output = self.run_qsv_command("load sample/simple.csv - changetz datetime UTC EST - show")
         
-        # 出力に"Time"列が含まれていることを確認
+        # 出力に"datetime"列が含まれていることを確認
         self.assertNotEqual("", output)
-        self.assert_output_contains(output, "Time")
+        self.assert_output_contains(output, "datetime")
         
-        # 変換前と変換後でタイムゾーンが変わっていることを確認（5時間の差があるはず）
-        # タイムゾーン変換が正しく行われていれば、時間の値が変わっているはず
-        self.assertTrue("EST" in output or "T" in output, "タイムゾーン情報が出力に含まれていません")
+        # 変換後の時刻がEST相当になっているか（例: 7:00:00, 8:00:00, 9:00:00 など）
+        self.assertTrue("07:00:00" in output or "08:00:00" in output or "09:00:00" in output)
     
     def test_changetz_with_format(self):
         """Test timezone conversion with a specified format"""
         # 特定のフォーマットを指定して変換
-        cmd = "load sample/Security_test.csv - changetz Time UTC EST '%Y-%m-%d %H:%M:%S' - show"
+        cmd = "load sample/simple.csv - changetz datetime UTC EST '%Y-%m-%d %H:%M:%S' - show"
         output = self.run_qsv_command(cmd)
         
-        # 出力に"Time"列が含まれていることを確認
+        # 出力に"datetime"列が含まれていることを確認
         self.assertNotEqual("", output)
-        self.assert_output_contains(output, "Time")
+        self.assert_output_contains(output, "datetime")
         
         # 指定したフォーマットで出力されているか確認（数字とコロンと空白のパターン）
         # 日付パターン(YYYY-MM-DD HH:MM:SS)に一致するものが含まれているか確認

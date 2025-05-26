@@ -80,11 +80,11 @@ impl CsvController {
         let csv_reader = LazyCsvReader::new(path.clone())
             .with_delimiter(sep_byte)
             .has_header(true)
-            .with_ignore_errors(true)
+            .with_ignore_errors(false)
             .with_quote_char(Some(b'"'))
             .with_infer_schema_length(Some(1000))
             .low_memory(low_memory)  // Use the low_memory parameter
-            .truncate_ragged_lines(true);
+            .truncate_ragged_lines(false);
             
         match csv_reader.finish() {
             Ok(df) => df,

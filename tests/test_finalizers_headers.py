@@ -24,9 +24,11 @@ class TestHeaders(QsvTestBase):
         output = self.run_qsv_command("load sample/simple.csv - headers -p")
         
         # With plain flag, headers should be displayed in a simpler format
-        self.assert_output_contains(output, "0: col1")
-        self.assert_output_contains(output, "1: col2")
-        self.assert_output_contains(output, "2: col3")
+        self.assert_output_contains(output, "0: datetime")
+        self.assert_output_contains(output, "1: col1")
+        self.assert_output_contains(output, "2: col2")
+        self.assert_output_contains(output, "3: col3")
+        self.assert_output_contains(output, "4: str")
         
         # The actual behavior includes data rows, which we now accept
         # No need to check for absence of data rows

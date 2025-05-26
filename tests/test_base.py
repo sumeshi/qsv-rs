@@ -48,6 +48,17 @@ class QsvTestBase(unittest.TestCase):
         self.assertIn(expected_content, output, 
                       f"Expected output to contain '{expected_content}', but it didn't.\nOutput: {output}")
     
+    def assert_output_not_contains(self, output, unexpected_content):
+        """
+        Assert that the output does NOT contain the unexpected content
+        
+        Args:
+            output: Output string to check
+            unexpected_content: Content that should NOT be in the output
+        """
+        self.assertNotIn(unexpected_content, output,
+                         f"Expected output NOT to contain '{unexpected_content}', but it did.\nOutput: {output}")
+    
     def assert_output_matches(self, output, expected_lines):
         """
         Assert that the output matches the expected lines
