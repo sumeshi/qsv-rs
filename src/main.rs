@@ -5,7 +5,7 @@ mod controllers;
 mod operations;
 
 use controllers::dataframe::DataFrameController;
-use controllers::command::{parse_commands, Command};
+use controllers::command::{parse_commands, Command, print_help, print_chainable_help};
 use controllers::log::LogController;
 
 fn main() {
@@ -14,6 +14,23 @@ fn main() {
     
     // Get command line arguments
     let args: Vec<String> = std::env::args().collect();
+    
+    // -h, --help
+    if args.len() == 2 && (args[1] == "-h" || args[1] == "--help") {
+        print_help();
+        return;
+    }
+    // -v, --version
+    if args.len() == 2 && (args[1] == "-v" || args[1] == "--version") {
+        println!("qsv version {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+    
+    // Subcommand help: e.g., qsv select -h
+    if args.len() >= 3 && (args[2] == "-h" || args[2] == "--help") {
+        print_chainable_help(&args[1]);
+        return;
+    }
     
     // Parse commands using dedicated command parser module
     let commands = parse_commands(&args[1..]);

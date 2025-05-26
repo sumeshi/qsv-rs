@@ -4,7 +4,7 @@ use comfy_table::presets::UTF8_FULL;
 use crate::controllers::log::LogController;
 
 pub fn headers(df: &LazyFrame, plain: bool) {
-    // スキーマを取得（clone()を使用して所有権問題を解決）
+    // Get schema (use clone() to solve ownership problem)
     let schema = match df.clone().schema() {
         Ok(schema) => schema,
         Err(e) => {
@@ -13,7 +13,7 @@ pub fn headers(df: &LazyFrame, plain: bool) {
         }
     };
     
-    // SmartStringをStringに変換
+    // Convert SmartString to String
     let column_names: Vec<String> = schema.iter()
         .map(|(name, _)| name.to_string())
         .collect();
@@ -21,12 +21,12 @@ pub fn headers(df: &LazyFrame, plain: bool) {
     LogController::debug(&format!("Showing headers: {} columns", column_names.len()));
     
     if plain {
-        // プレーンテキスト形式での表示
+        // Display in plain text format
         for (i, name) in column_names.iter().enumerate() {
             println!("{}: {}", i, name);
         }
     } else {
-        // テーブル形式での表示
+        // Display in table format
         let mut table = Table::new();
         table.load_preset(UTF8_FULL);
         table.set_header(vec!["#", "Column Name"]);

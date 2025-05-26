@@ -8,7 +8,7 @@ use crate::controllers::log::LogController;
 pub struct YamlController;
 
 impl YamlController {
-    /// YAMLファイルを読み込んでValueオブジェクトを返す
+    /// YAML file to read and return Value object
     #[allow(dead_code)]
     pub fn load_yaml<P: AsRef<Path>>(path: P) -> Result<Value, String> {
         let path_str = path.as_ref().to_string_lossy();
@@ -30,7 +30,7 @@ impl YamlController {
         }
     }
     
-    /// ValueオブジェクトをYAMLファイルに保存する
+    /// Save Value object to YAML file
     #[allow(dead_code)]
     pub fn save_yaml<P: AsRef<Path>>(path: P, value: &Value) -> Result<(), String> {
         let path_str = path.as_ref().to_string_lossy();
@@ -48,7 +48,7 @@ impl YamlController {
         Ok(())
     }
     
-    /// YAML文字列をValueオブジェクトにパースする
+    /// Parse YAML string to Value object
     #[allow(dead_code)]
     pub fn parse_yaml(content: &str) -> Result<Value, String> {
         match serde_yaml::from_str(content) {
@@ -57,7 +57,7 @@ impl YamlController {
         }
     }
     
-    /// ValueオブジェクトをYAML文字列に変換する
+    /// Convert Value object to YAML string
     #[allow(dead_code)]
     pub fn to_string(value: &Value) -> Result<String, String> {
         match serde_yaml::to_string(value) {

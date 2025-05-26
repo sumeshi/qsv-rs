@@ -33,7 +33,7 @@ class TestChangetz(QsvTestBase):
         # 日付パターン(YYYY-MM-DD HH:MM:SS)に一致するものが含まれているか確認
         date_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
         match = re.search(date_pattern, output)
-        self.assertTrue(match, "指定したフォーマットで日付が出力されていません")
+        self.assertTrue(match, "specified format not output date")
 
 if __name__ == "__main__":
     unittest.main()
