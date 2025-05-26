@@ -284,7 +284,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let tz_from = &cmd.args[1];
             let tz_to = &cmd.args[2];
             
-            // フォーマット指定がある場合は引用符を取り除く
+            // Remove quotes if format is specified
             let dt_format = cmd.args.get(3).map(|s| {
                 let cleaned = s.trim_matches('\'');
                 LogController::debug(&format!("Using date format: {}", cleaned));
@@ -350,52 +350,52 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
         
         // Quilters
         "quilt" => {
-            // 設定ファイルからデータを読み込むので、事前のデータロードチェックを行わない
+            // No pre-load check needed; config file is processed directly
             
             if cmd.args.is_empty() {
                 eprintln!("Error: 'quilt' command requires a config file path");
                 process::exit(1);
             }
             
-            // 設定ファイルパスの解析
+            // Parse config file path
             let config_path = &cmd.args[0];
             
-            // 出力パスオプション
+            // Output path option
             let output_path = cmd.options.get("o").or(cmd.options.get("output"))
                 .and_then(|opt| opt.as_ref())
                 .map(|s| s.as_str());
             
-            // タイトルオプション
+            // Title option
             let title = cmd.options.get("t").or(cmd.options.get("title"))
                 .and_then(|opt| opt.as_ref())
                 .map(|s| s.as_str());
             
-            // quilt実行
+            // quilt execution
             operations::quilters::quilt::quilt(controller, config_path, output_path, title);
         },
         
         "quilt-visualize" => {
-            // 設定ファイルを直接処理するので、事前のデータロードチェックを行わない
+            // No pre-load check needed; config file is processed directly
             
             if cmd.args.is_empty() {
                 eprintln!("Error: 'quilt-visualize' command requires a config file path");
                 process::exit(1);
             }
             
-            // 設定ファイルパス
+            // Config file path
             let config_path = &cmd.args[0];
             
-            // 出力パスオプション
+            // Output path option
             let output_path = cmd.options.get("o").or(cmd.options.get("output"))
                 .and_then(|opt| opt.as_ref())
                 .map(|s| s.as_str());
             
-            // タイトルオプション
+            // Title option
             let title = cmd.options.get("t").or(cmd.options.get("title"))
                 .and_then(|opt| opt.as_ref())
                 .map(|s| s.as_str());
             
-            // quilt-visualize実行
+            // quilt-visualize execution
             operations::quilters::quilt_visualize::quilt_visualize(config_path, output_path, title);
         },
         

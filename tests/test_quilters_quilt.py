@@ -10,54 +10,54 @@ class TestQuilt(QsvTestBase):
     def setUp(self):
         """Set up test fixtures"""
         super().setUp()
-        # 設定ファイルのパス
+        # Path to config file
         self.config_file = os.path.join(self.root_dir, "tests", "test_quilt_config.yaml")
-        # 一時出力ファイルのパス
+        # Path to temporary output file
         self.temp_output = os.path.join(self.root_dir, "sample", "temp_quilt_output.csv")
-        # 既存の出力ファイルをクリーンアップ
+        # Clean up existing output file
         if os.path.exists(self.temp_output):
             os.remove(self.temp_output)
     
     def tearDown(self):
         """Tear down test fixtures"""
-        # テスト後に出力ファイルをクリーンアップ
+        # Clean up output file after test
         if os.path.exists(self.temp_output):
             os.remove(self.temp_output)
     
     def test_quilt_basic(self):
         """Test basic quilt functionality"""
-        # quiltコマンドを実行
+        # Run quilt command
         output = self.run_qsv_command(f"quilt {self.config_file}")
         
-        # コマンドがエラーなく実行されたか確認
+        # Check command ran without error
         self.assertNotEqual("", output)
-        # 設定ファイルで指定されたCSVファイルのデータが含まれているか確認
+        # Check output contains expected CSV data from config
         self.assert_output_contains(output, "col1")
         self.assert_output_contains(output, "col2")
-        # col3はtransformステージでselectされていないためテストから除外
+        # col3 is not selected in transform stage, so exclude from test
     
     def test_quilt_with_output(self):
         """Test quilt with output file"""
-        # 出力ファイルを指定してquiltコマンドを実行
+        # Run quilt command with output file
         self.run_qsv_command(f"quilt {self.config_file} -o={self.temp_output}")
         
-        # 出力ファイルが生成されたか確認
-        self.assertTrue(os.path.exists(self.temp_output), "出力ファイルが生成されていません")
+        # Check output file was created
+        self.assertTrue(os.path.exists(self.temp_output), "Output file was not created")
         
-        # 出力ファイルの内容を確認
+        # Check contents of output file
         with open(self.temp_output, 'r') as f:
             content = f.read()
-            self.assertIn("col1", content, "出力ファイルに期待されるデータが含まれていません")
+            self.assertIn("col1", content, "Output file does not contain expected data")
     
     def test_quilt_with_title(self):
         """Test quilt with title"""
-        # タイトルを指定してquiltコマンドを実行
+        # Run quilt command with title
         output = self.run_qsv_command(f"quilt {self.config_file} -t=\"Custom Quilt Title\"")
         
-        # コマンドがエラーなく実行されたか確認
+        # Check command ran without error
         self.assertNotEqual("", output)
-        # タイトルがログメッセージに含まれているか確認
-        # （実際の出力は制御できないため、主に構文エラーなどの基本チェック）
+        # Check title is in log message
+        # (Actual output is not controllable, so mainly for basic check like syntax error)
         self.assert_output_contains(output, "col1")
 
 if __name__ == "__main__":
