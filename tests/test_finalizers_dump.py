@@ -1,5 +1,6 @@
 import unittest
 import os
+import re
 from test_base import QsvTestBase
 
 class TestDump(QsvTestBase):
@@ -42,7 +43,7 @@ class TestDump(QsvTestBase):
     
     def test_dump_with_separator(self):
         """Test dumping with a custom separator"""
-        # Use tab as separator - NOTE: Current implementation may not support custom separators
+        # Use tab as separator
         self.run_qsv_command(f"load sample/simple.csv - dump {self.temp_output} -s=\\t")
         
         # Verify the file was created
@@ -52,10 +53,21 @@ class TestDump(QsvTestBase):
         with open(self.temp_output, 'r') as f:
             content = f.read()
             
-        # Current implementation appears to use comma separator regardless of -s option
-        # Adjust the test to match actual behavior
-        self.assertIn("col1,col2,col3", content)
-        self.assertIn("1,2,3", content)
+        # Expected header: "datetime"\tcol1\tcol2\tcol3\t"str" (tab separated)
+        # Expected data line example: 2023-01-01 12:00:00\t1\t2\t3\tfoo
+        
+        # The actual output is tab-separated with quotes around some headers.
+        expected_header_pattern = r'"datetime"\tcol1\tcol2\tcol3\t"str"'
+        self.assertIsNotNone(re.search(expected_header_pattern, content),
+                             f"Expected header pattern '{expected_header_pattern}' not found in content.\nContent: {content[:200]}...")
+        
+        # Check for a data line, ensuring tab separation and correct values
+        expected_data_segment_pattern = r"1\t2\t3"
+        self.assertIsNotNone(re.search(expected_data_segment_pattern, content),
+                             f"Expected data pattern '{expected_data_segment_pattern}' not found in content.\nContent: {content[:200]}...")
+        
+        self.assertIn("foo", content)
+        self.assertIn("2023-01-01 12:00:00", content)
 
 if __name__ == "__main__":
     unittest.main()

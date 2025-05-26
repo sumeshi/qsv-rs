@@ -20,7 +20,7 @@ class TestIsin(QsvTestBase):
     
     def test_isin_multiple_values(self):
         """Test filtering with multiple values"""
-        output = self.run_qsv_command("load sample/simple.csv - isin col1 1 7 - show")
+        output = self.run_qsv_command("load sample/simple.csv - isin col1 1,7 - show")
         
         # Check if the output contains only rows where col1 is 1 or 7
         self.assert_output_contains(output, "col1,col2,col3")

@@ -1,25 +1,29 @@
-use polars::prelude::*;
+use polars::prelude::{LazyFrame, Expr, col, len};
+// use polars::lazy::dsl; // Removed unused import
 use crate::controllers::log::LogController;
+// No specific Schema import needed if using SchemaRef directly
 
 pub fn count(df: &LazyFrame) -> LazyFrame {
-    LogController::debug("Counting duplicate rows, grouping by all columns");
+    LogController::debug("Applying count");
     
-    // 新しいAPIに合わせて、スキーマをcloneして取得し、group_byメソッドを使用
-    // 事前にスキーマを収集
-    let schema = match df.schema() {
-        Ok(s) => s,
+    let collected_df_for_schema = match df.clone().collect() {
+        Ok(d) => d,
         Err(e) => {
-            eprintln!("Error getting schema: {}", e);
-            std::process::exit(1);
+            LogController::error(&format!("Failed to collect DataFrame for schema in count: {}. Returning original LazyFrame.", e));
+            return df.clone(); // Return original on error
         }
     };
-    
-    // 全ての列でグループ化し、カウントする
-    let cols: Vec<Expr> = schema.iter()
-        .map(|(name, _)| col(name.as_ref()))
-        .collect();
-    
-    // countは引数を取るのではなく、単に関数としてaggの中で使用
-    // countは独自関数ではなく、polars::prelude::count()を使用
-    df.clone().group_by(cols).agg([polars::prelude::count().alias("count")])
+    // Get SchemaRef (Arc<Schema>) directly
+    let schema_ref = collected_df_for_schema.schema(); 
+
+    // Iterate over names directly from SchemaRef
+    let all_colnames: Vec<String> = schema_ref.iter_names().map(|s| s.to_string()).collect();
+
+    // Group by all columns and count
+    df.clone()
+        .group_by(all_colnames.iter().map(|s| col(s)).collect::<Vec<Expr>>()) // Group by all columns
+        .agg([
+            // Use polars::prelude::len() to count rows and alias as "count"
+            len().alias("count"),
+        ])
 }

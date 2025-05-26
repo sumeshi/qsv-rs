@@ -33,7 +33,6 @@ from test_finalizers_dump import TestDump
 
 # Quilters
 from test_quilters_quilt import TestQuilt
-from test_quilters_quilt_visualize import TestQuiltVisualize
 
 if __name__ == "__main__":
     # Create a test suite with all tests
@@ -66,7 +65,6 @@ if __name__ == "__main__":
     
     # Quilters
     suite.addTest(unittest.makeSuite(TestQuilt))
-    suite.addTest(unittest.makeSuite(TestQuiltVisualize))
     
     # Run the tests
     runner = unittest.TextTestRunner(verbosity=2)

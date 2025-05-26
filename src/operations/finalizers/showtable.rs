@@ -1,11 +1,13 @@
 use polars::prelude::*;
-use comfy_table::Table;
+use comfy_table::{Table, Row, Cell, ContentArrangement};
 use comfy_table::presets::UTF8_FULL;
 use crate::controllers::log::LogController;
 
 pub fn showtable(df: &LazyFrame) {
-    // データフレームを具体化（clone()を使用して所有権問題を解決）
-    let df_collected = match df.clone().collect() {
+    LogController::debug("Applying showtable (display DataFrame as a formatted table)");
+    
+    // Materialize DataFrame (use clone() to resolve ownership issues)
+    let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
             eprintln!("Error: Failed to collect DataFrame: {}", e);
@@ -13,43 +15,40 @@ pub fn showtable(df: &LazyFrame) {
         }
     };
     
-    // 行と列の情報を取得
-    let shape = df_collected.shape();
-    LogController::debug(&format!("Showing table with shape: ({}, {})", shape.0, shape.1));
+    // Get row and column information
+    let shape = collected_df.shape();
+    let colnames: Vec<String> = collected_df.get_column_names_owned().into_iter().map(|s| s.to_string()).collect();
     
-    // テーブル作成
+    // Create table
     let mut table = Table::new();
-    table.load_preset(UTF8_FULL);
+    table.load_preset(comfy_table::presets::UTF8_FULL);
+    table.set_content_arrangement(ContentArrangement::Dynamic);
     
-    // ヘッダー行を追加
-    let column_names = df_collected.get_column_names();
-    table.set_header(&column_names);
+    // Add header row
+    let header_cells: Vec<Cell> = colnames.iter().map(|name| Cell::new(name)).collect();
+    table.set_header(header_cells);
     
-    // 行を追加
-    for row_idx in 0..std::cmp::min(shape.0, 20) {  // 最大20行まで表示
-        let mut row_data = Vec::new();
-        for col_idx in 0..shape.1 {
-            // Series を取得してから値を取得
-            let value = match df_collected.select_at_idx(col_idx) {
-                Some(series) => {
-                    match series.get(row_idx) {
-                        Ok(val) => format!("{:?}", val), // Result<AnyValue, _>をデバッグ形式で表示
-                        Err(_) => "N/A".to_string(),
-                    }
-                },
-                None => "N/A".to_string(),
+    // Add rows
+    for row_idx in 0..std::cmp::min(shape.0, 20) {  // Display up to 20 rows
+        let mut row_cells = Vec::new();
+        for col_name in &colnames {
+            // Get Series then get value
+            let s = collected_df.column(col_name).unwrap();
+            let val_result = s.get(row_idx);
+            let cell_content = match val_result {
+                Ok(val) => format!("{:?}", val), // Display Result<AnyValue, _> in debug format
+                Err(_) => "Error".to_string(), // Should not happen if row_idx is valid
             };
-            row_data.push(value);
+            row_cells.push(Cell::new(cell_content));
         }
-        table.add_row(row_data);
+        table.add_row(row_cells);
     }
     
-    // 表示
-    println!("shape: ({}, {})", shape.0, shape.1);
+    // Display
     println!("{}", table);
     
-    // 20行を超える場合は省略メッセージを表示
+    // If more than 20 rows, display a message indicating truncation
     if shape.0 > 20 {
-        println!("... {} more rows", shape.0 - 20);
+        println!("... (showing first 20 of {} rows)", shape.0);
     }
 }

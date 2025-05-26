@@ -1,481 +1,452 @@
 # Quilter-CSV
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
-[![PyPI version](https://badge.fury.io/py/qsv.svg)](https://badge.fury.io/py/qsv)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/qsv)
 
 ![quilter-csv](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/00d774e6814a462eb48e68f29fc6226976238777/quilter-csv.svg)
 
-A tool that provides elastic and rapid filtering for efficient analysis of huge CSV files, such as eventlogs.
+A fast, flexible, and memory-efficient command-line tool written in Rust for filtering and processing huge CSV files. Inspired by [xsv](https://github.com/BurntSushi/xsv) and built on [Polars](https://www.pola.rs/), it's designed for handling tens or hundreds of gigabytes of CSV data in workflows like log analysis and digital forensics.
 
-This project is inspired by [xsv](https://github.com/BurntSushi/xsv). We are currently developing a tool that can process hundreds of gigabytes of data, which is challenging for many tools, and apply filters according to predefined configurations.
-
-> [!NOTE]  
+> [!IMPORTANT]  
 > This project is in the early stages of development. Please be aware that frequent changes and updates are likely to occur.
 
-## Description
-### Motivation
-In digital forensics and log analysis, it’s common to deal with extremely large CSV files—sometimes tens or even hundreds of gigabytes spread across dozens or hundreds of machines.  
-While many of these tasks are standardized, they often require using large, complex analysis tools with opaque specifications, or else writing intricate shell scripts that are difficult to maintain and debug.  
-The core feature of this tool is the `quilt` command, which directly and reliably executes predefined command-line tasks.  
-We hope this tool will serve as a solution for anyone facing similar challenges.
+> [!NOTE]
+> The original version of this project was implemented in Python and can be found at [sumeshi/quilter-csv](https://github.com/sumeshi/quilter-csv). This Rust version is a complete rewrite.
 
-### Architecture
-This tool processes CSV files through three stages: an initializer, one or more chainable functions, and a finalizer.
-For example, you can load a csv file in the initializer, use chainable functions to filter, sort, and select columns, and then output the resulting csv file in the finalizer.
+## Features
 
-![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
-
-```bash
-$ qsv {{INITIALIZER}} {{Arguments}} - {{CHAINABLE}} {{Arguments}} - {{FINALIZER}} {{Arguments}}
-```
-Each process must be explicitly separated by a hyphen ("-").
-
+- **Pipeline-style command chaining**: Chain multiple commands in a single line for fast and efficient data processing.
+- **Flexible filtering and transformation**: Perform basic operations like select, filter, sort, and deduplicate, plus log analysis specific functions such as changing timezones.
+- **YAML-based batch processing (Quilt)**: Automate routine tasks by defining complex workflows in YAML configuration files.
 
 ## Usage
+![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
+
 e.g.
 Below is an example of reading a CSV file, extracting rows that contain 4624 in the 'Event ID' column, and displaying the top 3 rows sorted by the 'Date and Time' column.
 
 ```bash
-$ qsv load Security.csv - isin 'Event ID' 4624 - sort 'Date and Time' - head 3
-shape: (3, 5)
-┌─────────────┬───────────────────────┬─────────────────────────────────┬──────────┬───────────────┐
-│ Level       ┆ Date and Time         ┆ Source                          ┆ Event ID ┆ Task Category │
-│ ---         ┆ ---                   ┆ ---                             ┆ ---      ┆ ---           │
-│ str         ┆ str                   ┆ str                             ┆ i64      ┆ str           │
-╞═════════════╪═══════════════════════╪═════════════════════════════════╪══════════╪═══════════════╡
-│ Information ┆ 10/6/2016 01:00:55 PM ┆ Microsoft-Windows-Security-Aud… ┆ 4624     ┆ Logon         │
-│ Information ┆ 10/6/2016 01:04:05 PM ┆ Microsoft-Windows-Security-Aud… ┆ 4624     ┆ Logon         │
-│ Information ┆ 10/6/2016 01:04:10 PM ┆ Microsoft-Windows-Security-Aud… ┆ 4624     ┆ Logon         │
-└─────────────┴───────────────────────┴─────────────────────────────────┴──────────┴───────────────┘
+$ qsv load Security.csv - isin 'Event ID' 4624 - sort 'Date and Time' - head 3 - showtable
 ```
 
+This command:
+1. Loads `Security.csv`
+2. Filters rows where `Event ID` is 4624
+3. Sorts by `Date and Time`
+4. Shows the first 3 rows as a table
 
-### Initializers
-#### load
-Loads the specified CSV files.
+Quilter-CSV commands are composed of three types of steps:
 
-| Category | Parameter  | Data Type  | Default Value | Description                                                                                |
-| -------- | ---------- | ---------- | ------------- | ------------------------------------------------------------------------------------------ |
-| Argument | path       | tuple[str] |               | The character used to separate fields within the CSV file.                                 |
-| Option   | separator  | str        | ","             | The character used to split values.                                                        |
-| Option   | low_memory | bool       | False         | If True, enables a lower-memory processing mode, beneficial for handling very large files. |
+- **Initializer**: Loads data (e.g., `load`)
+- **Chainable**: Transforms or filters data (e.g., `select`, `grep`, `sort`, etc.)
+- **Finalizer**: Outputs or summarizes data (e.g., `show`, `showtable`, `headers`, etc.)
 
+Each step is separated by a hyphen (`-`):
+
+```bash
+qsv <INITIALIZER> <args> - <CHAINABLE> <args> - <FINALIZER> <args>
 ```
-$ qsv load ./Security.csv
-```
 
-```
-$ qsv load ./logs/*.csv
+## Command Reference
+
+### Initializer
+
+#### `load`
+Load one or more CSV files.
+
+| Parameter     | Type        | Default | Description                                      |
+|---------------|-------------|---------|--------------------------------------------------|
+| path          | list[str] |         | One or more paths to CSV files. Glob patterns are supported. |
+| -s, --separator | str       | `,`     | Field separator character.                       |
+| --low-memory  | flag    | `false` | Enable low-memory mode for very large files.     |
+
+Example:
+```bash
+$ qsv load data.csv
+$ qsv load data1.csv data2.csv data3.csv
+$ qsv load "logs/*.tsv" -s \t
+$ qsv load logs/*.tsv --separator=\t
+$ qsv load data.csv --low-memory
 ```
 
 ### Chainable Functions
-#### select
-Selects only the specified columns.
 
-| Category | Parameter | Data Type              | Default Value | Description                                   |
-| -------- | --------- | ---------------------- | ------------- | --------------------------------------------- |
-| Argument | colnames  | Union[str, tuple[str]] |               | Specifies the column(s) to keep. Accepts a single column name or multiple column names. |
+#### `select`
+Select columns by name or range.
 
-```
-$ qsv load ./Security.csv - select 'Event ID'
-```
+| Parameter | Type                | Default | Description                                                                                                |
+|-----------|---------------------|---------|------------------------------------------------------------------------------------------------------------|
+| colnames  | str/list/range      |         | Column name(s). Use comma-separated for specific columns (e.g., `col1,col3`) or hyphen-separated for a range (e.g., `col1-col3`). This is a required argument. |
 
-```
-$ qsv load ./Security.csv - select "Date and Time-Event ID"
-```
-
-```
-$ qsv load ./Security.csv - select "'Date and Time,Event ID'"
+```bash
+$ qsv load data.csv - select datetime
+$ qsv load data.csv - select col1,col3
+$ qsv load data.csv - select col1-col3
 ```
 
-#### isin
-Filters rows containing the specified values.
+#### `isin`
+Filter rows where a column matches any of the given values.
 
-| Category | Parameter | Data Type | Default Value | Description                                                                              |
-| -------- | --------- | --------- | ------------- | ---------------------------------------------------------------------------------------- |
-| Argument | colname   | str       |               | The name of the column to filter.                                                        |
-| Argument | values    | list[str] |               | A list of values to match. Rows that contain any of these values in the column are kept. |
+| Parameter | Type   | Default | Description                                                                          |
+|-----------|--------|---------|--------------------------------------------------------------------------------------|
+| colname   | str    |         | Column name to filter. Required.                                                     |
+| values    | list   |         | Comma-separated values. Filters rows where the column matches any of these values (OR condition). Required. |
 
-```
-$ qsv load ./Security.csv - isin 'Event ID' 4624,4634
-```
-
-#### contains
-Filters rows where the specified column matches the given regex.
-
-| Category | Parameter  | Data Type | Default Value | Description                                                          |
-| -------- | ---------- | --------- | ------------- | -------------------------------------------------------------------- |
-| Argument | colname    | str       |               | The name of the column to test against the regex pattern.            |
-| Argument | pattern    | str       |               | A regular expression pattern used for matching values in the column. |
-| Option   | ignorecase | bool      | False         | If True, performs case-insensitive pattern matching.                 |
-
-```
-$ qsv load ./Security.csv - contains 'Date and Time' '10/6/2016'
+```bash
+$ qsv load data.csv - isin col1 1
+$ qsv load data.csv - isin col1 1,4
 ```
 
-#### sed
-Replaces values using the specified regex.
+#### `contains`
+Filter rows where a column contains a specific literal substring.
 
-| Category | Parameter   | Data Type | Default Value | Description                                                            |
-| -------- | ----------- | --------- | ------------- | ---------------------------------------------------------------------- |
-| Argument | colname     | str       |               | The name of the column whose values will be modified.                  |
-| Argument | pattern     | str       |               | A regular expression pattern identifying substrings to replace.        |
-| Argument | replacement | str       |               | The text that replaces matched substrings.                             |
-| Option   | ignorecase  | bool      | False         | If True, the regex matching is performed in a case-insensitive manner. |
+| Parameter   | Type   | Default | Description                                 |
+|-------------|--------|---------|---------------------------------------------|
+| colname     | str    |         | Column name to search. Required.            |
+| substring   | str    |         | The literal substring to search for. Required. |
+| -i, --ignorecase | flag | `false` | Perform case-insensitive matching.          |
 
-```
-$ qsv load ./Security.csv - sed 'Date and Time' '/' '-'
-```
-
-#### grep
-Treats all columns as strings and filters rows where any column matches the specified regex.  
-This function is similar to running a grep command while preserving the header row.
-
-| Category | Parameter  | Data Type | Default Value | Description                                                                     |
-| -------- | ---------- | --------- | ------------- | ------------------------------------------------------------------------------- |
-| Argument | pattern    | str       |               | A regular expression pattern used to filter rows. Any row with a match is kept. |
-| Option   | ignorecase | bool      | False         | If True, the regex match is case-insensitive.                                   |
-
-```
-$ qsv load ./Security.csv - grep 'LogonType'
+```bash
+$ qsv load data.csv - contains str ba
+$ qsv load data.csv - contains str BA -i
+$ qsv load data.csv - contains str BA --ignorecase
 ```
 
-#### head
-Selects only the first N lines.
+#### `sed`
+Replace values in a column using a Regex pattern.
 
-| Category | Parameter | Data Type | Default Value | Description                                   |
-| -------- | --------- | --------- | ------------- | --------------------------------------------- |
-| Option   | number    | int       | 5             | The number of rows to display from the start. |
+| Parameter   | Type   | Default | Description                                 |
+|-------------|--------|---------|---------------------------------------------|
+| colname     | str    |         | Column name to modify. Required.            |
+| pattern     | str    |         | Regex pattern to search for. Required.      |
+| replacement | str    |         | Replacement string. Required.               |
+| -i, --ignorecase | flag | `false` | Perform case-insensitive matching.          |
 
-```
-$ qsv load ./Security.csv - head 10
-```
-
-#### tail
-Selects only the last N lines.
-
-| Category | Parameter | Data Type | Default Value | Description                                 |
-| -------- | --------- | --------- | ------------- | ------------------------------------------- |
-| Option   | number    | int       | 5             | The number of rows to display from the end. |
-
-```
-$ qsv load ./Security.csv - tail 10
+```bash
+$ qsv load data.csv - sed str foo foooooo
+$ qsv load data.csv - sed str FOO foooooo -i
+$ qsv load data.csv - sed str ".*o.*" foooooo
 ```
 
-#### sort
-Sorts all rows by the specified column values.
+#### `grep`
+Filter rows where any column matches a regex pattern.
 
-| Category | Parameter | Data Type                         | Default Value | Description                                               |
-| -------- | --------- | --------------------------------- | ------------- | --------------------------------------------------------- |
-| Argument | colnames  | Union[str, tuple[str], list[str]] |               | One or more columns to sort by.                           |
-| Option   | desc      | bool                              | False         | If True, sorts in descending order rather than ascending. |
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| pattern | str |         | Regex pattern to search for in any column. Required. |
+| -i, --ignorecase | flag | `false` | Perform case-insensitive matching. |
+| -v, --invert-match | flag | `false` | Invert the sense of matching, to select non-matching lines. |
 
-
-```
-$ qsv load ./Security.csv - sort 'Date and Time'
-```
-
-#### sort
-Counts duplicate rows, grouping by all columns.
-
-```
-$ qsv load ./Security.csv - count
+Example:
+```bash
+$ qsv load data.csv - grep foo 
+$ qsv load data.csv - grep "^FOO" -i
+$ qsv load data.csv - grep "^FOO" -i -v
 ```
 
-#### uniq
-Remove duplicate rows based on the specified column names.
+#### `head`
+Displays the first N rows of the dataset.
 
-| Category | Parameter | Data Type                         | Default Value | Description                                                                     |
-| -------- | --------- | --------------------------------- | ------------- | ------------------------------------------------------------------------------- |
-| Argument | colnames  | Union[str, tuple[str], list[str]] |               | Column(s) used to determine uniqueness. Rows with duplicate values are removed. |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| N         | int  | 5       | Number of rows to display. This can be provided as a direct argument or via `-n`/`--number` option. |
 
-```
-$ qsv load ./Security.csv - uniq 'Event ID'
-```
-
-#### changetz
-Changes the timezone of the specified date column.
-
-The datetime format strings follow the same conventions as [Python](https://docs.python.org/3/library/datetime.html)'s datetime module (based on the C99 standard).
-
-| Category | Parameter | Data Type | Default Value | Description                                                                                    |
-| -------- | --------- | --------- | ------------- | ---------------------------------------------------------------------------------------------- |
-| Argument | colname   | str       |               | The name of the date/time column to convert.                                                   |
-| Option   | tz_from   | str       | "UTC"         | The original timezone of the column's values.                                                  |
-| Option   | tz_to     | str       | "UTC"         | The target timezone to convert values into.                                                    |
-| Option   | dt_format | str       | AutoDetect    | The datetime format for parsing values. If not provided, the format is automatically inferred. |
-
-```
-$ qsv load ./Security.csv - changetz 'Date and Time' --timezone_from=UTC --timezone_to=Asia/Tokyo --datetime_format="%m/%d/%Y %I:%M:%S %p"
+```bash
+$ qsv load data.csv - head 3
+$ qsv load data.csv - head -n 7 
 ```
 
-#### renamecol
-Renames the specified column.
+#### `tail`
+Displays the last N rows of the dataset.
 
-| Category | Parameter   | Data Type | Default Value | Description                               |
-| -------- | ----------- | --------- | ------------- | ----------------------------------------- |
-| Argument | colname     | str       |               | The current name of the column to rename. |
-| Argument | new_colname | str       |               | The new name for the specified column.    |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| N         | int  | 5       | Number of rows to display. This can be provided as a direct argument or via `-n`/`--number` option. |
 
-```
-$ qsv load ./Security.csv - renamecol 'Event ID' 'EventID'
-```
-
-### Finalizer
-#### headers
-Displays the column names of the data.
-
-| Category | Parameter | Data Type | Default Value | Description                                                             |
-| -------- | --------- | --------- | ------------- | ----------------------------------------------------------------------- |
-| Option   | plain     | bool      | False         | If True, displays the column headers as plain text rather than a table. |
-
-```
-$ qsv load ./Security.csv - headers
-┏━━━━┳━━━━━━━━━━━━━━━┓
-┃ #  ┃ Column Name   ┃
-┡━━━━╇━━━━━━━━━━━━━━━┩
-│ 00 │ Level         │
-│ 01 │ Date and Time │
-│ 02 │ Source        │
-│ 03 │ Event ID      │
-│ 04 │ Task Category │
-└────┴───────────────┘
+```bash
+$ qsv load data.csv - tail 3
+$ qsv load data.csv - tail -n 7
 ```
 
-#### stats
-Displays the statistical information of the data.
+#### `sort`
+Sorts the dataset based on the specified column(s).
 
-```
-$ qsv load ./Security.csv - stats
-shape: (9, 6)
-┌────────────┬─────────────┬───────────────────────┬─────────────────────────────────┬─────────────┬─────────────────────────┐
-│ statistic  ┆ Level       ┆ Date and Time         ┆ Source                          ┆ Event ID    ┆ Task Category           │
-│ ---        ┆ ---         ┆ ---                   ┆ ---                             ┆ ---         ┆ ---                     │
-│ str        ┆ str         ┆ str                   ┆ str                             ┆ f64         ┆ str                     │
-╞════════════╪═════════════╪═══════════════════════╪═════════════════════════════════╪═════════════╪═════════════════════════╡
-│ count      ┆ 62031       ┆ 62031                 ┆ 62031                           ┆ 62031.0     ┆ 62031                   │
-│ null_count ┆ 0           ┆ 0                     ┆ 0                               ┆ 0.0         ┆ 0                       │
-│ mean       ┆ null        ┆ null                  ┆ null                            ┆ 5058.625897 ┆ null                    │
-│ std        ┆ null        ┆ null                  ┆ null                            ┆ 199.775419  ┆ null                    │
-│ min        ┆ Information ┆ 10/6/2016 01:00:35 PM ┆ Microsoft-Windows-Eventlog      ┆ 1102.0      ┆ Credential Validation   │
-│ 25%        ┆ null        ┆ null                  ┆ null                            ┆ 5152.0      ┆ null                    │
-│ 50%        ┆ null        ┆ null                  ┆ null                            ┆ 5156.0      ┆ null                    │
-│ 75%        ┆ null        ┆ null                  ┆ null                            ┆ 5157.0      ┆ null                    │
-│ max        ┆ Information ┆ 10/7/2016 12:59:59 AM ┆ Microsoft-Windows-Security-Aud… ┆ 5158.0      ┆ User Account Management │
-└────────────┴─────────────┴───────────────────────┴─────────────────────────────────┴─────────────┴─────────────────────────┘
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| colnames  | str/list |         | Column name(s) to sort by. Comma-separated for multiple columns (e.g., `col1,col3`) or a single column name. Required. |
+| --desc    | flag | `false` | Sort in descending order. Applies to all specified columns. |
+
+```bash
+$ qsv load data.csv - sort str
+$ qsv load data.csv - sort str --desc
+$ qsv load data.csv - sort col1,col2,col3 --desc
 ```
 
-#### showquery
-Displays the data processing query.
+#### `count`
+Counts duplicate rows, grouping by all columns, and adds a 'count' column.
 
-```
-$ qsv load Security.csv - showquery
-naive plan: (run LazyFrame.explain(optimized=True) to see the optimized plan)
+This command does not take any arguments or options.
 
-  Csv SCAN Security.csv
-  PROJECT */5 COLUMNS
+```bash
+$ qsv load data.csv - count
 ```
 
-#### show
-Displays the processing results in a table format to standard output.
+#### `uniq`
+Filters unique rows. If `colnames` is specified, uniqueness is based on those columns. If no `colnames` are specified, uniqueness is based on all columns.
 
-```
-$ qsv load Security.csv - show
-Level,Date and Time,Source,Event ID,Task Category
-Information,10/7/2016 06:38:24 PM,Microsoft-Windows-Security-Auditing,4658,File System
-Information,10/7/2016 06:38:24 PM,Microsoft-Windows-Security-Auditing,4656,File System
-Information,10/7/2016 06:38:24 PM,Microsoft-Windows-Security-Auditing,4658,File System
-Information,10/7/2016 06:38:24 PM,Microsoft-Windows-Security-Auditing,4656,File System
-Information,10/7/2016 06:38:24 PM,Microsoft-Windows-Security-Auditing,4658,File System
-```
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| colnames  | str/list | all columns | Optional. Column name(s) to consider for uniqueness. Can be a single column name, or comma-separated for multiple columns. If omitted, all columns are used. |
 
-#### showtable
-Outputs the processing results table to the standard output.
-
-```
-$ qsv load Security.csv - showtable
-shape: (3, 5)
-┌─────────────┬───────────────────────┬─────────────────────────────────┬──────────┬───────────────┐
-│ Level       ┆ Date and Time         ┆ Source                          ┆ Event ID ┆ Task Category │
-│ ---         ┆ ---                   ┆ ---                             ┆ ---      ┆ ---           │
-│ str         ┆ str                   ┆ str                             ┆ i64      ┆ str           │
-╞═════════════╪═══════════════════════╪═════════════════════════════════╪══════════╪═══════════════╡
-│ Information ┆ 10/6/2016 01:00:55 PM ┆ Microsoft-Windows-Security-Aud… ┆ 4624     ┆ Logon         │
-│ Information ┆ 10/6/2016 01:04:05 PM ┆ Microsoft-Windows-Security-Aud… ┆ 4624     ┆ Logon         │
-│ Information ┆ 10/6/2016 01:04:10 PM ┆ Microsoft-Windows-Security-Aud… ┆ 4624     ┆ Logon         │
-└─────────────┴───────────────────────┴─────────────────────────────────┴──────────┴───────────────┘
+```bash
+$ qsv load data.csv - uniq
+$ qsv load data.csv - uniq col1
+$ qsv load data.csv - uniq "col1,col2"
 ```
 
-#### dump
+#### `changetz`
+Changes the timezone of a datetime column.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| colname | str |         | Name of the datetime column. Required. |
+| from_tz | str |         | Source timezone (e.g., `UTC`, `America/New_York`, `local`). Required. |
+| to_tz | str |         | Target timezone (e.g., `Asia/Tokyo`). Required. |
+| --format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` attempts to parse common formats. |
+| --ambiguous | str | `earliest` | Strategy for ambiguous times during DST transitions: `earliest` or `latest`. |
+
+Example:
+```bash
+$ qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo
+$ qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format "%Y/%m/%d %H:%M"
+$ qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format "%Y/%m/%d %H:%M" --ambiguous latest
+```
+
+#### `renamecol`
+Renames a specific column.
+
+| Parameter   | Type | Default | Description             |
+|-------------|------|---------|-------------------------|
+| old_name    | str  |         | The current column name. Required. |
+| new_name    | str  |         | The new column name. Required.   |
+
+```bash
+$ qsv load data.csv - renamecol current_name new_name
+```
+
+### Finalizer Functions
+
+Finalizer functions are used to output or summarize the processed data. They are typically the last command in a chain.
+
+#### `headers`
+Displays the column headers of the current dataset.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| --plain   | flag | `false` | Display headers as plain text, one per line, instead of a formatted table. |
+
+Example:
+```bash
+$ qsv load data.csv - headers
+$ qsv load data.csv - headers --plain
+```
+
+#### `stats`
+Displays summary statistics for each column in the dataset (e.g., count, null_count, mean, std, min, max).
+
+This command does not take any arguments or options.
+
+Example:
+```bash
+$ qsv load data.csv - stats
+```
+
+#### `showquery`
+Displays the Polars LazyFrame query plan. This is useful for debugging and understanding the operations being performed.
+
+This command does not take any arguments or options.
+
+Example:
+```bash
+$ qsv load data.csv - select col1 - showquery
+```
+
+#### `show`
+Displays the resulting data as CSV to standard output. Header is included by default.
+
+This command does not take any arguments or options.
+
+Example:
+```bash
+$ qsv load data.csv - head 5 - show
+```
+
+#### `showtable`
+Displays the resulting data in a formatted table to standard output.
+
+This command does not take any arguments or options.
+
+Example:
+```bash
+$ qsv load data.csv - select col1,col2 - head 3 - showtable
+```
+
+#### `dump`
 Outputs the processing results to a CSV file.
 
-| Category | Parameter | Data Type | Default Value               | Description                                                                                                           |
-| -------- | --------- | --------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Option   | path      | str       | yyyymmdd-HHMMSS_{QUERY}.csv | The file path where the filtered/output CSV data will be saved. If not specified, a timestamp-based filename is used. |
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| output_path | str | `output.csv` | File path to save the CSV data. Can be provided as a positional argument (e.g., `dump my_file.csv`) or via `--output <path>` / `-o <path>` option. If omitted, defaults to `output.csv`. |
+| --separator, --sep | char | `,` | Field separator character for the output CSV file. |
 
+Example:
+```bash
+$ qsv load data.csv - head 100 - dump
+$ qsv load data.csv - head 100 - dump --output result.csv
+$ qsv load data.csv - head 100 - dump --output result.tsv --separator=\t
 ```
-$ qsv load Security.csv - dump ./Security-qsv.csv
-```
-
 
 ### Quilt
-Quilt is a command-line tool that allows you to define a sequence of **Initializer**, **Chainable Functions**, and **Finalizer** processes in a YAML configuration file and execute them in a single pipeline.
+Quilt is a feature that allows you to define a sequence of **Initializer**, **Chainable Functions**, and **Finalizer** processes in a YAML configuration file and execute them in a single command. This is useful for automating complex or repetitive workflows.
 
 #### Usage
+The `quilt` command itself takes the path to a YAML configuration file. Input data sources and other parameters are typically defined within the YAML file.
 
-| Category | Parameter | Data Type  | Default Value | Description                                                                                                 |
-| -------- | --------- | ---------- | ------------- | ----------------------------------------------------------------------------------------------------------- |
-| Argument | config    | str        |               | Path to a YAML configuration file/directory that defines initializers, chainable functions, and finalizers steps.     |
-| Argument | path      | tuple[str] |               | One or more paths to CSV files to be processed according to the predefined rules in the configuration file. |
-
-#### Command Example
 ```bash
-$ qsv quilt rules/test.yaml ./Security.csv
+qsv quilt <config_file_path.yaml> [options]
+```
+| Parameter | Type | Description |
+|---|---|---|
+| config_file_path.yaml | str | Path to the YAML configuration file defining the pipeline stages. Required. |
+| -o, --output | str | Overrides the output path defined in the YAML config for the final dump operation (if any). |
+| -t, --title | str | Overrides the title defined in the YAML config. |
+
+
+#### Example: Running a Quilt File
+```bash
+$ qsv quilt rules/my_workflow.yaml
+$ qsv quilt rules/my_analysis.yaml -o custom_output.csv -t "My Custom Analysis"
 ```
 
-#### Configuration Example
-`rules/test.yaml`
+The YAML configuration file (e.g., `rules/my_workflow.yaml`) defines the stages and steps. For example, the `Sample YAML (rules/test.yaml)` below defines a pipeline that:
+1. Loads data (implicitly or explicitly via a `load` step in a `process` stage).
+2. Performs selections and a join operation across different stages.
+3. Displays the final result as a table.
 
-```yaml
-title: 'test'
-description: 'test processes'
-version: '0.1.0'
-author: 'John Doe <john@example.com>'
-stages:
-  test_stage: # arbitrary stage name
-    type: process # operation type
-    steps:
-      load: 
-      isin:
-        colname: EventId
-        values:
-          - 4624
-      head:
-        number: 5
-      select:
-        colnames:
-          - RecordNumber
-          - TimeCreated
-      changetz:
-        colname: TimeCreated
-        tz_from: UTC
-        tz_to: Asia/Tokyo
-        dt_format: "%Y-%m-%d %H:%M:%S%.f"
-      showtable:
-```
+#### Pipeline Operations in YAML
+Within a Quilt YAML file, stages can be of different types to orchestrate the flow.
 
-The above configuration file defines the following sequence of operations:
-1. Load a CSV file.
-2. Filter rows where the `EventId` column contains the value `4624`.
-3. Retrieve the first 5 rows.
-4. Extract the `RecordNumber` and `TimeCreated` columns.
-5. Convert the time zone of the `TimeCreated` column from `UTC` to `Asia/Tokyo`.
-6. Display the processing results in a table format.
-
-#### Pipeline Operations
-| Operation Type | Description                                                | Parameters                                                                                                                                    |
+| Operation Type | Description                                                | Key Parameters (within `params` or stage-specific)                                                                                                                                    |
 | -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| process        | Executes a series of operations on the dataset.            | `steps`: A dict of operations (e.g., `load`, `select`, `dump`) to apply.                                                                      |
-| concat         | Concatenates multiple datasets vertically or horizontally. | `sources`: List of stages to concat. <br>`params.how`: `vertical`, `vertical_relaxed`, `horizontal`, `diagonal`, `align`, etc.                       |
-| join           | Joins multiple datasets using keys.                        | `sources`: List of stages to join.<br>`params.key`: Column(s) used for joining.<br>`params.how`: `inner`, `left`, `right`, `full`, `semi`, `anti`, `cross`.<br>`params.coalesce`: bool |
+| `process`      | Executes a series of qsv operations on a dataset.          | `steps`: A dictionary of operations (e.g., `load`, `select`, `head`, `showtable`). Each key is a qsv command, and its value contains its arguments/options. <br> `source` (optional): Specifies the output of a previous stage as input. |
+| `concat`       | Concatenates multiple datasets (stages).                   | `sources`: List of stage names whose outputs to concatenate. <br>`params.how` (optional): Method for concatenation, e.g., `vertical` (default), `horizontal`. Polars `UnionArgs` can be used. |
+| `join`         | Joins datasets from multiple stages based on keys.         | `sources`: List of two stage names whose outputs to join. <br>`params.left_on`/`params.right_on` or `params.on`: Column(s) for joining. <br>`params.how`: Type of join, e.g., `inner` (default), `left`, `outer`, `cross`. <br>`params.coalesce` (optional): bool, whether to coalesce a key if it is present in both DataFrames. |
 
 #### Sample YAML (`rules/test.yaml`):
 ```yaml
-title: 'test'
-description: 'test pipelines'
-version: '0.1.0'
-author: 'John Doe <john@example.com>'
+title: 'Test Data Processing Pipeline'
+description: 'A sample Quilt pipeline demonstrating various stages and operations.'
+version: '0.1.1'
+author: 'Qsv User <user@example.com>'
 stages:
-  load_stage:
+  raw_data_load:
     type: process
     steps:
       load:
+        path: "../sample/simple.csv" # Relative to the YAML file location or absolute
+        # separator: "," # Optional, defaults to comma
 
-  stage_1:
+  stage_1_select_data1:
     type: process
-    source: load_stage
+    source: raw_data_load # Use output from 'raw_data_load' stage
     steps:
       select:
         colnames: 
-          - TimeCreated
-          - PayloadData1
+          - col1
+          - col2 # Assuming 'simple.csv' has col1, col2, col3
 
-  stage_2:
+  stage_2_select_data2:
     type: process
-    source: load_stage
+    source: raw_data_load
     steps:
       select:
         colnames: 
-          - TimeCreated
-          - PayloadData2
+          - col1 # Common key for join
+          - col3
 
-  merge_stage:
+  merged_data:
     type: join
-    sources:
-      - stage_1
-      - stage_2
+    sources: # List of two stages to join
+      - stage_1_select_data1
+      - stage_2_select_data2
     params:
-      how: full
-      key: TimeCreated
-      coalesce: True
-  
-  stage_3:
+      how: "inner" # e.g., inner, left, outer
+      on: "col1"   # Column to join on (must exist in both sources)
+      # coalesce: true # Optional: if true, duplicate join key columns are merged
+
+  final_output_table:
     type: process
-    source: merge_stage
+    source: merged_data
     steps:
-      showtable:
+      head: 5 # Takes the first 5 rows
+      showtable: # Displays the result as a table
+        # No arguments needed for showtable
 ```
 
-#### Note: Step Duplication
-Quilt supports YAML configurations with duplicate keys in steps.
+#### Note: Step Duplication in YAML
+Quilt supports YAML configurations where multiple steps of the same command type (e.g., `renamecol`) are needed within a single `process` stage.
 
 ```yaml
 stages:
-test_stage:
+  data_cleaning_stage:
+    type: process
+    source: raw_data_load
   steps:
-    load:
-    renamecol: # duplicate key
-      from: old_col1
-      to: new_col1
-    renamecol: # duplicate key
-      from: old_col2
-      to: new_col2
-    renamecol: # duplicate key
-      from: old_col3
-      to: new_col3
-    show:
+      renamecol: # First renamecol
+        old_name: "old_col_name_1"
+        new_name: "new_col_1"
+      renamecol_: # Second renamecol (note the underscore)
+        old_name: "anotherOldName"
+        new_name: "clean_col_2"
+      renamecol__: # Third renamecol
+        old_name: "yet_another"
+        new_name: "final_col_3"
+      show: # Finalizer for this stage
 ```
-
-Internally, these keys are handled as:
-
-```yaml
-renamecol
-renamecol_
-renamecol__
-```
-
-This ensures that each steps is treated as a distinct operation in the pipeline.
-
+To achieve this, append underscores (`_`, `__`, etc.) to the command name in the YAML to make the keys unique. Internally, `qsv` will still recognize them as the base command (e.g., all three will be treated as `renamecol` operations).
 
 ## Installation
-### from PyPI
-```
-$ pip install qsv
+
+### From Source (Recommended for latest features)
+1.  Ensure you have Rust installed. If not, visit [rust-lang.org](https://www.rust-lang.org/tools/install).
+2.  Clone the repository:
+    ```bash
+    git clone https://github.com/sumeshi/qsv-rs.git
+    cd qsv-rs
+    ```
+3.  Build and install:
+    ```bash
+    cargo install --path .
+    ```
+    This will install `qsv` to your Cargo binary directory (e.g., `~/.cargo/bin`), which should be in your PATH.
+
+### From GitHub Releases (Pre-compiled binaries)
+Pre-compiled binary versions for various platforms (Linux, macOS, Windows) may be available on the [GitHub Releases page](https://github.com/sumeshi/qsv-rs/releases). Download the appropriate binary for your system.
+
+#### For Linux/macOS:
+```bash
+# Download the binary, e.g., qsv-x86_64-unknown-linux-gnu
+chmod +x ./qsv-x86_64-unknown-linux-gnu
+# Optionally, move it to a directory in your PATH, e.g., /usr/local/bin/qsv
+sudo mv ./qsv-x86_64-unknown-linux-gnu /usr/local/bin/qsv
+# Then you can run it directly
+qsv --version
 ```
 
-### from GitHub Releases
-A Nuitka-compiled binary version is also [available](https://github.com/sumeshi/quilter-csv/releases).
-
-#### Ubuntu
-```
-$ chmod +x ./qsv
-$ ./qsv {{options...}}
-```
-
-#### Windows
-```
-> qsv.exe {{options...}}
+#### For Windows:
+```bash
+# Download the .exe file, e.g., qsv-x86_64-pc-windows-msvc.exe
+# You can run it directly or add its location to your system's PATH environment variable.
+./qsv-x86_64-pc-windows-msvc.exe --version
 ```
 
 ## License
-Quilter-CSV is released under the [MIT](https://github.com/sumeshi/quilter-csv/blob/master/LICENSE) License.
+Quilter-CSV is released under the [MIT](https://github.com/sumeshi/qsv-rs/blob/master/LICENSE) License.

@@ -1,9 +1,9 @@
 use polars::prelude::*;
 use crate::controllers::log::LogController;
 
-pub fn head(df: &LazyFrame, number: usize) -> LazyFrame {
-    LogController::debug(&format!("Showing the first {} rows", number));
+pub fn head(df: &LazyFrame, n: usize) -> LazyFrame {
+    LogController::debug(&format!("Applying head: n={}", n));
     
-    // dfを複製して所有権の問題を解決
-    df.clone().limit(number as u32)
+    // Clone df to resolve ownership issues
+    df.clone().slice(0, n as u32)
 }

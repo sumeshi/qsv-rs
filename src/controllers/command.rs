@@ -22,69 +22,125 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
     let mut commands = Vec::new();
     let mut current_command = Command::new(String::new());
     let mut is_first_arg = true;
-    
-    for arg in args {
+    let mut i = 0; // Index for iterating through args
+
+    while i < args.len() {
+        let arg = &args[i];
+
         if arg == "-" {
-            // Finalize the current command if it has a name
             if !current_command.name.is_empty() {
                 commands.push(current_command);
                 current_command = Command::new(String::new());
                 is_first_arg = true;
             }
+            i += 1;
             continue;
         }
-        
-        // Handle command name
+
         if is_first_arg {
             current_command.name = arg.clone();
             is_first_arg = false;
+            i += 1;
             continue;
         }
-        
-        // Parse options and arguments
+
         if arg.starts_with("--") {
             // Long option format: --option[=value]
             let option_str = &arg[2..];
             parse_option(&mut current_command, option_str);
+            i += 1;
         } else if arg.starts_with('-') {
-            // Short option format: -o[=value]
-            let option_str = &arg[1..];
-            parse_option(&mut current_command, option_str);
+            let opt_key_to_parse = arg[1..].to_string(); // Make it mutable
+
+            // Handle cases like -sValue or -s=Value directly attached
+            if opt_key_to_parse.len() > 1 && (opt_key_to_parse.starts_with('s') || opt_key_to_parse.starts_with('n')) {
+                let (actual_key, actual_value) = if opt_key_to_parse.contains('=') {
+                    // Case: -s=value
+                    let parts: Vec<&str> = opt_key_to_parse.splitn(2, '=').collect();
+                    (parts[0].to_string(), parts.get(1).map(|s| s.to_string()))
+                } else {
+                    // Case: -sValue (no equals)
+                    (opt_key_to_parse[0..1].to_string(), Some(opt_key_to_parse[1..].to_string()))
+                };
+
+                if (actual_key == "s" || actual_key == "n") && actual_value.is_some() {
+                     let full_key = match actual_key.as_str() {
+                        "s" => "separator".to_string(),
+                        "n" => "number".to_string(),
+                        _ => actual_key.clone(), // Should not happen
+                    };
+                    current_command.options.insert(full_key, actual_value);
+                    i += 1;
+                    continue; // Move to next argument
+                }
+                // If not s or n, or no value, fall through to general short opt parsing
+            }
+
+
+            // Standard short option handling (e.g. -s value, or -f flag)
+            let opt_char_str = if arg.len() >= 2 { &arg[1..2] } else { "" }; // Get the char e.g. "s"
+
+            if (opt_char_str == "s" || opt_char_str == "n") && // It's -s or -n
+               i + 1 < args.len() && // Next argument exists
+               !args[i+1].starts_with('-') // Next argument is not another option
+            {
+                let value = args[i+1].clone();
+                let full_key = match opt_char_str {
+                    "s" => "separator".to_string(),
+                    "n" => "number".to_string(),
+                    _ => opt_char_str.to_string(), // Fallback
+                };
+                current_command.options.insert(full_key, Some(value));
+                i += 2; // Consumed option and its value
+            } else {
+                // It's a flag (e.g., -f) or an option with '=' (e.g., -o=value),
+                // or -s/-n without a following value that looks like a value.
+                let option_str_for_parse_option = &arg[1..];
+                parse_option(&mut current_command, option_str_for_parse_option);
+                i += 1;
+            }
         } else {
-            // Regular argument
             current_command.args.push(arg.clone());
+            i += 1;
         }
     }
-    
-    // Add the last command if it has a name
+
     if !current_command.name.is_empty() {
         commands.push(current_command);
     }
-    
+
     commands
 }
 
 fn parse_option(cmd: &mut Command, option_str: &str) {
     if let Some((key, value)) = option_str.split_once('=') {
-        // キーと値がある場合 (--key=value または -k=value)
-        cmd.options.insert(key.to_string(), Some(value.to_string()));
-    } else if option_str.contains('=') {
-        // =が含まれているが、分割できない場合（例：-o=value）
-        let parts: Vec<&str> = option_str.split('=').collect();
-        if parts.len() >= 2 {
-            let key = parts[0];
-            let value = if parts.len() > 2 {
-                parts[1..].join("=")
-            } else {
-                parts[1].to_string()
-            };
-            cmd.options.insert(key.to_string(), Some(value));
-        } else {
-            cmd.options.insert(option_str.to_string(), None);
-        }
+        // For short options like -s=val, key would be "s"
+        // We want to store it as "separator"
+        let final_key = match key {
+            "s" => "separator".to_string(),
+            "n" => "number".to_string(),
+            "o" => "output".to_string(),
+            "t" => "title".to_string(),
+            _ => key.to_string(),
+        };
+        cmd.options.insert(final_key, Some(value.to_string()));
     } else {
-        // フラグオプション（値なし）
-        cmd.options.insert(option_str.to_string(), None);
+        // This is a flag option (e.g., -i, --ignorecase) or a short option passed without '=' that wasn't -s or -n
+        // Or it's a key that parse_commands decided should be treated as a flag (e.g. -s at end of args)
+        let final_key = match option_str {
+            "s" => "separator".to_string(), // if -s is passed as a flag, store as separator: None
+            "n" => "number".to_string(),    // if -n is passed as a flag, store as number: None
+            "o" => "output".to_string(),    // if -o is passed as a flag, store as output: None
+            "t" => "title".to_string(),     // if -t is passed as a flag, store as title: None
+             // Add other short options that are flags here if necessary
+            "i" => "ignorecase".to_string(), // Example for grep -i
+            "d" => "desc".to_string(),       // Example for sort -d
+            "p" => "plain".to_string(),      // Example for headers -p
+            _ => option_str.to_string(),
+        };
+        // If it's a known flag that should be stored with its full name, do so.
+        // Otherwise, it's a flag option (value is None).
+        cmd.options.insert(final_key, None);
     }
 }
 
@@ -117,6 +173,9 @@ pub fn print_help() {
     println!("  showquery    Show query plan");
     println!("  dump         Save as CSV");
     println!("");
+    println!("Quilters:");
+    println!("  quilt        Execute a quilt (data processing pipeline from YAML)");
+    println!("");
     println!("Examples:");
     println!("  qsv load data.csv - select col1,col2 - head 10 - show");
     println!("  qsv load data.csv - grep pattern - showtable");
@@ -147,6 +206,7 @@ pub fn print_chainable_help(cmd: &str) {
         "stats" => print_stats_help(),
         "showquery" => print_showquery_help(),
         "dump" => print_dump_help(),
+        "quilt" => print_quilt_help(),
         _ => println!("No detailed help available for this command."),
     }
 }
@@ -264,8 +324,25 @@ fn print_showquery_help() {
     println!("  qsv load data.csv - showquery");
 }
 fn print_dump_help() {
-    println!("dump: Save result as CSV file\n");
-    println!("Usage: dump <path>\n");
+    println!("dump: Save DataFrame as CSV\n");
+    println!("Usage: dump [output_path] [--separator <char>]\n");
     println!("Examples:");
-    println!("  qsv load data.csv - dump result.csv");
+    println!("  qsv load data.csv - dump results.csv");
+    println!("  qsv load data.csv - dump --separator ';' results.csv");
+}
+fn print_quilt_help() {
+    println!("quilt: Execute a quilt (data processing pipeline from YAML)\n");
+    println!("Usage: quilt <config_path> [csv_file_paths...] [-o <output_file>] [-t <title>]\n");
+    println!("Arguments:");
+    println!("  <config_path>    Path to the Quilt YAML configuration file. (Required)");
+    println!("  [csv_file_paths...] Optional paths to CSV files to be processed if not specified in YAML's load steps.");
+    println!("Options:");
+    println!("  -o, --output <output_file>  Optional path to save the result as CSV.");
+    println!("                              If not provided, output is printed to console.");
+    println!("  -t, --title <title>         Optional title for the quilt execution.");
+    println!("                              Overrides title in the config file.");
+    println!("Examples:");
+    println!("  qsv quilt my_pipeline.yaml");
+    println!("  qsv quilt my_pipeline.yaml -o result.csv");
+    println!("  qsv quilt complex.yaml -t \"My Report\" -o report.csv");
 }

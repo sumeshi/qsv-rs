@@ -4,21 +4,19 @@ use crate::controllers::log::LogController;
 pub fn showquery(df: &LazyFrame) {
     LogController::debug("Showing query plan for DataFrame");
     
-    // 最適化されたプランを表示
-    let plan = df.clone().describe_optimized_plan();
-    println!("Optimized query plan:");
-    match plan {
-        Ok(plan_str) => println!("{}", plan_str),
-        Err(e) => println!("Error getting optimized plan: {}", e),
+    // Logical plan
+    let logical_plan_result = df.clone().describe_plan();
+    println!("Logical query plan:");
+    match logical_plan_result {
+        Ok(logical_plan) => println!("{}", logical_plan),
+        Err(e) => println!("Error getting logical plan: {}", e),
     }
     
-    // 最適化前のプランを表示
-    // 現在のAPIではdescribe_plan()はStringを直接返す可能性がある
-    let naive_plan = df.clone().describe_plan();
-    println!("\nNaive plan:");
-    
-    // 型に応じた適切な処理
-    // もしnaive_planがString型なら直接表示し、Result型ならmatchで処理
-    // ここでは直接表示する方式に変更
-    println!("{}", naive_plan);
+    // Optimized plan
+    let optimized_plan_result = df.clone().describe_optimized_plan();
+    println!("\nOptimized query plan:");
+    match optimized_plan_result {
+        Ok(optimized_plan) => println!("{}", optimized_plan),
+        Err(e) => println!("Error getting optimized plan: {}", e),
+    }
 }

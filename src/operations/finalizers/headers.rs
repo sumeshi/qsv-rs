@@ -5,13 +5,14 @@ use crate::controllers::log::LogController;
 
 pub fn headers(df: &LazyFrame, plain: bool) {
     // Get schema (use clone() to solve ownership problem)
-    let schema = match df.clone().schema() {
-        Ok(schema) => schema,
+    let collected_df = match df.clone().collect() {
+        Ok(df) => df,
         Err(e) => {
-            eprintln!("Error getting schema: {}", e);
+            eprintln!("Error collecting DataFrame: {}", e);
             return;
         }
     };
+    let schema = collected_df.schema();
     
     // Convert SmartString to String
     let column_names: Vec<String> = schema.iter()
@@ -22,8 +23,8 @@ pub fn headers(df: &LazyFrame, plain: bool) {
     
     if plain {
         // Display in plain text format
-        for (i, name) in column_names.iter().enumerate() {
-            println!("{}: {}", i, name);
+        for name in column_names.iter() {
+            println!("{}", name);
         }
     } else {
         // Display in table format

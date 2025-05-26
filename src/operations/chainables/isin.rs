@@ -1,26 +1,42 @@
 use polars::prelude::*;
 use crate::controllers::log::LogController;
-use crate::controllers::dataframe::exists_colname;
 
 pub fn isin(df: &LazyFrame, colname: &str, values: &[String]) -> LazyFrame {
-    if !exists_colname(df, &[colname.to_string()]) {
-        eprintln!("Error: Column '{}' not found in DataFrame", colname);
+    let collected_df = match df.clone().collect() {
+        Ok(df) => df,
+        Err(e) => {
+            eprintln!("Error collecting DataFrame for schema check in isin: {}", e);
+            std::process::exit(1);
+        }
+    };
+    let schema = collected_df.schema();
+
+    if !schema.iter_names().any(|s| s == colname) {
+        eprintln!("Error: Column '{}' not found in DataFrame for isin operation", colname);
         std::process::exit(1);
     }
     
-    LogController::debug(&format!("Filtering rows where '{}' column contains any of [{}]", 
-        colname, 
-        values.join(", ")
-    ));
+    LogController::debug(&format!("Applying isin: column={} values={:?}", colname, values));
     
-    // 基本的な論理演算を使用して「いずれかに等しい」条件を作成
-    // OR演算子で複数の等価条件を結合
-    let mut filter_expr = lit(false);  // 初期値はfalse
-    
-    for value in values {
-        // 各値との等価条件を作成し、ORで結合
-        filter_expr = filter_expr.or(col(colname).cast(DataType::Utf8).eq(lit(value.clone())));
+    let mut conditions: Vec<Expr> = Vec::new();
+
+    for val_str in values {
+        // Create a literal from the string value
+        let lit_val = lit(val_str.clone());
+        // Create an equality condition for the current value
+        conditions.push(col(colname).eq(lit_val));
     }
-    
+
+    // Create a base condition (false literal) to OR with other conditions
+    // Use a basic logical operation to create an "equals any of" condition
+    let mut filter_expr = lit(false); 
+
+    // Combine multiple equality conditions with OR operator
+    for cond in conditions {
+        filter_expr = filter_expr.or(cond);
+    }
+
+    // Create an initial false literal for the filter expression
+    // Create an equality condition for each value and combine with OR
     df.clone().filter(filter_expr)
 }

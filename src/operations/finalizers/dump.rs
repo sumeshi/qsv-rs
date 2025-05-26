@@ -1,44 +1,35 @@
 use polars::prelude::*;
 use std::fs::File;
-use std::time::SystemTime;
+use std::path::PathBuf;
 use crate::controllers::log::LogController;
 
-pub fn dump(df: &LazyFrame, path: Option<&str>) -> () {
-    // 出力用のパスを決定
-    let output_path = match path {
-        Some(p) => p.to_string(),
-        None => {
-            // デフォルトのファイル名を現在時刻で生成
-            let now = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            format!("{}_output.csv", now)
-        }
-    };
-    
-    LogController::debug(&format!("Dumping results to {}", output_path));
-    
-    // LazyFrameを具体化（cloneを追加して所有権問題を解決）
+pub fn dump(df: &LazyFrame, output_path_str: &str, separator: char) {
+    LogController::debug(&format!("Dumping DataFrame to CSV: {}", output_path_str));
+
+    let output_path = PathBuf::from(output_path_str);
+
     let mut df_collected = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error: Failed to collect DataFrame: {}", e);
+            eprintln!("Error: Failed to collect DataFrame for dumping: {}", e);
             return;
         }
     };
-    
-    // CSVファイルに書き出し（可変参照を使用）
-    match File::create(&output_path) {
-        Ok(file) => {
-            match CsvWriter::new(file)
-                .has_header(true)
-                .with_delimiter(b',')
-                .finish(&mut df_collected) {
-                Ok(_) => println!("Successfully wrote results to {}", output_path),
-                Err(e) => eprintln!("Error writing CSV file: {}", e),
-            }
+
+    let file = match File::create(&output_path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Error: Failed to create file '{}': {}", output_path.display(), e);
+            return;
         }
-        Err(e) => eprintln!("Error creating file {}: {}", output_path, e),
+    };
+
+    match CsvWriter::new(file)
+        .include_header(true)
+        .with_separator(separator as u8)
+        .finish(&mut df_collected)
+    {
+        Ok(_) => LogController::info(&format!("DataFrame successfully dumped to {}", output_path.display())),
+        Err(e) => eprintln!("Error writing CSV to file '{}': {}", output_path.display(), e),
     }
 }

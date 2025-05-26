@@ -5,6 +5,7 @@ use serde_yaml::Value;
 use crate::controllers::log::LogController;
 use crate::controllers::yaml::YamlController;
 use crate::controllers::csv::CsvController;
+// use crate::controllers::dataframe::DataFrameController; // DataFrameController is not used in QuiltController directly
 
 #[allow(dead_code)]
 pub struct QuiltController {
@@ -16,7 +17,7 @@ pub struct QuiltController {
 impl QuiltController {
     #[allow(dead_code)]
     pub fn new(config_path: &str, paths: &[PathBuf], debug: bool) -> Result<Self, String> {
-        // YAMLコンフィグファイルを読み込む
+        // Load YAML configuration file
         let config = match YamlController::load_yaml(config_path) {
             Ok(config) => config,
             Err(e) => return Err(format!("Failed to load quilt config file {}: {}", config_path, e)),
@@ -35,16 +36,16 @@ impl QuiltController {
             LogController::debug("Processing quilt with debug mode enabled");
         }
         
-        // コンフィグファイルに基づいてCSVファイルを処理
-        // これは簡易的な実装で、実際のキルティング機能は複雑になります
-        let separator = ","; // デフォルトのセパレータ
+        // Process CSV files based on the configuration file
+        // This is a simplified implementation; actual quilting functionality can be complex
+        let separator = ","; // Default separator
         
-        // CSVファイルを読み込む
+        // Load CSV files
         let controller = CsvController::new(&self.paths);
         let df = controller.get_dataframe(separator, false);
         
-        // ここに実際のキルティングロジックを実装する
-        // （テーブル結合、変換、フィルタリングなど）
+        // Implement actual quilting logic here
+        // (table joins, transformations, filtering, etc.)
         
         Ok(df)
     }
@@ -53,8 +54,8 @@ impl QuiltController {
     pub fn visualize(&self) -> Result<String, String> {
         LogController::debug(&format!("Visualizing quilt configuration: {:?}", self.config));
         
-        // 簡易的な可視化処理
-        // 本来は設定に基づいてグラフィカルな表現を生成します
+        // Simplified visualization process
+        // Ideally, this would generate a graphical representation based on the configuration
         
         match serde_yaml::to_string(&self.config) {
             Ok(yaml) => Ok(format!("Quilt Configuration Visualization:\n{}", yaml)),
@@ -62,3 +63,5 @@ impl QuiltController {
         }
     }
 }
+
+// Removed erroneously added functions load_config and process_csv_with_config

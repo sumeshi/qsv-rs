@@ -1,19 +1,10 @@
 use polars::prelude::*;
 use crate::controllers::log::LogController;
 
-pub fn tail(df: &LazyFrame, number: usize) -> LazyFrame {
-    LogController::debug(&format!("Selecting last {} rows", number));
+pub fn tail(df: &LazyFrame, n: usize) -> LazyFrame {
+    LogController::debug(&format!("Applying tail: n={}", n));
     
-    // データフレームのサイズを確認（必要な場合のみ）
-    let _df_height = match df.clone().collect() {
-        Ok(collected_df) => collected_df.height(),
-        Err(_) => {
-            eprintln!("Warning: Could not collect DataFrame to determine size");
-            // clone()を使用して所有権問題を解決
-            return df.clone().tail(number as u32);
-        }
-    };
-    
-    // デフォルトのtail操作を実行（clone()を使用して所有権問題を解決）
-    df.clone().tail(number as u32)
+    // Check DataFrame size (only if necessary for some logic, Polars' tail handles large n gracefully)
+    // For basic tail, direct Polars method is fine.
+    df.clone().tail(n as u32)
 }

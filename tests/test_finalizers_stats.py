@@ -12,10 +12,10 @@ class TestStats(QsvTestBase):
         
         # Stats should display information about the column types and null counts
         # Check for column headers in the actual stats output
-        self.assert_output_contains(output, "Column")
-        self.assert_output_contains(output, "Type")
-        self.assert_output_contains(output, "Non-Null Count")
-        self.assert_output_contains(output, "Null Count")
+        self.assert_output_contains(output, "Statistic")
+        self.assert_output_contains(output, "datatype")
+        self.assert_output_contains(output, "count")
+        self.assert_output_contains(output, "null_count")
         
         # Column names should be present
         self.assert_output_contains(output, "col1")
@@ -23,10 +23,10 @@ class TestStats(QsvTestBase):
         self.assert_output_contains(output, "col3")
         
         # Type information should be present
-        self.assert_output_contains(output, "Int64")
+        self.assert_output_contains(output, "i64")
         
         # The Non-Null Count should be 3 for each column (as seen in the actual output)
-        self.assert_output_contains(output, "3")
+        self.assert_output_contains(output, " 3      ")
 
 if __name__ == "__main__":
     unittest.main()

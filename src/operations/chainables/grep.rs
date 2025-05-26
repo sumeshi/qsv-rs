@@ -1,71 +1,66 @@
 use polars::prelude::*;
+use regex::Regex;
 use crate::controllers::log::LogController;
-use regex::{RegexBuilder};
 
-pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool) -> LazyFrame {
-    LogController::debug(&format!("Filtering rows where any column (treated as string) matches regex pattern '{}' (case-insensitive: {})",
-        pattern, ignorecase
-    ));
-
-    let schema = match df.schema() {
-        Ok(schema) => schema,
+pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) -> LazyFrame {
+    let collected_df = match df.clone().collect() {
+        Ok(df) => df,
         Err(e) => {
-            eprintln!("Error getting schema: {}", e);
-            return df.clone();
+            eprintln!("Error collecting DataFrame for grep: {}", e);
+            return df.clone(); // Return original LazyFrame on error
         }
     };
+    let all_column_names: Vec<String> = collected_df.schema().iter_names().map(|s| s.to_string()).collect();
+    
+    LogController::debug(&format!(
+        "Filtering rows where any column {} pattern '{}' (case-insensitive: {})",
+        if is_inverted { "does not match" } else { "matches" },
+        pattern,
+        ignorecase
+    ));
 
-    let re = match RegexBuilder::new(pattern)
-        .case_insensitive(ignorecase)
-        .build()
-    {
+    let re_pattern = if ignorecase {
+        format!("(?i){}", pattern)
+    } else {
+        pattern.to_string()
+    };
+
+    let re = match Regex::new(&re_pattern) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Invalid regex pattern: '{}'. Error: {}", pattern, e);
-            return df.clone();
+            eprintln!("Error: Invalid regex pattern '{}': {}", pattern, e);
+            std::process::exit(1);
         }
     };
 
     let mut expr_list: Vec<Expr> = Vec::new();
 
-    // Iterate over all columns, cast them to Utf8, then apply the regex UDF
-    for (name, _dtype) in schema.iter() { // _dtype is not used in the condition anymore
+    for colname in all_column_names.iter() {
         let re_clone = re.clone();
-        let col_expr = col(name.as_ref())
-            .cast(DataType::Utf8) // Cast to Utf8 first
-            .map(
-                move |s: Series| {
-                    let ca = s.utf8()?; 
-                    let re_inner = re_clone.clone();
-
-                    let result: BooleanChunked = ca
-                        .into_iter()
-                        .map(|opt_s| {
-                            opt_s.map_or(false, |s_val| {
-                                if s_val.is_empty() {
-                                    false
-                                } else {
-                                    re_inner.is_match(s_val)
-                                }
-                            })
-                        })
-                        .collect();
-                    
-                    Ok(Some(result.into_series()))
-                },
-                GetOutput::from_type(DataType::Boolean),
-            );
-        
-        expr_list.push(col_expr);
+        let expr = col(colname)
+            .cast(DataType::String) // Cast to String first
+            .map(move |s_col: Column| { // s_col is polars_plan::dsl::Series (alias for polars_core::series::Series)
+                let ca = s_col.str()?; // Column itself should have .str() if it's a Series alias
+                let series_bool: Series = ca.into_iter().map(|opt_s| {
+                    opt_s.map_or(false, |text| re_clone.is_match(text))
+                }).collect::<ChunkedArray<BooleanType>>().into_series();
+                Ok(Some(series_bool.into())) // Added .into() to convert Series to Column
+            }, GetOutput::from_type(DataType::Boolean))
+            .alias(&format!("{}_matches_pattern", colname));
+        expr_list.push(expr);
     }
-    
+
     if expr_list.is_empty() {
-        // This case should ideally not be hit if there's at least one column in the CSV.
-        // If schema.iter() is empty, df.clone() is fine.
-        LogController::debug("No columns found in schema to grep.");
-        df.clone()
+        return df.clone(); // No columns to filter on, return original
+    }
+
+    // Combine filter expressions using OR logic
+    // any_horizontal is replaced by folding with OR
+    let combined_filter_expr = expr_list.into_iter().reduce(|acc, expr| acc.or(expr)).unwrap();
+
+    if is_inverted {
+        df.clone().filter(combined_filter_expr.not())
     } else {
-        let combined_filter_expr = any_horizontal(expr_list);
         df.clone().filter(combined_filter_expr)
     }
 }

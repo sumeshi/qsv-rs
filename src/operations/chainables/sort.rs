@@ -1,24 +1,43 @@
 use polars::prelude::*;
 use crate::controllers::log::LogController;
-use crate::controllers::dataframe::exists_colname;
 
 pub fn sort(df: &LazyFrame, colnames: &[String], desc: bool) -> LazyFrame {
-    if !exists_colname(df, colnames) {
-        eprintln!("Error: One or more column names do not exist in the DataFrame");
-        std::process::exit(1);
+    let collected_df = match df.clone().collect() {
+        Ok(df) => df,
+        Err(e) => {
+            eprintln!("Error collecting DataFrame for schema check in sort: {}", e);
+            std::process::exit(1);
+        }
+    };
+    let schema = collected_df.schema();
+
+    for colname in colnames {
+        if !schema.iter_names().any(|s| s == colname) {
+            eprintln!("Error: Column '{}' not found in DataFrame for sort operation", colname);
+            std::process::exit(1);
+        }
     }
-    
-    LogController::debug(&format!("Sorting by columns: [{}] (descending: {})", 
-        colnames.join(", "), desc
+
+    LogController::debug(&format!(
+        "Sorting by columns: {:?}, descending: {}",
+        colnames,
+        desc
     ));
     
-    // ソート式を作成
-    let sort_exprs: Vec<_> = colnames.iter()
-        .map(|colname| col(colname))
-        .collect();
+    let sort_exprs: Vec<Expr> = colnames.iter().map(|name| col(name)).collect();
     
-    // 新しいAPI: sort_by_exprsは4つの引数が必要で、descending引数はベクトルが必要
-    // dfの所有権問題を解決するためにcloneする
-    let descending = vec![desc; colnames.len()];
-    df.clone().sort_by_exprs(sort_exprs, descending, false, false)
+    if sort_exprs.is_empty() {
+        LogController::warn("No columns specified for sorting.");
+        return df.clone();
+    }
+    
+    let options = SortMultipleOptions {
+        descending: vec![desc; sort_exprs.len()],
+        nulls_last: vec![false; sort_exprs.len()],
+        multithreaded: true,
+        maintain_order: false,
+        limit: None,
+    };
+    
+    df.clone().sort_by_exprs(sort_exprs, options)
 }

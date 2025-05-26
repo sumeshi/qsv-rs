@@ -1,19 +1,39 @@
 use polars::prelude::*;
 use crate::controllers::log::LogController;
-use crate::controllers::dataframe::{exists_colname, parse_column_ranges};
 
 pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
-    if !exists_colname(df, colnames) {
-        eprintln!("Error: One or more column names do not exist in the DataFrame");
-        std::process::exit(1);
+    let collected_df = match df.clone().collect() {
+        Ok(df) => df,
+        Err(e) => {
+            eprintln!("Error collecting DataFrame for schema check in select: {}", e);
+            std::process::exit(1);
+        }
+    };
+    let schema = collected_df.schema();
+
+    for colname in colnames {
+        if !schema.iter_names().any(|s| s == colname) {
+            eprintln!("Error: Column '{}' not found in DataFrame for select operation", colname);
+            std::process::exit(1);
+        }
     }
     
-    let selected_columns = parse_column_ranges(df, colnames);
-    LogController::debug(&format!("{} columns are selected. [{}]", 
-        selected_columns.len(), 
-        selected_columns.join(", ")
-    ));
+    let existing_cols: Vec<String> = schema.iter_names().map(|s| s.to_string()).collect();
+    let mut selected_cols: Vec<Expr> = Vec::new();
+
+    for name in colnames {
+        if existing_cols.contains(name) {
+            selected_cols.push(col(name));
+        } else {
+            LogController::warn(&format!("Column '{}' not found in DataFrame.", name));
+        }
+    }
+
+    if selected_cols.is_empty() {
+        LogController::warn("No valid columns selected. Returning original DataFrame.");
+        return df.clone();
+    }
     
-    // dfを複製して所有権の問題を解決
-    df.clone().select(selected_columns.iter().map(|s| col(s)).collect::<Vec<_>>())
+    // Clone df to resolve ownership issues
+    df.clone().select(&selected_cols)
 }

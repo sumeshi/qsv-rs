@@ -1,9 +1,9 @@
 use polars::prelude::*;
 use std::path::PathBuf;
+use crate::operations;
 use crate::operations::initializers::load;
 use crate::operations::chainables::{select, head, tail, isin, contains, sed, grep, sort, count, uniq, changetz, renamecol};
 use crate::operations::finalizers::{headers, stats, showquery, show, showtable, dump};
-use crate::operations::quilters::{quilt, quilt_visualize};
 use crate::controllers::log::LogController;
 
 pub struct DataFrameController {
@@ -54,9 +54,9 @@ impl DataFrameController {
         self
     }
     
-    pub fn grep(&mut self, pattern: &str, ignorecase: bool) -> &mut Self {
+    pub fn grep(&mut self, pattern: &str, ignorecase: bool, is_inverted: bool) -> &mut Self {
         if let Some(df) = &self.df {
-            self.df = Some(grep::grep(df, pattern, ignorecase));
+            self.df = Some(grep::grep(df, pattern, ignorecase, is_inverted));
         }
         self
     }
@@ -89,16 +89,18 @@ impl DataFrameController {
         self
     }
     
-    pub fn uniq(&mut self, colnames: &[String]) -> &mut Self {
+    pub fn uniq(&mut self, colnames: Option<Vec<String>>) -> &mut Self {
         if let Some(df) = &self.df {
-            self.df = Some(uniq::uniq(df, colnames));
+            self.df = Some(uniq::uniq(df, colnames.as_deref()));
         }
         self
     }
     
-    pub fn changetz(&mut self, colname: &str, tz_from: &str, tz_to: &str, dt_format: Option<&str>) -> &mut Self {
+    pub fn changetz(&mut self, colname: &str, tz_from: &str, tz_to: &str, dt_format: Option<&str>, ambiguous_time: Option<&str>) -> &mut Self {
         if let Some(df) = &self.df {
-            self.df = Some(changetz::changetz(df, colname, tz_from, tz_to, dt_format));
+            let format_str = dt_format.unwrap_or("auto");
+            let ambiguous_str = ambiguous_time.unwrap_or("earliest");
+            self.df = Some(changetz::changetz(df, colname, tz_from, tz_to, format_str, ambiguous_str));
         }
         self
     }
@@ -147,107 +149,66 @@ impl DataFrameController {
         }
     }
     
-    pub fn dump(&self, path: Option<&str>) {
+    pub fn dump(&self, path: Option<&str>, separator: Option<char>) {
         if let Some(df) = &self.df {
-            dump::dump(df, path);
+            let output_path_str = path.unwrap_or("output.csv");
+            let sep_char = separator.unwrap_or(',');
+            dump::dump(df, output_path_str, sep_char);
         }
+    }
+    
+    pub fn set_df(&mut self, df: LazyFrame) {
+        self.df = Some(df);
     }
     
     // -- quilters --
     #[allow(dead_code)]
-    pub fn quilt(&mut self, config_path: &str, output_path: Option<&str>, title: Option<&str>) {
-        // If data is empty, the quilt function will attempt to load from the config file
-        quilt::quilt(self, config_path, output_path, title);
-    }
-    
-    #[allow(dead_code)]
-    pub fn quilt_visualize(&self, config_path: &str, output_path: Option<&str>, title: Option<&str>) {
-        quilt_visualize::quilt_visualize(config_path, output_path, title);
+    pub fn quilt(&mut self, config_path: &str, cli_input_files: Option<Vec<PathBuf>>, output_path: Option<&str>, title: Option<&str>) {
+        // Ensure this matches the signature and logic of the actual quilt operation function
+        // For now, this acts as a potential wrapper if controller needs to expose it directly.
+        // The main CLI path currently calls operations::quilters::quilt::quilt directly.
+        operations::quilters::quilt::quilt(self, config_path, cli_input_files, output_path, title);
     }
 }
 
-// データフレームユーティリティ関数
-pub fn exists_colname(df: &LazyFrame, colnames: &[String]) -> bool {
-    // clone()を使用して所有権問題を解決
-    let schema = match df.clone().schema() {
-        Ok(schema) => schema,
-        Err(e) => {
-            eprintln!("Error getting schema: {}", e);
-            return false;
-        }
-    };
-    
-    // SmartStringをStringに変換
-    let headers: Vec<String> = schema.iter().map(|(name, _)| name.to_string()).collect();
-    
-    for colname in colnames {
-        if colname.contains('-') {
-            // "-"区切りの列範囲指定の場合
-            let parts: Vec<&str> = colname.split('-').collect();
-            if parts.len() == 2 {
-                let start = parts[0];
-                let end = parts[1];
-                
-                if !headers.contains(&start.to_string()) {
-                    LogController::error(&format!("Column '{}' not found in headers. Available columns: {}", 
-                        start, headers.join(", ")));
-                    return false;
-                }
-                
-                if !headers.contains(&end.to_string()) {
-                    LogController::error(&format!("Column '{}' not found in headers. Available columns: {}", 
-                        end, headers.join(", ")));
-                    return false;
-                }
-            }
-        } else if !headers.contains(colname) {
-            // 通常の列名指定の場合
-            LogController::error(&format!("Column '{}' not found in headers. Available columns: {}", 
-                colname, headers.join(", ")));
-            return false;
-        }
-    }
-    
-    true
-}
+// DataFrame utility functions
 
-pub fn parse_column_ranges(df: &LazyFrame, colnames: &[String]) -> Vec<String> {
-    // clone()を使用して所有権問題を解決
-    let schema = match df.clone().schema() {
-        Ok(schema) => schema,
+// Function to parse column names including ranges like "col1-col3"
+// clone() is used to resolve ownership issues when modifying self.df
+#[allow(dead_code)]
+pub fn parse_column_ranges(df: &LazyFrame, colnames_input: &[String]) -> Vec<String> {
+    let mut final_colnames = Vec::new();
+    let collected_df = match df.clone().collect() {
+        Ok(df) => df,
         Err(e) => {
-            eprintln!("Error getting schema: {}", e);
-            return vec![];
+            LogController::error(&format!("Failed to collect DataFrame for schema check in parse_column_ranges: {}", e));
+            return Vec::new();
         }
     };
-    
-    // SmartStringをStringに変換
-    let headers: Vec<String> = schema.iter().map(|(name, _)| name.to_string()).collect();
-    let mut expanded_columns = Vec::new();
-    
-    for colname in colnames {
-        if colname.contains(',') {
-            // カンマ区切りの複数列指定
-            for col in colname.split(',') {
-                if !col.trim().is_empty() {
-                    expanded_columns.push(col.trim().to_string());
-                }
-            }
-        } else if colname.contains('-') {
-            // ハイフン区切りの列範囲指定
-            let parts: Vec<&str> = colname.split('-').collect();
+    let schema_ref = collected_df.schema(); // Get Schema from DataFrame
+    let all_schema_colnames: Vec<String> = schema_ref.iter_names().map(|s| s.to_string()).collect();
+
+    for colname_pattern in colnames_input {
+        if colname_pattern.contains(',') {
+            // Handling comma-separated multiple column specification
+            // For example: "col1,col2,col5"
+            final_colnames.extend(colname_pattern.split(',').map(|s| s.trim().to_string()));
+        } else if colname_pattern.contains('-') {
+            // Handling hyphen-separated column range specification
+            // For example: "col1-col3" or "prefix1-prefix5"
+            let parts: Vec<&str> = colname_pattern.split('-').collect();
             if parts.len() == 2 {
                 let start = parts[0];
                 let end = parts[1];
                 
                 let mut in_range = false;
-                for header in &headers {
+                for header in &all_schema_colnames {
                     if header == start {
                         in_range = true;
                     }
                     
                     if in_range {
-                        expanded_columns.push(header.clone());
+                        final_colnames.push(header.clone());
                     }
                     
                     if header == end {
@@ -256,10 +217,13 @@ pub fn parse_column_ranges(df: &LazyFrame, colnames: &[String]) -> Vec<String> {
                 }
             }
         } else {
-            // 通常の単一列指定
-            expanded_columns.push(colname.clone());
+            // Standard single column specification
+            // For example: "col1"
+            final_colnames.push(colname_pattern.to_string());
         }
     }
     
-    expanded_columns
+    final_colnames
 }
+
+// Method to apply a finalizer operation
