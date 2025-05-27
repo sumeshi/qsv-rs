@@ -1,9 +1,9 @@
-use polars::prelude::{LazyFrame, Expr, col, len};
 use crate::controllers::log::LogController;
+use polars::prelude::{col, len, Expr, LazyFrame};
 
 pub fn count(df: &LazyFrame) -> LazyFrame {
     LogController::debug("Applying count");
-    
+
     let collected_df_for_schema = match df.clone().collect() {
         Ok(d) => d,
         Err(e) => {
@@ -11,13 +11,11 @@ pub fn count(df: &LazyFrame) -> LazyFrame {
             return df.clone();
         }
     };
-    
-    let schema_ref = collected_df_for_schema.schema(); 
+
+    let schema_ref = collected_df_for_schema.schema();
     let all_colnames: Vec<String> = schema_ref.iter_names().map(|s| s.to_string()).collect();
 
     df.clone()
         .group_by(all_colnames.iter().map(|s| col(s)).collect::<Vec<Expr>>())
-        .agg([
-            len().alias("count"),
-        ])
+        .agg([len().alias("count")])
 }

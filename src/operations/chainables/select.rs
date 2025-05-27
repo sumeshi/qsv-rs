@@ -1,11 +1,14 @@
-use polars::prelude::*;
 use crate::controllers::log::LogController;
+use polars::prelude::*;
 
 pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in select: {}", e);
+            eprintln!(
+                "Error collecting DataFrame for schema check in select: {}",
+                e
+            );
             std::process::exit(1);
         }
     };
@@ -13,11 +16,14 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
 
     for colname in colnames {
         if !schema.iter_names().any(|s| s == colname) {
-            eprintln!("Error: Column '{}' not found in DataFrame for select operation", colname);
+            eprintln!(
+                "Error: Column '{}' not found in DataFrame for select operation",
+                colname
+            );
             std::process::exit(1);
         }
     }
-    
+
     let existing_cols: Vec<String> = schema.iter_names().map(|s| s.to_string()).collect();
     let mut selected_cols: Vec<Expr> = Vec::new();
 
@@ -33,6 +39,6 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
         LogController::warn("No valid columns selected. Returning original DataFrame.");
         return df.clone();
     }
-    
+
     df.clone().select(&selected_cols)
 }

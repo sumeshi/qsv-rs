@@ -1,0 +1,215 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+        
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install polars pytest
+        
+    - name: Install Fish shell
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y fish
+        
+    - name: Check Rust formatting
+      run: cargo fmt --all -- --check
+      
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      
+    - name: Build project
+      run: cargo build --verbose
+      
+    - name: Run Rust tests
+      run: cargo test --verbose
+      
+    - name: Run Python test suite
+      run: python3 tests/run_tests.py
+      
+    - name: Run Fish shell tests
+      run: fish tests/simpletest.fish
+
+  build:
+    name: Build Release Binaries
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: qsv-rs-linux-x86_64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: qsv-rs-windows-x86_64.exe
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+        
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Build release binary
+      run: cargo build --release --target ${{ matrix.target }}
+      
+    - name: Prepare binary (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cp target/${{ matrix.target }}/release/qsv ${{ matrix.name }}
+        chmod +x ${{ matrix.name }}
+        
+    - name: Prepare binary (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cp target/${{ matrix.target }}/release/qsv.exe ${{ matrix.name }}
+        
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.name }}
+        path: ${{ matrix.name }}
+
+  release:
+    name: Create Release
+    needs: [test, build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+        
+    - name: Display structure of downloaded files
+      run: ls -la artifacts/
+      
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+    - name: Create checksums
+      run: |
+        cd artifacts
+        for dir in */; do
+          cd "$dir"
+          sha256sum * > ../checksums-$(basename "$dir").txt
+          cd ..
+        done
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        cat > release_notes.md << 'EOF'
+        ## Quilter-CSV ${{ steps.get_version.outputs.VERSION }}
+        
+        ### Features
+        - Fast CSV processing with Rust and Polars
+        - Pipeline-style command chaining
+        - YAML-based batch processing (Quilt)
+        - Memory efficient processing of large datasets
+        
+        ### Supported Platforms
+        - Linux (x86_64)
+        - Windows (x86_64)
+        
+        ### Installation
+        1. Download the appropriate binary for your platform
+        2. Make it executable (Unix systems): `chmod +x qsv-rs-*`
+        3. Move to a directory in your PATH: `sudo mv qsv-rs-* /usr/local/bin/qsv`
+        4. Verify installation: `qsv --help`
+        
+        ### Checksums
+        SHA256 checksums are provided for verification.
+        EOF
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        name: Quilter-CSV ${{ steps.get_version.outputs.VERSION }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          artifacts/qsv-rs-linux-x86_64/qsv-rs-linux-x86_64
+          artifacts/qsv-rs-windows-x86_64.exe/qsv-rs-windows-x86_64.exe
+          artifacts/checksums-*.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  continuous-deployment:
+    name: Continuous Deployment
+    needs: test
+    if: github.ref == 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Build development binary
+      run: cargo build --release
+      
+    - name: Upload development artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: qsv-rs-dev-linux
+        path: target/release/qsv
+        retention-days: 7 

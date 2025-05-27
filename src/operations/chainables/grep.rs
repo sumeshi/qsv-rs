@@ -1,6 +1,6 @@
+use crate::controllers::log::LogController;
 use polars::prelude::*;
 use regex::Regex;
-use crate::controllers::log::LogController;
 
 pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) -> LazyFrame {
     let collected_df = match df.clone().collect() {
@@ -10,11 +10,19 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
             return df.clone(); // Return original LazyFrame on error
         }
     };
-    let all_column_names: Vec<String> = collected_df.schema().iter_names().map(|s| s.to_string()).collect();
-    
+    let all_column_names: Vec<String> = collected_df
+        .schema()
+        .iter_names()
+        .map(|s| s.to_string())
+        .collect();
+
     LogController::debug(&format!(
         "Filtering rows where any column {} pattern '{}' (case-insensitive: {})",
-        if is_inverted { "does not match" } else { "matches" },
+        if is_inverted {
+            "does not match"
+        } else {
+            "matches"
+        },
         pattern,
         ignorecase
     ));
@@ -39,13 +47,19 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
         let re_clone = re.clone();
         let expr = col(colname)
             .cast(DataType::String) // Cast to String first
-            .map(move |s_col: Column| { // s_col is polars_plan::dsl::Series (alias for polars_core::series::Series)
-                let ca = s_col.str()?; // Column itself should have .str() if it's a Series alias
-                let series_bool: Series = ca.into_iter().map(|opt_s| {
-                    opt_s.map_or(false, |text| re_clone.is_match(text))
-                }).collect::<ChunkedArray<BooleanType>>().into_series();
-                Ok(Some(series_bool.into())) // Added .into() to convert Series to Column
-            }, GetOutput::from_type(DataType::Boolean))
+            .map(
+                move |s_col: Column| {
+                    // s_col is polars_plan::dsl::Series (alias for polars_core::series::Series)
+                    let ca = s_col.str()?; // Column itself should have .str() if it's a Series alias
+                    let series_bool: Series = ca
+                        .into_iter()
+                        .map(|opt_s| opt_s.map_or(false, |text| re_clone.is_match(text)))
+                        .collect::<ChunkedArray<BooleanType>>()
+                        .into_series();
+                    Ok(Some(series_bool.into())) // Added .into() to convert Series to Column
+                },
+                GetOutput::from_type(DataType::Boolean),
+            )
             .alias(&format!("{}_matches_pattern", colname));
         expr_list.push(expr);
     }
@@ -56,7 +70,10 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
 
     // Combine filter expressions using OR logic
     // any_horizontal is replaced by folding with OR
-    let combined_filter_expr = expr_list.into_iter().reduce(|acc, expr| acc.or(expr)).unwrap();
+    let combined_filter_expr = expr_list
+        .into_iter()
+        .reduce(|acc, expr| acc.or(expr))
+        .unwrap();
 
     if is_inverted {
         df.clone().filter(combined_filter_expr.not())
