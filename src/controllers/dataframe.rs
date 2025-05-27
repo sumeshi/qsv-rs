@@ -1,10 +1,8 @@
 use polars::prelude::*;
 use std::path::PathBuf;
-use crate::operations;
 use crate::operations::initializers::load;
 use crate::operations::chainables::{select, head, tail, isin, contains, sed, grep, sort, count, uniq, changetz, renamecol};
 use crate::operations::finalizers::{headers, stats, showquery, show, showtable, dump};
-use crate::controllers::log::LogController;
 
 pub struct DataFrameController {
     df: Option<LazyFrame>,
@@ -112,11 +110,7 @@ impl DataFrameController {
         self
     }
     
-    #[allow(dead_code)]
-    pub fn drop(&mut self) -> &mut Self {
-        self.df = None;
-        self
-    }
+
     
     // -- finalizers --
     pub fn headers(&self, plain: bool) {
@@ -161,69 +155,11 @@ impl DataFrameController {
         self.df = Some(df);
     }
     
-    // -- quilters --
-    #[allow(dead_code)]
-    pub fn quilt(&mut self, config_path: &str, cli_input_files: Option<Vec<PathBuf>>, output_path: Option<&str>, title: Option<&str>) {
-        // Ensure this matches the signature and logic of the actual quilt operation function
-        // For now, this acts as a potential wrapper if controller needs to expose it directly.
-        // The main CLI path currently calls operations::quilters::quilt::quilt directly.
-        operations::quilters::quilt::quilt(self, config_path, cli_input_files, output_path, title);
-    }
+
 }
 
 // DataFrame utility functions
 
-// Function to parse column names including ranges like "col1-col3"
-// clone() is used to resolve ownership issues when modifying self.df
-#[allow(dead_code)]
-pub fn parse_column_ranges(df: &LazyFrame, colnames_input: &[String]) -> Vec<String> {
-    let mut final_colnames = Vec::new();
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
-        Err(e) => {
-            LogController::error(&format!("Failed to collect DataFrame for schema check in parse_column_ranges: {}", e));
-            return Vec::new();
-        }
-    };
-    let schema_ref = collected_df.schema(); // Get Schema from DataFrame
-    let all_schema_colnames: Vec<String> = schema_ref.iter_names().map(|s| s.to_string()).collect();
 
-    for colname_pattern in colnames_input {
-        if colname_pattern.contains(',') {
-            // Handling comma-separated multiple column specification
-            // For example: "col1,col2,col5"
-            final_colnames.extend(colname_pattern.split(',').map(|s| s.trim().to_string()));
-        } else if colname_pattern.contains('-') {
-            // Handling hyphen-separated column range specification
-            // For example: "col1-col3" or "prefix1-prefix5"
-            let parts: Vec<&str> = colname_pattern.split('-').collect();
-            if parts.len() == 2 {
-                let start = parts[0];
-                let end = parts[1];
-                
-                let mut in_range = false;
-                for header in &all_schema_colnames {
-                    if header == start {
-                        in_range = true;
-                    }
-                    
-                    if in_range {
-                        final_colnames.push(header.clone());
-                    }
-                    
-                    if header == end {
-                        in_range = false;
-                    }
-                }
-            }
-        } else {
-            // Standard single column specification
-            // For example: "col1"
-            final_colnames.push(colname_pattern.to_string());
-        }
-    }
-    
-    final_colnames
-}
 
 // Method to apply a finalizer operation

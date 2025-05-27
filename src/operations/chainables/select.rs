@@ -34,6 +34,5 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
         return df.clone();
     }
     
-    // Clone df to resolve ownership issues
     df.clone().select(&selected_cols)
 }

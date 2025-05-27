@@ -62,19 +62,8 @@ fn main() {
 
 // Process all commands in sequence
 fn process_commands(controller: &mut DataFrameController, commands: &[Command]) {
-    // Process each command in sequence
-    for (i, cmd) in commands.iter().enumerate() {
-        // Process the command
+    for cmd in commands.iter() {
         process_command(controller, cmd);
-        
-        // Display results for the last command if it's not already a display command
-        let is_last_command = i == commands.len() - 1;
-        let is_display_command = is_display_command(&cmd.name);
-        
-        if is_last_command && !is_display_command {
-            // Show the results by default
-            controller.showtable();
-        }
     }
 }
 
@@ -86,10 +75,7 @@ fn check_data_loaded(controller: &DataFrameController, cmd_name: &str) {
     }
 }
 
-// Check if command is a display command
-fn is_display_command(cmd_name: &str) -> bool {
-    matches!(cmd_name, "showtable" | "headers" | "show" | "stats" | "showquery" | "dump" | "quilt")
-}
+
 
 // New parse_column_names function with range expansion
 fn parse_column_names(input: &str) -> Vec<String> {
@@ -358,14 +344,28 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
         "changetz" => {
             check_data_loaded(controller, "changetz");
             
-            if cmd.args.len() < 3 {
-                eprintln!("Error: 'changetz' command requires colname, from_timezone, and to_timezone");
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'changetz' command requires a column name");
                 process::exit(1);
             }
             
             let colname = &cmd.args[0];
-            let tz_from = &cmd.args[1];
-            let tz_to = &cmd.args[2];
+            
+            let tz_from = match cmd.options.get("from_tz").or_else(|| cmd.options.get("from-tz")) {
+                Some(Some(tz)) => tz,
+                _ => {
+                    eprintln!("Error: 'changetz' command requires --from_tz option");
+                    process::exit(1);
+                }
+            };
+            
+            let tz_to = match cmd.options.get("to_tz").or_else(|| cmd.options.get("to-tz")) {
+                Some(Some(tz)) => tz,
+                _ => {
+                    eprintln!("Error: 'changetz' command requires --to_tz option");
+                    process::exit(1);
+                }
+            };
             
             let dt_format = cmd.options.get("format").and_then(|opt_val| opt_val.as_deref());
             let ambiguous_time = cmd.options.get("ambiguous").and_then(|opt_val| opt_val.as_deref());
