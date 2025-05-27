@@ -1,0 +1,46 @@
+title: 'Complex Data Processing Pipeline'
+description: 'A comprehensive test of quilt functionality'
+version: '0.2.0'
+author: 'Test User <test@example.com>'
+stages:
+  load_data:
+    type: process
+    steps:
+      load:
+        path: "simple.csv"
+
+  filter_data:
+    type: process
+    source: load_data
+    steps:
+      isin:
+        colname: "col1"
+        values: ["1", "4", "7"]
+      
+  transform_data:
+    type: process
+    source: filter_data
+    steps:
+      renamecol:
+        old_name: "str"
+        new_name: "string_column"
+      sed:
+        colname: "string_column"
+        pattern: "foo"
+        replacement: "FOO"
+        ignorecase: false
+
+  sort_data:
+    type: process
+    source: transform_data
+    steps:
+      sort:
+        colnames: ["col1"]
+        desc: false
+
+  final_output:
+    type: process
+    source: sort_data
+    steps:
+      head:
+        number: 2 

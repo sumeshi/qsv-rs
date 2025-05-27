@@ -7,6 +7,7 @@ stages:
     type: process
     steps:
       load:
+        path: "simple.csv"
 
   stage_1:
     type: process
@@ -34,7 +35,7 @@ stages:
     params:
       how: full
       key: datetime
-      coalesce: True
+      coalesce: true
   
   stage_3:
     type: process
