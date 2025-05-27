@@ -1,6 +1,6 @@
 import unittest
 import os
-import re
+import tempfile
 from test_base import QsvTestBase
 
 class TestDump(QsvTestBase):
@@ -10,64 +10,173 @@ class TestDump(QsvTestBase):
     
     def setUp(self):
         """Set up test fixtures"""
-        super().setUp()
-        # Create a temporary output file path
-        self.temp_output = os.path.join(self.root_dir, "sample", "temp_output.csv")
-        # Clean up any existing output file
-        if os.path.exists(self.temp_output):
-            os.remove(self.temp_output)
+        self.temp_dir = tempfile.mkdtemp()
     
     def tearDown(self):
-        """Tear down test fixtures"""
-        # Clean up the output file after tests
-        if os.path.exists(self.temp_output):
-            os.remove(self.temp_output)
+        """Clean up test fixtures"""
+        # Clean up any test files created
+        for file in os.listdir(self.temp_dir):
+            os.remove(os.path.join(self.temp_dir, file))
+        os.rmdir(self.temp_dir)
     
-    def test_dump_basic(self):
-        """Test dumping data to a file"""
-        # Run command to dump to output file
-        self.run_qsv_command(f"load sample/simple.csv - dump {self.temp_output}")
+    def test_dump_default_output(self):
+        """Test dump with default output file (output.csv)"""
+        # Use temp directory for output file
+        output_file = os.path.join(self.temp_dir, "output.csv")
         
-        # Verify the file was created
-        self.assertTrue(os.path.exists(self.temp_output))
+        # Run command with explicit output path to avoid cluttering project directory
+        output = self.run_qsv_command(f"load sample/simple.csv - dump {output_file}")
         
-        # Read and verify the content
-        with open(self.temp_output, 'r') as f:
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents
+        with open(output_file, 'r') as f:
             content = f.read()
-            
-        # Check if the output contains the expected data
-        self.assertIn("col1,col2,col3", content)
-        self.assertIn("1,2,3", content)
-        self.assertIn("4,5,6", content)
-        self.assertIn("7,8,9", content)
+            self.assertIn("datetime,col1,col2,col3,str", content)
+            self.assertIn("2023-01-01 12:00:00,1,2,3,foo", content)
+            self.assertIn("2023-01-01 13:00:00,4,5,6,bar", content)
+            self.assertIn("2023-01-01 14:00:00,7,8,9,baz", content)
     
-    def test_dump_with_separator(self):
-        """Test dumping with a custom separator"""
-        # Use tab as separator
-        self.run_qsv_command(f"load sample/simple.csv - dump {self.temp_output} -s=\\t")
+    def test_dump_custom_output_positional(self):
+        """Test dump with custom output file as positional argument"""
+        output_file = os.path.join(self.temp_dir, "custom_output.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - dump {output_file}")
         
-        # Verify the file was created
-        self.assertTrue(os.path.exists(self.temp_output))
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
         
-        # Read and verify the content
-        with open(self.temp_output, 'r') as f:
+        # Check file contents
+        with open(output_file, 'r') as f:
             content = f.read()
+            self.assertIn("datetime,col1,col2,col3,str", content)
+            self.assertIn("2023-01-01 12:00:00,1,2,3,foo", content)
+    
+    def test_dump_custom_output_option_short(self):
+        """Test dump with custom output file using -o option"""
+        output_file = os.path.join(self.temp_dir, "option_output.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - dump -o {output_file}")
+        
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime,col1,col2,col3,str", content)
+            self.assertIn("2023-01-01 12:00:00,1,2,3,foo", content)
+    
+    def test_dump_custom_output_option_long(self):
+        """Test dump with custom output file using --output option"""
+        output_file = os.path.join(self.temp_dir, "long_option_output.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - dump --output {output_file}")
+        
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime,col1,col2,col3,str", content)
+            self.assertIn("2023-01-01 12:00:00,1,2,3,foo", content)
+    
+    def test_dump_custom_separator_short(self):
+        """Test dump with custom separator using -s option"""
+        output_file = os.path.join(self.temp_dir, "tab_separated.tsv")
+        output = self.run_qsv_command(f"load sample/simple.csv - dump {output_file} -s '\t'")
+        
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents with tab separation
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime\tcol1\tcol2\tcol3\tstr", content)
+            self.assertIn("2023-01-01 12:00:00\t1\t2\t3\tfoo", content)
+    
+    def test_dump_custom_separator_long(self):
+        """Test dump with custom separator using --separator option"""
+        output_file = os.path.join(self.temp_dir, "pipe_separated.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - dump {output_file} --separator '|'")
+        
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents with pipe separation
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime|col1|col2|col3|str", content)
+            self.assertIn("2023-01-01 12:00:00|1|2|3|foo", content)
+    
+    def test_dump_semicolon_separator(self):
+        """Test dump with semicolon separator"""
+        output_file = os.path.join(self.temp_dir, "semicolon_separated.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - dump {output_file} --separator ';'")
+        
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents with semicolon separation
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime;col1;col2;col3;str", content)
+            self.assertIn("2023-01-01 12:00:00;1;2;3;foo", content)
+    
+    def test_dump_after_operations(self):
+        """Test dump after various data operations"""
+        output_file = os.path.join(self.temp_dir, "after_operations.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - select col1,str - head 2 - dump {output_file}")
+        
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents - should only have selected columns and first 2 rows
+        with open(output_file, 'r') as f:
+            content = f.read()
+            lines = content.strip().split('\n')
             
-        # Expected header: "datetime"\tcol1\tcol2\tcol3\t"str" (tab separated)
-        # Expected data line example: 2023-01-01 12:00:00\t1\t2\t3\tfoo
+            # Should have header + 2 data rows
+            self.assertEqual(len(lines), 3)
+            self.assertIn("col1,str", lines[0])
+            self.assertIn("1,foo", lines[1])
+            self.assertIn("4,bar", lines[2])
+            
+            # Should not contain other columns
+            self.assertNotIn("datetime", content)
+            self.assertNotIn("col2", content)
+            self.assertNotIn("col3", content)
+    
+    def test_dump_with_filtering(self):
+        """Test dump after filtering operations"""
+        output_file = os.path.join(self.temp_dir, "filtered.csv")
+        output = self.run_qsv_command(f"load sample/simple.csv - grep 'ba' - dump {output_file}")
         
-        # The actual output is tab-separated with quotes around some headers.
-        expected_header_pattern = r'"datetime"\tcol1\tcol2\tcol3\t"str"'
-        self.assertIsNotNone(re.search(expected_header_pattern, content),
-                             f"Expected header pattern '{expected_header_pattern}' not found in content.\nContent: {content[:200]}...")
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
         
-        # Check for a data line, ensuring tab separation and correct values
-        expected_data_segment_pattern = r"1\t2\t3"
-        self.assertIsNotNone(re.search(expected_data_segment_pattern, content),
-                             f"Expected data pattern '{expected_data_segment_pattern}' not found in content.\nContent: {content[:200]}...")
+        # Check file contents - should only have rows containing "ba"
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime,col1,col2,col3,str", content)
+            self.assertIn("bar", content)
+            self.assertIn("baz", content)
+            self.assertNotIn("foo", content)
+    
+    def test_dump_combined_options(self):
+        """Test dump with both custom output and separator"""
+        output_file = os.path.join(self.temp_dir, "combined_options.tsv")
+        output = self.run_qsv_command(f"load sample/simple.csv - select datetime,str - dump --output {output_file} --separator '\t'")
         
-        self.assertIn("foo", content)
-        self.assertIn("2023-01-01 12:00:00", content)
+        # Should create the specified file
+        self.assertTrue(os.path.exists(output_file))
+        
+        # Check file contents
+        with open(output_file, 'r') as f:
+            content = f.read()
+            self.assertIn("datetime\tstr", content)
+            self.assertIn("2023-01-01 12:00:00\tfoo", content)
+            self.assertIn("2023-01-01 13:00:00\tbar", content)
+            self.assertIn("2023-01-01 14:00:00\tbaz", content)
 
 if __name__ == "__main__":
     unittest.main()

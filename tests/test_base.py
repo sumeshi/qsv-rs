@@ -2,6 +2,8 @@ import unittest
 import subprocess
 import os
 import sys
+import io
+import contextlib
 
 class QsvTestBase(unittest.TestCase):
     """
@@ -27,12 +29,21 @@ class QsvTestBase(unittest.TestCase):
         Returns:
             Output of the command as a string
         """
+        # Replace relative sample path with absolute path
+        if "sample/simple.csv" in command_str:
+            command_str = command_str.replace("sample/simple.csv", self.sample_file)
+        
         full_command = f"{self.qsv_path} {command_str}"
-        result = subprocess.run(full_command, shell=True, capture_output=True, text=True)
+        
+        # Capture stdout to prevent unwanted output during tests
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = subprocess.run(full_command, shell=True, capture_output=True, text=True, cwd=self.root_dir)
         
         if result.returncode != 0:
-            print(f"Error executing command: {full_command}")
-            print(f"Error: {result.stderr}")
+            # Only print errors if needed for debugging, but suppress during normal test runs
+            if os.environ.get('QSV_TEST_DEBUG'):
+                print(f"Error executing command: {full_command}")
+                print(f"Error: {result.stderr}")
             return ""
         
         return result.stdout.strip()

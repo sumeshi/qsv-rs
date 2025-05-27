@@ -18,6 +18,16 @@ pub fn renamecol(df: &LazyFrame, old_colname: &str, new_colname: &str) -> LazyFr
     
     LogController::debug(&format!("Renaming column '{}' to '{}'", old_colname, new_colname));
     
-    // Polars 0.48.1 rename signature: existing: impl IntoVec<PlSmallStr>, new: impl IntoVec<PlSmallStr>
-    df.clone().rename([old_colname], [new_colname], true)
+    // Get all column names and replace the old one with the new one
+    let all_columns: Vec<Expr> = schema.iter_names()
+        .map(|name| {
+            if name.as_str() == old_colname {
+                col(old_colname).alias(new_colname)
+            } else {
+                col(name.as_str())
+            }
+        })
+        .collect();
+    
+    df.clone().select(all_columns)
 }

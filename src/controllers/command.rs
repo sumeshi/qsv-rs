@@ -45,10 +45,28 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
         }
 
         if arg.starts_with("--") {
-            // Long option format: --option[=value]
+            // Long option format: --option[=value] or --option value
             let option_str = &arg[2..];
-            parse_option(&mut current_command, option_str);
-            i += 1;
+            
+            // Check if it's --option=value format
+            if option_str.contains('=') {
+                parse_option(&mut current_command, option_str);
+                i += 1;
+            } else {
+                // Check if this is a long option that expects a value
+                let needs_value = matches!(option_str, "from_tz" | "to_tz" | "format" | "ambiguous" | "output" | "separator" | "number" | "title");
+                
+                if needs_value && i + 1 < args.len() && !args[i+1].starts_with('-') {
+                    // --option value format
+                    let value = args[i+1].clone();
+                    current_command.options.insert(option_str.to_string(), Some(value));
+                    i += 2; // Consumed option and its value
+                } else {
+                    // It's a flag option
+                    parse_option(&mut current_command, option_str);
+                    i += 1;
+                }
+            }
         } else if arg.starts_with('-') {
             let opt_key_to_parse = arg[1..].to_string(); // Make it mutable
 
@@ -181,7 +199,7 @@ pub fn print_help() {
     println!("  qsv load data.csv - grep pattern - showtable");
     println!("  qsv load data.csv - sort col1 -d - show");
     println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
-    println!("  qsv load data.csv - changetz datetime UTC JST - show");
+    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
     println!("");
     println!("For more details, see README.md or --help");
 }
@@ -280,10 +298,15 @@ fn print_uniq_help() {
 }
 fn print_changetz_help() {
     println!("changetz: Change timezone of a datetime column\n");
-    println!("Usage: changetz <colname> <from_tz> <to_tz> [format]\n");
-    println!("Examples:");
-    println!("  qsv load data.csv - changetz datetime UTC JST - show");
-    println!("  qsv load data.csv - changetz datetime UTC JST '%Y-%m-%d %H:%M:%S' - show");
+    println!("Usage: changetz <colname> --from_tz <from_tz> --to_tz <to_tz> [--format <format>] [--ambiguous <strategy>]\n");
+    println!("Options:");
+    println!("  --from_tz    Source timezone (e.g., UTC, America/New_York, local)");
+    println!("  --to_tz      Target timezone (e.g., Asia/Tokyo)");
+    println!("  --format     Input datetime format (default: auto)");
+    println!("  --ambiguous  Strategy for ambiguous times: earliest or latest (default: earliest)");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
+    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format '%Y/%m/%d %H:%M' - show");
 }
 fn print_renamecol_help() {
     println!("renamecol: Rename a column\n");

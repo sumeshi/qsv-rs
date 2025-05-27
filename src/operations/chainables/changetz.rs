@@ -191,6 +191,5 @@ pub fn changetz(
         Ok(Some(Series::new(s.name().clone(), new_values).into())) // Convert Series to Column with .into()
     };
     
-    // Clone df to resolve ownership issues
     df.clone().with_column(col(colname).map(timezone_udf, GetOutput::from_type(DataType::String)).alias(colname))
 }
