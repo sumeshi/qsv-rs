@@ -1,8 +1,10 @@
+use crate::operations::chainables::{
+    changetz, contains, count, grep, head, isin, renamecol, sed, select, sort, tail, uniq,
+};
+use crate::operations::finalizers::{dump, headers, show, showquery, showtable, stats};
+use crate::operations::initializers::load;
 use polars::prelude::*;
 use std::path::PathBuf;
-use crate::operations::initializers::load;
-use crate::operations::chainables::{select, head, tail, isin, contains, sed, grep, sort, count, uniq, changetz, renamecol};
-use crate::operations::finalizers::{headers, stats, showquery, show, showtable, dump};
 
 pub struct DataFrameController {
     df: Option<LazyFrame>,
@@ -12,17 +14,17 @@ impl DataFrameController {
     pub fn new() -> Self {
         Self { df: None }
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.df.is_none()
     }
-    
+
     // -- initializers --
     pub fn load(&mut self, paths: &[PathBuf], separator: &str, low_memory: bool) -> &mut Self {
         self.df = Some(load::load(paths, separator, low_memory));
         self
     }
-    
+
     // -- chainables --
     pub fn select(&mut self, colnames: &[String]) -> &mut Self {
         if let Some(df) = &self.df {
@@ -30,119 +32,137 @@ impl DataFrameController {
         }
         self
     }
-    
+
     pub fn isin(&mut self, colname: &str, values: &[String]) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(isin::isin(df, colname, values));
         }
         self
     }
-    
+
     pub fn contains(&mut self, colname: &str, pattern: &str, ignorecase: bool) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(contains::contains(df, colname, pattern, ignorecase));
         }
         self
     }
-    
-    pub fn sed(&mut self, colname: &str, pattern: &str, replacement: &str, ignorecase: bool) -> &mut Self {
+
+    pub fn sed(
+        &mut self,
+        colname: &str,
+        pattern: &str,
+        replacement: &str,
+        ignorecase: bool,
+    ) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(sed::sed(df, colname, pattern, replacement, ignorecase));
         }
         self
     }
-    
+
     pub fn grep(&mut self, pattern: &str, ignorecase: bool, is_inverted: bool) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(grep::grep(df, pattern, ignorecase, is_inverted));
         }
         self
     }
-    
+
     pub fn head(&mut self, number: usize) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(head::head(df, number));
         }
         self
     }
-    
+
     pub fn tail(&mut self, number: usize) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(tail::tail(df, number));
         }
         self
     }
-    
+
     pub fn sort(&mut self, colnames: &[String], desc: bool) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(sort::sort(df, colnames, desc));
         }
         self
     }
-    
+
     pub fn count(&mut self) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(count::count(df));
         }
         self
     }
-    
+
     pub fn uniq(&mut self, colnames: Option<Vec<String>>) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(uniq::uniq(df, colnames.as_deref()));
         }
         self
     }
-    
-    pub fn changetz(&mut self, colname: &str, tz_from: &str, tz_to: &str, dt_format: Option<&str>, ambiguous_time: Option<&str>) -> &mut Self {
+
+    pub fn changetz(
+        &mut self,
+        colname: &str,
+        tz_from: &str,
+        tz_to: &str,
+        dt_format: Option<&str>,
+        ambiguous_time: Option<&str>,
+    ) -> &mut Self {
         if let Some(df) = &self.df {
             let format_str = dt_format.unwrap_or("auto");
             let ambiguous_str = ambiguous_time.unwrap_or("earliest");
-            self.df = Some(changetz::changetz(df, colname, tz_from, tz_to, format_str, ambiguous_str));
+            self.df = Some(changetz::changetz(
+                df,
+                colname,
+                tz_from,
+                tz_to,
+                format_str,
+                ambiguous_str,
+            ));
         }
         self
     }
-    
+
     pub fn renamecol(&mut self, colname: &str, new_colname: &str) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(renamecol::renamecol(df, colname, new_colname));
         }
         self
     }
-    
 
-    
     // -- finalizers --
     pub fn headers(&self, plain: bool) {
         if let Some(df) = &self.df {
             headers::headers(df, plain);
         }
     }
-    
+
     pub fn stats(&self) {
         if let Some(df) = &self.df {
             stats::stats(df);
         }
     }
-    
+
     pub fn showquery(&self) {
         if let Some(df) = &self.df {
             showquery::showquery(df);
         }
     }
-    
+
     pub fn show(&self) {
         if let Some(df) = &self.df {
             show::show(df);
         }
     }
-    
+
     pub fn showtable(&self) {
         if let Some(df) = &self.df {
             showtable::showtable(df);
         }
     }
-    
+
     pub fn dump(&self, path: Option<&str>, separator: Option<char>) {
         if let Some(df) = &self.df {
             let output_path_str = path.unwrap_or("output.csv");
@@ -150,16 +170,12 @@ impl DataFrameController {
             dump::dump(df, output_path_str, sep_char);
         }
     }
-    
+
     pub fn set_df(&mut self, df: LazyFrame) {
         self.df = Some(df);
     }
-    
-
 }
 
 // DataFrame utility functions
-
-
 
 // Method to apply a finalizer operation

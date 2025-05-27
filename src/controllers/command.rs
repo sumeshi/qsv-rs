@@ -47,19 +47,31 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
         if arg.starts_with("--") {
             // Long option format: --option[=value] or --option value
             let option_str = &arg[2..];
-            
+
             // Check if it's --option=value format
             if option_str.contains('=') {
                 parse_option(&mut current_command, option_str);
                 i += 1;
             } else {
                 // Check if this is a long option that expects a value
-                let needs_value = matches!(option_str, "from_tz" | "to_tz" | "format" | "ambiguous" | "output" | "separator" | "number" | "title");
-                
-                if needs_value && i + 1 < args.len() && !args[i+1].starts_with('-') {
+                let needs_value = matches!(
+                    option_str,
+                    "from_tz"
+                        | "to_tz"
+                        | "format"
+                        | "ambiguous"
+                        | "output"
+                        | "separator"
+                        | "number"
+                        | "title"
+                );
+
+                if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
                     // --option value format
-                    let value = args[i+1].clone();
-                    current_command.options.insert(option_str.to_string(), Some(value));
+                    let value = args[i + 1].clone();
+                    current_command
+                        .options
+                        .insert(option_str.to_string(), Some(value));
                     i += 2; // Consumed option and its value
                 } else {
                     // It's a flag option
@@ -71,20 +83,35 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             let opt_key_to_parse = arg[1..].to_string(); // Make it mutable
 
             // Handle cases like -sValue or -s=Value directly attached
-            if opt_key_to_parse.len() > 1 && (opt_key_to_parse.starts_with('s') || opt_key_to_parse.starts_with('n')) {
+            if opt_key_to_parse.len() > 1
+                && (opt_key_to_parse.starts_with('s')
+                    || opt_key_to_parse.starts_with('n')
+                    || opt_key_to_parse.starts_with('o')
+                    || opt_key_to_parse.starts_with('t'))
+            {
                 let (actual_key, actual_value) = if opt_key_to_parse.contains('=') {
                     // Case: -s=value
                     let parts: Vec<&str> = opt_key_to_parse.splitn(2, '=').collect();
                     (parts[0].to_string(), parts.get(1).map(|s| s.to_string()))
                 } else {
                     // Case: -sValue (no equals)
-                    (opt_key_to_parse[0..1].to_string(), Some(opt_key_to_parse[1..].to_string()))
+                    (
+                        opt_key_to_parse[0..1].to_string(),
+                        Some(opt_key_to_parse[1..].to_string()),
+                    )
                 };
 
-                if (actual_key == "s" || actual_key == "n") && actual_value.is_some() {
-                     let full_key = match actual_key.as_str() {
+                if (actual_key == "s"
+                    || actual_key == "n"
+                    || actual_key == "o"
+                    || actual_key == "t")
+                    && actual_value.is_some()
+                {
+                    let full_key = match actual_key.as_str() {
                         "s" => "separator".to_string(),
                         "n" => "number".to_string(),
+                        "o" => "output".to_string(),
+                        "t" => "title".to_string(),
                         _ => actual_key.clone(), // Should not happen
                     };
                     current_command.options.insert(full_key, actual_value);
@@ -94,18 +121,20 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                 // If not s or n, or no value, fall through to general short opt parsing
             }
 
-
             // Standard short option handling (e.g. -s value, or -f flag)
             let opt_char_str = if arg.len() >= 2 { &arg[1..2] } else { "" }; // Get the char e.g. "s"
 
-            if (opt_char_str == "s" || opt_char_str == "n") && // It's -s or -n
+            if (opt_char_str == "s" || opt_char_str == "n" || opt_char_str == "o" || opt_char_str == "t") && // It's -s, -n, -o, or -t
                i + 1 < args.len() && // Next argument exists
-               !args[i+1].starts_with('-') // Next argument is not another option
+               !args[i+1].starts_with('-')
+            // Next argument is not another option
             {
-                let value = args[i+1].clone();
+                let value = args[i + 1].clone();
                 let full_key = match opt_char_str {
                     "s" => "separator".to_string(),
                     "n" => "number".to_string(),
+                    "o" => "output".to_string(),
+                    "t" => "title".to_string(),
                     _ => opt_char_str.to_string(), // Fallback
                 };
                 current_command.options.insert(full_key, Some(value));
@@ -150,7 +179,7 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
             "n" => "number".to_string(),    // if -n is passed as a flag, store as number: None
             "o" => "output".to_string(),    // if -o is passed as a flag, store as output: None
             "t" => "title".to_string(),     // if -t is passed as a flag, store as title: None
-             // Add other short options that are flags here if necessary
+            // Add other short options that are flags here if necessary
             "i" => "ignorecase".to_string(), // Example for grep -i
             "d" => "desc".to_string(),       // Example for sort -d
             "p" => "plain".to_string(),      // Example for headers -p

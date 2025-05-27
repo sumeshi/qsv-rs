@@ -1,7 +1,7 @@
-use polars::prelude::*;
-use chrono::{NaiveDateTime, Utc, Local};
 use chrono::TimeZone as ChronoTimeZone;
+use chrono::{Local, NaiveDateTime, Utc};
 use chrono_tz::Tz;
+use polars::prelude::*;
 
 use crate::controllers::log::LogController;
 // use crate::controllers::dataframe::exists_colname; // Removed
@@ -32,7 +32,10 @@ fn parse_datetime_multiple_formats(s: &str, format_str: &str, colname: &str) -> 
         }
     }
     // Log error with the original string value that failed to parse
-    LogController::error(&format!("Failed to parse date '{}' in column '{}' with any format, using current time", s, colname));
+    LogController::error(&format!(
+        "Failed to parse date '{}' in column '{}' with any format, using current time",
+        s, colname
+    ));
     Utc::now().naive_utc()
 }
 
@@ -55,7 +58,10 @@ fn time_conversion(
         match from_tz_str.parse::<Tz>() {
             Ok(tz) => Some(tz),
             Err(_) => {
-                LogController::error(&format!("Invalid 'from' timezone string: '{}' in column '{}'", from_tz_str, colname));
+                LogController::error(&format!(
+                    "Invalid 'from' timezone string: '{}' in column '{}'",
+                    from_tz_str, colname
+                ));
                 return s_val.to_string(); // Return original if timezone is invalid
             }
         }
@@ -64,7 +70,10 @@ fn time_conversion(
     let to_tz = match to_tz_str.parse::<Tz>() {
         Ok(tz) => tz,
         Err(_) => {
-            LogController::error(&format!("Invalid 'to' timezone string: '{}' in column '{}'", to_tz_str, colname));
+            LogController::error(&format!(
+                "Invalid 'to' timezone string: '{}' in column '{}'",
+                to_tz_str, colname
+            ));
             return s_val.to_string(); // Return original if timezone is invalid
         }
     };
@@ -79,10 +88,17 @@ fn time_conversion(
                     "Ambiguous local time '{}' in column '{}'. Could be {} or {}. Using '{}' strategy.",
                     naive_dt, colname, dt1, dt2, ambiguous_time_str
                 ));
-                if ambiguous_time_str == "earliest" { dt1.with_timezone(&Utc) } else { dt2.with_timezone(&Utc) }
+                if ambiguous_time_str == "earliest" {
+                    dt1.with_timezone(&Utc)
+                } else {
+                    dt2.with_timezone(&Utc)
+                }
             }
             chrono::LocalResult::None => {
-                LogController::error(&format!("Non-existent local time '{}' for timezone '{}' in column '{}'", naive_dt, tz, colname));
+                LogController::error(&format!(
+                    "Non-existent local time '{}' for timezone '{}' in column '{}'",
+                    naive_dt, tz, colname
+                ));
                 return s_val.to_string();
             }
         }
@@ -90,20 +106,30 @@ fn time_conversion(
         match Local.from_local_datetime(&naive_dt) {
             chrono::LocalResult::Single(dt) => dt.with_timezone(&Utc),
             chrono::LocalResult::Ambiguous(dt1, dt2) => {
-                 LogController::warn(&format!(
+                LogController::warn(&format!(
                     "Ambiguous local time '{}' in column '{}'. Could be {} or {}. Using '{}' strategy.",
                     naive_dt, colname, dt1, dt2, ambiguous_time_str
                 ));
-                if ambiguous_time_str == "earliest" { dt1.with_timezone(&Utc) } else { dt2.with_timezone(&Utc) }
+                if ambiguous_time_str == "earliest" {
+                    dt1.with_timezone(&Utc)
+                } else {
+                    dt2.with_timezone(&Utc)
+                }
             }
             chrono::LocalResult::None => {
-                LogController::error(&format!("Non-existent local time '{}' for local system in column '{}'", naive_dt, colname));
+                LogController::error(&format!(
+                    "Non-existent local time '{}' for local system in column '{}'",
+                    naive_dt, colname
+                ));
                 return s_val.to_string();
             }
         }
     };
 
-    localized_dt_utc.with_timezone(&to_tz).format("%Y-%m-%d %H:%M:%S%.3f").to_string()
+    localized_dt_utc
+        .with_timezone(&to_tz)
+        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .to_string()
 }
 
 pub fn changetz(
@@ -117,32 +143,41 @@ pub fn changetz(
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in changetz: {}", e);
+            eprintln!(
+                "Error collecting DataFrame for schema check in changetz: {}",
+                e
+            );
             std::process::exit(1);
         }
     };
     let schema = collected_df.schema();
 
     if !schema.iter_names().any(|s| s == colname) {
-        eprintln!("Error: Column '{}' not found in DataFrame for changetz operation", colname);
+        eprintln!(
+            "Error: Column '{}' not found in DataFrame for changetz operation",
+            colname
+        );
         std::process::exit(1);
     }
-    
+
     // Debug information
-    LogController::info(&format!("Attempting to change timezone for column {} from {} to {}", colname, from_tz, to_tz));
-    
+    LogController::info(&format!(
+        "Attempting to change timezone for column {} from {} to {}",
+        colname, from_tz, to_tz
+    ));
+
     // Parse source and target timezones
     let from_tz_clone = from_tz.to_string();
     let to_tz_clone = to_tz.to_string();
     let colname_clone = colname.to_string();
     let format_clone = format.to_string();
     let ambiguous_time_clone = ambiguous_time.to_string();
-    
+
     LogController::debug(&format!(
-        "Changing timezone of '{}' column from '{}' to '{}', format: '{}', ambiguous: '{}'", 
+        "Changing timezone of '{}' column from '{}' to '{}', format: '{}', ambiguous: '{}'",
         colname, from_tz, to_tz, format, ambiguous_time
     ));
-    
+
     // Create UDF and apply to DataFrame
     let timezone_udf = move |s_col: Column| -> PolarsResult<Option<Column>> {
         let s = s_col;
@@ -150,12 +185,12 @@ pub fn changetz(
             DataType::String => Ok(s.str()?.clone()),
             DataType::Date => {
                 // Convert Date type to NaiveDateTime then to string
-                let s_datetime = s.date()?.cast(&DataType::Datetime(TimeUnit::Milliseconds, None))?;
+                let s_datetime = s
+                    .date()?
+                    .cast(&DataType::Datetime(TimeUnit::Milliseconds, None))?;
                 s_datetime.datetime()?.strftime("%Y-%m-%d %H:%M:%S%.3f")
-            },
-            DataType::Datetime(_, _) => {
-                s.datetime()?.strftime("%Y-%m-%d %H:%M:%S%.3f")
-            },
+            }
+            DataType::Datetime(_, _) => s.datetime()?.strftime("%Y-%m-%d %H:%M:%S%.3f"),
             _ => return Ok(Some(s.clone())), // s is Column, return as is
         };
 
@@ -166,7 +201,8 @@ pub fn changetz(
 
         let mut new_values: Vec<Option<String>> = Vec::with_capacity(s_str_values.len());
 
-        for opt_val in s_str_values.into_iter() { // opt_val is Option<&str>
+        for opt_val in s_str_values.into_iter() {
+            // opt_val is Option<&str>
             let result = opt_val.map_or_else(
                 || String::new(), // Handle None case
                 |val_str| {
@@ -178,18 +214,25 @@ pub fn changetz(
                         &format_clone,
                         &ambiguous_time_clone,
                     )
-                }
+                },
             );
             new_values.push(Some(result));
         }
-        
+
         // Log sample converted time
         if !new_values.is_empty() && new_values[0].is_some() {
-            LogController::debug(&format!("Sample converted time: {}", new_values[0].as_ref().unwrap()));
+            LogController::debug(&format!(
+                "Sample converted time: {}",
+                new_values[0].as_ref().unwrap()
+            ));
         }
-        
+
         Ok(Some(Series::new(s.name().clone(), new_values).into())) // Convert Series to Column with .into()
     };
-    
-    df.clone().with_column(col(colname).map(timezone_udf, GetOutput::from_type(DataType::String)).alias(colname))
+
+    df.clone().with_column(
+        col(colname)
+            .map(timezone_udf, GetOutput::from_type(DataType::String))
+            .alias(colname),
+    )
 }

@@ -1,7 +1,13 @@
-use polars::prelude::*;
 use crate::controllers::log::LogController;
+use polars::prelude::*;
 
-pub fn sed(df: &LazyFrame, colname: &str, pattern: &str, replacement: &str, ignorecase: bool) -> LazyFrame {
+pub fn sed(
+    df: &LazyFrame,
+    colname: &str,
+    pattern: &str,
+    replacement: &str,
+    ignorecase: bool,
+) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
@@ -12,14 +18,18 @@ pub fn sed(df: &LazyFrame, colname: &str, pattern: &str, replacement: &str, igno
     let schema = collected_df.schema();
 
     if !schema.iter_names().any(|s| s == colname) {
-        eprintln!("Error: Column '{}' not found in DataFrame for sed operation", colname);
+        eprintln!(
+            "Error: Column '{}' not found in DataFrame for sed operation",
+            colname
+        );
         std::process::exit(1);
     }
-    
-    LogController::debug(&format!("Replacing values in '{}' column using regex pattern '{}' -> '{}' (case-insensitive: {})", 
+
+    LogController::debug(&format!(
+        "Replacing values in '{}' column using regex pattern '{}' -> '{}' (case-insensitive: {})",
         colname, pattern, replacement, ignorecase
     ));
-    
+
     let final_pattern = if ignorecase {
         format!("(?i){}", pattern) // Prepend (?i) flag for case-insensitivity
     } else {
@@ -34,6 +44,6 @@ pub fn sed(df: &LazyFrame, colname: &str, pattern: &str, replacement: &str, igno
         .str()
         .replace_all(lit(final_pattern), lit(replacement.to_string()), false) // literal: false for regex
         .alias(colname);
-    
+
     df.clone().with_column(replace_expr)
 }
