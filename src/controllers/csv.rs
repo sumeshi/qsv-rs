@@ -81,12 +81,7 @@ impl CsvController {
         })
     }
 
-    fn handle_glob_pattern(
-        &self,
-        pattern: &Path,
-        separator: &str,
-        low_memory: bool,
-    ) -> LazyFrame {
+    fn handle_glob_pattern(&self, pattern: &Path, separator: &str, low_memory: bool) -> LazyFrame {
         let pattern_str = pattern.to_string_lossy();
         let mut paths = Vec::new();
 
