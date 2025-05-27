@@ -1,9 +1,9 @@
 # Quilter-CSV
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
-![quilter-csv](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/00d774e6814a462eb48e68f29fc6226976238777/quilter-csv.svg)
+![Quilter-CSV](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/00d774e6814a462eb48e68f29fc6226976238777/quilter-csv.svg)
 
-A fast, flexible, and memory-efficient command-line tool written in Rust for filtering and processing huge CSV files. Inspired by [xsv](https://github.com/BurntSushi/xsv) and built on [Polars](https://www.pola.rs/), it's designed for handling tens or hundreds of gigabytes of CSV data in workflows like log analysis and digital forensics.
+A fast, flexible, and memory-efficient command-line tool written in Rust for processing large CSV files. Inspired by [xsv](https://github.com/BurntSushi/xsv) and built on [Polars](https://www.pola.rs/), it's designed for handling tens or hundreds of gigabytes of CSV data efficiently in workflows like log analysis and digital forensics.
 
 > [!IMPORTANT]  
 > This project is in the early stages of development. Please be aware that frequent changes and updates are likely to occur.
@@ -13,15 +13,17 @@ A fast, flexible, and memory-efficient command-line tool written in Rust for fil
 
 ## Features
 
-- **Pipeline-style command chaining**: Chain multiple commands in a single line for fast and efficient data processing.
-- **Flexible filtering and transformation**: Perform basic operations like select, filter, sort, and deduplicate, plus log analysis specific functions such as changing timezones.
-- **YAML-based batch processing (Quilt)**: Automate routine tasks by defining complex workflows in YAML configuration files.
+- **Pipeline-style command chaining**: Chain multiple commands in a single line for fast and efficient data processing
+- **Flexible filtering and transformation**: Perform operations like select, filter, sort, deduplicate, and timezone conversion
+- **YAML-based batch processing (Quilt)**: Automate complex workflows using YAML configuration files
+- **Memory efficient**: Built on Polars for optimal performance with large datasets
 
 ## Usage
 ![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
 
-e.g.
-Below is an example of reading a CSV file, extracting rows that contain 4624 in the 'Event ID' column, and displaying the top 3 rows sorted by the 'Date and Time' column.
+### Example
+
+Here's an example of reading a CSV file, extracting rows that contain 4624 in the 'Event ID' column, and displaying the top 3 rows sorted by the 'Date and Time' column:
 
 ```bash
 $ qsv load Security.csv - isin 'Event ID' 4624 - sort 'Date and Time' - head 3 - showtable
@@ -32,6 +34,8 @@ This command:
 2. Filters rows where `Event ID` is 4624
 3. Sorts by `Date and Time`
 4. Shows the first 3 rows as a table
+
+### Command Structure
 
 Quilter-CSV commands are composed of three types of steps:
 
@@ -47,7 +51,7 @@ qsv <INITIALIZER> <args> - <CHAINABLE> <args> - <FINALIZER> <args>
 
 ## Command Reference
 
-### Initializer
+### Initializers
 
 #### `load`
 Load one or more CSV files.
@@ -232,9 +236,9 @@ Renames a specific column.
 $ qsv load data.csv - renamecol current_name new_name
 ```
 
-### Finalizer Functions
+### Finalizers
 
-Finalizer functions are used to output or summarize the processed data. They are typically the last command in a chain.
+Finalizers are used to output or summarize the processed data. They are typically the last command in a chain.
 
 #### `headers`
 Displays the column headers of the current dataset.
@@ -304,8 +308,9 @@ $ qsv load data.csv - head 100 - dump --output result.csv
 $ qsv load data.csv - head 100 - dump --output result.tsv --separator=\t
 ```
 
-### Quilt
-Quilt is a feature that allows you to define a sequence of **Initializer**, **Chainable Functions**, and **Finalizer** processes in a YAML configuration file and execute them in a single command. This is useful for automating complex or repetitive workflows.
+### Quilt (YAML Workflows)
+
+Quilt allows you to define complex data processing workflows in YAML configuration files. This is useful for automating repetitive tasks or creating reusable data processing pipelines.
 
 #### Usage
 The `quilt` command itself takes the path to a YAML configuration file. Input data sources and other parameters are typically defined within the YAML file.
@@ -399,7 +404,7 @@ stages:
   data_cleaning_stage:
     type: process
     source: raw_data_load
-  steps:
+    steps:
       renamecol: # First renamecol
         old_name: "old_col_name_1"
         new_name: "new_col_1"
