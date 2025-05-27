@@ -16,6 +16,6 @@ pub fn count(df: &LazyFrame) -> LazyFrame {
     let all_colnames: Vec<String> = schema_ref.iter_names().map(|s| s.to_string()).collect();
 
     df.clone()
-        .group_by(all_colnames.iter().map(|s| col(s)).collect::<Vec<Expr>>())
+        .group_by(all_colnames.iter().map(col).collect::<Vec<Expr>>())
         .agg([len().alias("count")])
 }

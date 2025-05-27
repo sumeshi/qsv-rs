@@ -194,17 +194,14 @@ pub fn changetz(
             _ => return Ok(Some(s.clone())), // s is Column, return as is
         };
 
-        let s_str_values = match s_str_values_result {
-            Ok(ca) => ca,
-            Err(e) => return Err(e),
-        };
+        let s_str_values = s_str_values_result?;
 
         let mut new_values: Vec<Option<String>> = Vec::with_capacity(s_str_values.len());
 
         for opt_val in s_str_values.into_iter() {
             // opt_val is Option<&str>
             let result = opt_val.map_or_else(
-                || String::new(), // Handle None case
+                String::new, // Handle None case
                 |val_str| {
                     time_conversion(
                         val_str,

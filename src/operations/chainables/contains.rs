@@ -42,7 +42,7 @@ pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) 
                 let result_ca: ChunkedArray<BooleanType> = ca
                     .into_iter()
                     .map(|opt_val: Option<&str>| {
-                        opt_val.map_or(false, |val| {
+                        opt_val.is_some_and(|val| {
                             if ignorecase {
                                 val.to_lowercase().contains(&pattern_to_use)
                             } else {

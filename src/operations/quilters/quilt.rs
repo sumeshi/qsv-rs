@@ -550,10 +550,10 @@ pub fn quilt(
                         ));
                     } else {
                         let mut missing_sources = Vec::new();
-                        if stage_results.get(left_name).is_none() {
+                        if !stage_results.contains_key(left_name) {
                             missing_sources.push(left_name);
                         }
-                        if stage_results.get(right_name).is_none() {
+                        if !stage_results.contains_key(right_name) {
                             missing_sources.push(right_name);
                         }
                         LogController::error(&format!("Could not find source DataFrame(s): {:?} for join stage '{}'. Skipping.", missing_sources, stage_name));
