@@ -351,7 +351,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             
             let colname = &cmd.args[0];
             
-            let tz_from = match cmd.options.get("from_tz").or_else(|| cmd.options.get("from-tz")) {
+            let tz_from = match cmd.options.get("from_tz") {
                 Some(Some(tz)) => tz,
                 _ => {
                     eprintln!("Error: 'changetz' command requires --from_tz option");
@@ -359,7 +359,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
                 }
             };
             
-            let tz_to = match cmd.options.get("to_tz").or_else(|| cmd.options.get("to-tz")) {
+            let tz_to = match cmd.options.get("to_tz") {
                 Some(Some(tz)) => tz,
                 _ => {
                     eprintln!("Error: 'changetz' command requires --to_tz option");

@@ -45,10 +45,28 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
         }
 
         if arg.starts_with("--") {
-            // Long option format: --option[=value]
+            // Long option format: --option[=value] or --option value
             let option_str = &arg[2..];
-            parse_option(&mut current_command, option_str);
-            i += 1;
+            
+            // Check if it's --option=value format
+            if option_str.contains('=') {
+                parse_option(&mut current_command, option_str);
+                i += 1;
+            } else {
+                // Check if this is a long option that expects a value
+                let needs_value = matches!(option_str, "from_tz" | "to_tz" | "format" | "ambiguous" | "output" | "separator" | "number" | "title");
+                
+                if needs_value && i + 1 < args.len() && !args[i+1].starts_with('-') {
+                    // --option value format
+                    let value = args[i+1].clone();
+                    current_command.options.insert(option_str.to_string(), Some(value));
+                    i += 2; // Consumed option and its value
+                } else {
+                    // It's a flag option
+                    parse_option(&mut current_command, option_str);
+                    i += 1;
+                }
+            }
         } else if arg.starts_with('-') {
             let opt_key_to_parse = arg[1..].to_string(); // Make it mutable
 

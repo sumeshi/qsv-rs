@@ -18,25 +18,25 @@ pub fn isin(df: &LazyFrame, colname: &str, values: &[String]) -> LazyFrame {
     
     LogController::debug(&format!("Applying isin: column={} values={:?}", colname, values));
     
-    let mut conditions: Vec<Expr> = Vec::new();
+    // Get the column data type
+    let col_dtype = schema.get(colname).unwrap();
+    
+    // For numeric columns, convert to string and do string comparison to avoid type issues
+    let filter_expr = if matches!(col_dtype, DataType::Int64 | DataType::Int32 | DataType::Float64 | DataType::Float32) {
+        // Convert column to string and compare
+        let mut string_filter = lit(false);
+        for val_str in values {
+            string_filter = string_filter.or(col(colname).cast(DataType::String).eq(lit(val_str.clone())));
+        }
+        string_filter
+    } else {
+        // For string and other types, use direct comparison
+        let mut filter_expr = lit(false);
+        for val_str in values {
+            filter_expr = filter_expr.or(col(colname).eq(lit(val_str.clone())));
+        }
+        filter_expr
+    };
 
-    for val_str in values {
-        // Create a literal from the string value
-        let lit_val = lit(val_str.clone());
-        // Create an equality condition for the current value
-        conditions.push(col(colname).eq(lit_val));
-    }
-
-    // Create a base condition (false literal) to OR with other conditions
-    // Use a basic logical operation to create an "equals any of" condition
-    let mut filter_expr = lit(false); 
-
-    // Combine multiple equality conditions with OR operator
-    for cond in conditions {
-        filter_expr = filter_expr.or(cond);
-    }
-
-    // Create an initial false literal for the filter expression
-    // Create an equality condition for each value and combine with OR
     df.clone().filter(filter_expr)
 }
