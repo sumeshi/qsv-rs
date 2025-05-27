@@ -25,7 +25,7 @@ jobs:
         components: rustfmt, clippy
         
     - name: Cache Rust dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/bin/
@@ -89,7 +89,7 @@ jobs:
         targets: ${{ matrix.target }}
         
     - name: Cache Rust dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/bin/
@@ -114,7 +114,7 @@ jobs:
         cp target/${{ matrix.target }}/release/qsv.exe ${{ matrix.name }}
         
     - name: Upload binary artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.name }}
         path: ${{ matrix.name }}
@@ -130,7 +130,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: artifacts
         
@@ -177,7 +177,7 @@ jobs:
         EOF
         
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.get_version.outputs.VERSION }}
         name: Quilter-CSV ${{ steps.get_version.outputs.VERSION }}
@@ -208,7 +208,7 @@ jobs:
       run: cargo build --release
       
     - name: Upload development artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: qsv-rs-dev-linux
         path: target/release/qsv
