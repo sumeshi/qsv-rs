@@ -25,7 +25,7 @@ pub fn showtable(df: &LazyFrame) {
     table.load_preset(UTF8_FULL);
     table.set_content_arrangement(ContentArrangement::Dynamic);
 
-    let header_cells: Vec<Cell> = colnames.iter().map(|name| Cell::new(name)).collect();
+    let header_cells: Vec<Cell> = colnames.iter().map(Cell::new).collect();
     table.set_header(header_cells);
 
     for row_idx in 0..std::cmp::min(shape.0, 20) {

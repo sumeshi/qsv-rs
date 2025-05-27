@@ -26,7 +26,7 @@ pub fn sort(df: &LazyFrame, colnames: &[String], desc: bool) -> LazyFrame {
         colnames, desc
     ));
 
-    let sort_exprs: Vec<Expr> = colnames.iter().map(|name| col(name)).collect();
+    let sort_exprs: Vec<Expr> = colnames.iter().map(col).collect();
 
     if sort_exprs.is_empty() {
         LogController::warn("No columns specified for sorting.");

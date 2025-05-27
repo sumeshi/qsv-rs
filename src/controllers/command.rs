@@ -44,9 +44,8 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             continue;
         }
 
-        if arg.starts_with("--") {
+        if let Some(option_str) = arg.strip_prefix("--") {
             // Long option format: --option[=value] or --option value
-            let option_str = &arg[2..];
 
             // Check if it's --option=value format
             if option_str.contains('=') {
@@ -79,8 +78,8 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                     i += 1;
                 }
             }
-        } else if arg.starts_with('-') {
-            let opt_key_to_parse = arg[1..].to_string(); // Make it mutable
+        } else if let Some(stripped) = arg.strip_prefix('-') {
+            let opt_key_to_parse = stripped.to_string(); // Make it mutable
 
             // Handle cases like -sValue or -s=Value directly attached
             if opt_key_to_parse.len() > 1
@@ -142,7 +141,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             } else {
                 // It's a flag (e.g., -f) or an option with '=' (e.g., -o=value),
                 // or -s/-n without a following value that looks like a value.
-                let option_str_for_parse_option = &arg[1..];
+                let option_str_for_parse_option = stripped;
                 parse_option(&mut current_command, option_str_for_parse_option);
                 i += 1;
             }
@@ -197,7 +196,7 @@ pub fn print_help() {
     println!("Usage: qsv load <file.csv> - <chainable> <args> - <finalizer> <args>\n");
     println!("Initializers:");
     println!("  load         Load CSV file(s)");
-    println!("");
+    println!();
     println!("Chainables:");
     println!("  select       Select columns");
     println!("  isin         Filter rows by values");
@@ -211,7 +210,7 @@ pub fn print_help() {
     println!("  uniq         Remove duplicate rows");
     println!("  changetz     Change timezone");
     println!("  renamecol    Rename column");
-    println!("");
+    println!();
     println!("Finalizers:");
     println!("  show         Print as CSV");
     println!("  showtable    Print as table");
@@ -219,17 +218,17 @@ pub fn print_help() {
     println!("  stats        Show statistics");
     println!("  showquery    Show query plan");
     println!("  dump         Save as CSV");
-    println!("");
+    println!();
     println!("Quilters:");
     println!("  quilt        Execute a quilt (data processing pipeline from YAML)");
-    println!("");
+    println!();
     println!("Examples:");
     println!("  qsv load data.csv - select col1,col2 - head 10 - show");
     println!("  qsv load data.csv - grep pattern - showtable");
     println!("  qsv load data.csv - sort col1 -d - show");
     println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
     println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
-    println!("");
+    println!();
     println!("For more details, see README.md or --help");
 }
 

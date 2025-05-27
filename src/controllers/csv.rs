@@ -40,12 +40,12 @@ impl CsvController {
         }
     }
 
-    fn read_csv_file(&self, path: &PathBuf, separator: &str, low_memory: bool) -> LazyFrame {
+    fn read_csv_file(&self, path: &Path, separator: &str, low_memory: bool) -> LazyFrame {
         LogController::debug(&format!("Reading CSV file: {}", path.display()));
 
         let sep_byte = separator.as_bytes()[0];
 
-        let reader = LazyCsvReader::new(path.clone())
+        let reader = LazyCsvReader::new(path)
             .with_separator(sep_byte)
             .with_has_header(true)
             .with_low_memory(low_memory)
@@ -83,7 +83,7 @@ impl CsvController {
 
     fn handle_glob_pattern(
         &self,
-        pattern: &PathBuf,
+        pattern: &Path,
         separator: &str,
         low_memory: bool,
     ) -> LazyFrame {
