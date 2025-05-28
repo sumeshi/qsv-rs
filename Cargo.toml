@@ -1,6 +1,6 @@
 [package]
 name = "qsv"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A tool for elastic and rapid filtering of huge CSV files"
 authors = ["sumeshi <sum3sh1@protonmail.com>"]
