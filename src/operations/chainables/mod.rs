@@ -1,5 +1,6 @@
 pub mod changetz;
 pub mod contains;
+pub mod convert;
 pub mod count;
 pub mod grep;
 pub mod head;

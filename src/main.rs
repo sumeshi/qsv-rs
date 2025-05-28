@@ -437,6 +437,33 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             controller.renamecol(colname, new_colname);
         }
 
+        "convert" => {
+            check_data_loaded(controller, "convert");
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'convert' command requires a column name");
+                process::exit(1);
+            }
+            let colname = &cmd.args[0];
+
+            let from_format = match cmd.options.get("from") {
+                Some(Some(format)) => format,
+                _ => {
+                    eprintln!("Error: 'convert' command requires --from option");
+                    process::exit(1);
+                }
+            };
+
+            let to_format = match cmd.options.get("to") {
+                Some(Some(format)) => format,
+                _ => {
+                    eprintln!("Error: 'convert' command requires --to option");
+                    process::exit(1);
+                }
+            };
+
+            controller.convert(colname, from_format, to_format);
+        }
+
         "timeline" => {
             check_data_loaded(controller, "timeline");
 
