@@ -74,6 +74,8 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "cols"
                         | "values"
                         | "agg"
+                        | "from"
+                        | "to"
                 );
 
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
@@ -213,6 +215,7 @@ pub fn print_help() {
     println!("  uniq         Remove duplicate rows");
     println!("  changetz     Change timezone");
     println!("  renamecol    Rename column");
+    println!("  convert      Convert data formats (JSON, YAML, XML, etc.)");
     println!("  timeline     Aggregate data by time intervals");
     println!("  timeslice    Filter data by time range");
     println!("  pivot        Create pivot tables with cross-tabulation");
@@ -255,6 +258,7 @@ pub fn print_chainable_help(cmd: &str) {
         "uniq" => print_uniq_help(),
         "changetz" => print_changetz_help(),
         "renamecol" => print_renamecol_help(),
+        "convert" => print_convert_help(),
         "timeline" => print_timeline_help(),
         "timeslice" => print_timeslice_help(),
         "partition" => print_partition_help(),
@@ -370,6 +374,31 @@ fn print_renamecol_help() {
     println!("Usage: renamecol <old_colname> <new_colname>\n");
     println!("Examples:");
     println!("  qsv load data.csv - renamecol col1 new_col - show");
+}
+fn print_convert_help() {
+    println!("convert: Convert data formats (JSON, YAML, XML, etc.)\n");
+    println!("Usage: convert <colname> --from <format> --to <format>\n");
+    println!("Options:");
+    println!("  --from <format>  Source format (json, yaml, xml)");
+    println!("  --to <format>    Target format (json, yaml, xml)");
+    println!("\nSupported conversions:");
+    println!("  json -> yaml     Convert JSON to YAML format");
+    println!("  yaml -> json     Convert YAML to JSON format");
+    println!("  json -> xml      Convert JSON to XML format");
+    println!("  xml -> json      Convert XML to JSON format");
+    println!("  yaml -> xml      Convert YAML to XML format");
+    println!("  xml -> yaml      Convert XML to YAML format");
+    println!("\nFormatting (same format conversions):");
+    println!("  json -> json     Format/prettify JSON");
+    println!("  yaml -> yaml     Format/prettify YAML");
+    println!("  xml -> xml       Format/prettify XML");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - convert col1 --from json --to yaml - show");
+    println!("  qsv load data.csv - convert config --from yaml --to json - show");
+    println!("  qsv load data.csv - convert data --from json --to xml - show");
+    println!("  qsv load data.csv - convert xml_data --from xml --to json - show");
+    println!("  qsv load data.csv - convert json_data --from json --to json - show  # Format JSON");
+    println!("\nNote: Handles malformed JSON with extra quotes automatically.");
 }
 fn print_timeline_help() {
     println!("timeline: Aggregate data by time intervals\n");

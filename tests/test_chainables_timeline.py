@@ -40,7 +40,7 @@ class TestTimeline(QsvTestBase):
         
         lines = result.strip().split('\n')
         if len(lines) > 0:
-            self.assertEqual(lines[0], "timeline_bucket,count")
+            self.assertEqual(lines[0], "timeline_1h,count")
             self.assertIn("2023-01-01 10:00:00,4", result)
             self.assertIn("2023-01-01 11:00:00,4", result)
             self.assertIn("2023-01-01 12:00:00,4", result)
@@ -51,7 +51,7 @@ class TestTimeline(QsvTestBase):
         
         lines = result.strip().split('\n')
         if len(lines) > 0:
-            self.assertEqual(lines[0], "timeline_bucket,count,sum_value")
+            self.assertEqual(lines[0], "timeline_1h,count,sum_value")
             self.assertIn("2023-01-01 10:00:00,4,107.0", result)
             self.assertIn("2023-01-01 11:00:00,4,261.0", result)
 
@@ -61,7 +61,7 @@ class TestTimeline(QsvTestBase):
         
         lines = result.strip().split('\n')
         if len(lines) > 0:
-            self.assertEqual(lines[0], "timeline_bucket,count,avg_cpu_usage")
+            self.assertEqual(lines[0], "timeline_1h,count,avg_cpu_usage")
             # Check that we have the expected number of rows (header + 3 data rows)
             self.assertEqual(len(lines), 4)
 
@@ -71,7 +71,7 @@ class TestTimeline(QsvTestBase):
         
         lines = result.strip().split('\n')
         if len(lines) > 0:
-            self.assertEqual(lines[0], "timeline_bucket,count")
+            self.assertEqual(lines[0], "timeline_30m,count")
             # Should have more buckets with 30-minute intervals
             self.assertGreater(len(lines), 4)  # More than 1h intervals
 
@@ -81,7 +81,7 @@ class TestTimeline(QsvTestBase):
         
         lines = result.strip().split('\n')
         if len(lines) > 0:
-            self.assertEqual(lines[0], "timeline_bucket,count,sum_value")
+            self.assertEqual(lines[0], "timeline_1h,count,sum_value")
             # Should only have purchase events
             self.assertGreater(len(lines), 1)
 

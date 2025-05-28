@@ -43,6 +43,7 @@ pub fn timeline(
     ));
 
     // Convert to LazyFrame and perform timeline aggregation
+    let bucket_column_name = format!("timeline_{}", interval);
     let timeline_expr = col(time_column)
         .cast(DataType::String)
         .map(
@@ -68,7 +69,7 @@ pub fn timeline(
             },
             GetOutput::from_type(DataType::String),
         )
-        .alias("timeline_bucket");
+        .alias(&bucket_column_name);
 
     let mut agg_exprs = vec![len().alias("count")];
 
@@ -116,9 +117,9 @@ pub fn timeline(
 
     df.clone()
         .with_column(timeline_expr)
-        .group_by([col("timeline_bucket")])
+        .group_by([col(&bucket_column_name)])
         .agg(agg_exprs)
-        .sort(["timeline_bucket"], SortMultipleOptions::default())
+        .sort([&bucket_column_name], SortMultipleOptions::default())
 }
 
 fn parse_interval(interval: &str) -> Option<Duration> {

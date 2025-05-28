@@ -28,6 +28,12 @@ fn main() {
     // Get command line arguments
     let args: Vec<String> = std::env::args().collect();
 
+    // No arguments provided - show help
+    if args.len() == 1 {
+        print_help();
+        return;
+    }
+
     // -h, --help
     if args.len() == 2 && (args[1] == "-h" || args[1] == "--help") {
         print_help();
@@ -64,6 +70,27 @@ fn main() {
 fn process_commands(controller: &mut DataFrameController, commands: &[Command]) {
     for cmd in commands.iter() {
         process_command(controller, cmd);
+    }
+
+    // Check if the last command was a finalizer
+    if let Some(last_cmd) = commands.last() {
+        let finalizer_commands = [
+            "show",
+            "showtable",
+            "headers",
+            "stats",
+            "showquery",
+            "dump",
+            "partition",
+            "quilt",
+        ];
+
+        if !finalizer_commands.contains(&last_cmd.name.as_str()) {
+            // Last command was not a finalizer, so call showtable as default
+            if !controller.is_empty() {
+                controller.showtable();
+            }
+        }
     }
 }
 
@@ -408,6 +435,33 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let colname = &cmd.args[0];
             let new_colname = &cmd.args[1];
             controller.renamecol(colname, new_colname);
+        }
+
+        "convert" => {
+            check_data_loaded(controller, "convert");
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'convert' command requires a column name");
+                process::exit(1);
+            }
+            let colname = &cmd.args[0];
+
+            let from_format = match cmd.options.get("from") {
+                Some(Some(format)) => format,
+                _ => {
+                    eprintln!("Error: 'convert' command requires --from option");
+                    process::exit(1);
+                }
+            };
+
+            let to_format = match cmd.options.get("to") {
+                Some(Some(format)) => format,
+                _ => {
+                    eprintln!("Error: 'convert' command requires --to option");
+                    process::exit(1);
+                }
+            };
+
+            controller.convert(colname, from_format, to_format);
         }
 
         "timeline" => {

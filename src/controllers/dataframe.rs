@@ -1,6 +1,6 @@
 use crate::operations::chainables::{
-    changetz, contains, count, grep, head, isin, pivot, renamecol, sed, select, sort, tail,
-    timeline, timeslice, uniq,
+    changetz, contains, convert, count, grep, head, isin, pivot, renamecol, sed, select, sort,
+    tail, timeline, timeslice, uniq,
 };
 use crate::operations::finalizers::{dump, headers, partition, show, showquery, showtable, stats};
 use crate::operations::initializers::load;
@@ -132,9 +132,16 @@ impl DataFrameController {
         self
     }
 
-    pub fn renamecol(&mut self, colname: &str, new_colname: &str) -> &mut Self {
+    pub fn renamecol(&mut self, old_name: &str, new_name: &str) -> &mut Self {
         if let Some(df) = &self.df {
-            self.df = Some(renamecol::renamecol(df, colname, new_colname));
+            self.df = Some(renamecol::renamecol(df, old_name, new_name));
+        }
+        self
+    }
+
+    pub fn convert(&mut self, colname: &str, from_format: &str, to_format: &str) -> &mut Self {
+        if let Some(df) = &self.df {
+            self.df = Some(convert::convert(df, colname, from_format, to_format));
         }
         self
     }
