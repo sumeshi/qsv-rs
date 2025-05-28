@@ -28,6 +28,12 @@ fn main() {
     // Get command line arguments
     let args: Vec<String> = std::env::args().collect();
 
+    // No arguments provided - show help
+    if args.len() == 1 {
+        print_help();
+        return;
+    }
+
     // -h, --help
     if args.len() == 2 && (args[1] == "-h" || args[1] == "--help") {
         print_help();
@@ -64,6 +70,27 @@ fn main() {
 fn process_commands(controller: &mut DataFrameController, commands: &[Command]) {
     for cmd in commands.iter() {
         process_command(controller, cmd);
+    }
+
+    // Check if the last command was a finalizer
+    if let Some(last_cmd) = commands.last() {
+        let finalizer_commands = [
+            "show",
+            "showtable",
+            "headers",
+            "stats",
+            "showquery",
+            "dump",
+            "partition",
+            "quilt",
+        ];
+
+        if !finalizer_commands.contains(&last_cmd.name.as_str()) {
+            // Last command was not a finalizer, so call showtable as default
+            if !controller.is_empty() {
+                controller.showtable();
+            }
+        }
     }
 }
 
