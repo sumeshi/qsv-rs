@@ -1,5 +1,6 @@
 # Quilter-CSV
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![CI/CD Pipeline](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml)
 
 ![Quilter-CSV](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/00d774e6814a462eb48e68f29fc6226976238777/quilter-csv.svg)
 
@@ -16,7 +17,6 @@ A fast, flexible, and memory-efficient command-line tool written in Rust for pro
 - **Pipeline-style command chaining**: Chain multiple commands in a single line for fast and efficient data processing
 - **Flexible filtering and transformation**: Perform operations like select, filter, sort, deduplicate, and timezone conversion
 - **YAML-based batch processing (Quilt)**: Automate complex workflows using YAML configuration files
-- **Memory efficient**: Built on Polars for optimal performance with large datasets
 
 ## Usage
 ![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
@@ -46,7 +46,7 @@ Quilter-CSV commands are composed of three types of steps:
 Each step is separated by a hyphen (`-`):
 
 ```bash
-qsv <INITIALIZER> <args> - <CHAINABLE> <args> - <FINALIZER> <args>
+$ qsv <INITIALIZER> <args> - <CHAINABLE> <args> - <FINALIZER> <args>
 ```
 
 ## Command Reference
@@ -58,17 +58,20 @@ Load one or more CSV files.
 
 | Parameter     | Type        | Default | Description                                      |
 |---------------|-------------|---------|--------------------------------------------------|
-| path          | list[str] |         | One or more paths to CSV files. Glob patterns are supported. |
+| path          | list[str] |         | One or more paths to CSV files. Glob patterns are supported. Gzip files (.gz) are automatically detected and decompressed. |
 | -s, --separator | str       | `,`     | Field separator character.                       |
 | --low-memory  | flag    | `false` | Enable low-memory mode for very large files.     |
+| --no-headers  | flag    | `false` | Treat the first row as data, not headers. When enabled, columns will be named automatically (column_0, column_1, etc.). |
 
 Example:
 ```bash
 $ qsv load data.csv
+$ qsv load data.csv.gz
 $ qsv load data1.csv data2.csv data3.csv
 $ qsv load "logs/*.tsv" -s \t
 $ qsv load logs/*.tsv --separator=\t
 $ qsv load data.csv --low-memory
+$ qsv load data.csv --no-headers
 ```
 
 ### Chainable Functions
@@ -236,6 +239,66 @@ Renames a specific column.
 $ qsv load data.csv - renamecol current_name new_name
 ```
 
+#### `timeline`
+Aggregates data by time intervals, creating time-based summaries.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| time_column | str |         | Name of the datetime column to use for time bucketing. Required. |
+| --interval | str |         | Time interval for aggregation (e.g., `1h`, `30m`, `5s`, `1d`). Required. |
+| --sum | str | | Column name to sum within each time bucket. Optional. |
+| --avg | str | | Column name to average within each time bucket. Optional. |
+| --min | str | | Column name to find minimum within each time bucket. Optional. |
+| --max | str | | Column name to find maximum within each time bucket. Optional. |
+| --std | str | | Column name to calculate standard deviation within each time bucket. Optional. |
+
+If no aggregation column is specified, only row counts are provided for each time bucket.
+
+Example:
+```bash
+$ qsv load access.log - timeline timestamp --interval 1h
+$ qsv load metrics.csv - timeline time --interval 5m --avg cpu_usage
+$ qsv load sales.csv - timeline date --interval 1d --sum amount
+$ qsv load server.log - timeline timestamp --interval 30s --max response_time
+```
+
+#### `timeslice`
+Filters data based on time ranges, extracting records within specified time boundaries.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| time_column | str |         | Name of the datetime column to filter on. Required. |
+| --start | str | | Start time (inclusive). Optional. |
+| --end | str | | End time (inclusive). Optional. |
+
+At least one of `--start` or `--end` must be specified. Supports various datetime formats including ISO8601, timestamps, and common log formats.
+
+Example:
+```bash
+$ qsv load data.csv - timeslice timestamp --start "2023-01-01 00:00:00"
+$ qsv load data.csv - timeslice timestamp --end "2023-12-31 23:59:59"
+$ qsv load data.csv - timeslice timestamp --start "2023-06-01" --end "2023-06-30"
+$ qsv load access.log - timeslice timestamp --start "2023-01-01T10:00:00"
+```
+
+#### `partition`
+Splits data into separate CSV files based on unique values in a specified column. Each unique value creates its own file.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| colname | str |         | Column name to partition by. Required. |
+| output_directory | str |         | Directory to save partitioned files. Required. |
+
+The output directory will be created if it doesn't exist. Each file is named after the unique value in the partition column (with invalid filename characters replaced by underscores).
+
+Example:
+```bash
+$ qsv load data.csv - partition category ./partitions/
+$ qsv load sales.csv - partition region ./by_region/
+$ qsv load logs.csv - partition date ./daily_logs/
+$ qsv load data.csv - select col1,col2 - partition col1 ./numeric_partitions/
+```
+
 ### Finalizers
 
 Finalizers are used to output or summarize the processed data. They are typically the last command in a chain.
@@ -316,19 +379,18 @@ Quilt allows you to define complex data processing workflows in YAML configurati
 The `quilt` command itself takes the path to a YAML configuration file. Input data sources and other parameters are typically defined within the YAML file.
 
 ```bash
-qsv quilt <config_file_path.yaml> [options]
+$ qsv quilt <config_file_path.yaml> [options]
 ```
 | Parameter | Type | Description |
 |---|---|---|
 | config_file_path.yaml | str | Path to the YAML configuration file defining the pipeline stages. Required. |
 | -o, --output | str | Overrides the output path defined in the YAML config for the final dump operation (if any). |
-| -t, --title | str | Overrides the title defined in the YAML config. |
 
 
 #### Example: Running a Quilt File
 ```bash
 $ qsv quilt rules/my_workflow.yaml
-$ qsv quilt rules/my_analysis.yaml -o custom_output.csv -t "My Custom Analysis"
+$ qsv quilt rules/my_analysis.yaml -o custom_output.csv
 ```
 
 The YAML configuration file (e.g., `rules/my_workflow.yaml`) defines the stages and steps. For example, the `Sample YAML (rules/test.yaml)` below defines a pipeline that:
@@ -404,7 +466,7 @@ stages:
   data_cleaning_stage:
     type: process
     source: raw_data_load
-    steps:
+  steps:
       renamecol: # First renamecol
         old_name: "old_col_name_1"
         new_name: "new_col_1"
@@ -438,10 +500,10 @@ Pre-compiled binary versions for various platforms (Linux, macOS, Windows) may b
 
 #### For Linux/macOS:
 ```bash
-# Download the binary, e.g., qsv-x86_64-unknown-linux-gnu
-chmod +x ./qsv-x86_64-unknown-linux-gnu
+# Download the binary
+chmod +x ./qsv-rs-linux-x86_64
 # Optionally, move it to a directory in your PATH, e.g., /usr/local/bin/qsv
-sudo mv ./qsv-x86_64-unknown-linux-gnu /usr/local/bin/qsv
+sudo mv ./qsv-rs-linux-x86_64 /usr/local/bin/qsv
 # Then you can run it directly
 qsv --version
 ```

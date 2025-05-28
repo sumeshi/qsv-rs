@@ -181,11 +181,14 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let low_memory =
                 cmd.options.contains_key("low-memory") || cmd.options.contains_key("low_memory");
 
+            let no_headers =
+                cmd.options.contains_key("no-headers") || cmd.options.contains_key("no_headers");
+
             for path_str in &cmd.args {
                 paths.push(PathBuf::from(path_str));
             }
 
-            controller.load(&paths, &separator, low_memory);
+            controller.load(&paths, &separator, low_memory, no_headers);
         }
 
         // Chainables
@@ -407,6 +410,132 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             controller.renamecol(colname, new_colname);
         }
 
+        "timeline" => {
+            check_data_loaded(controller, "timeline");
+
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'timeline' command requires a time column name");
+                process::exit(1);
+            }
+
+            let time_column = &cmd.args[0];
+
+            let interval = match cmd.options.get("interval") {
+                Some(Some(interval)) => interval,
+                _ => {
+                    eprintln!("Error: 'timeline' command requires --interval option (e.g., --interval 1h)");
+                    process::exit(1);
+                }
+            };
+
+            // Determine aggregation type and column
+            let (agg_type, agg_column) = if let Some(Some(col)) = cmd.options.get("sum") {
+                ("sum", Some(col.as_str()))
+            } else if let Some(Some(col)) = cmd.options.get("avg") {
+                ("avg", Some(col.as_str()))
+            } else if let Some(Some(col)) = cmd.options.get("min") {
+                ("min", Some(col.as_str()))
+            } else if let Some(Some(col)) = cmd.options.get("max") {
+                ("max", Some(col.as_str()))
+            } else if let Some(Some(col)) = cmd.options.get("std") {
+                ("std", Some(col.as_str()))
+            } else {
+                ("count", None) // Default to count
+            };
+
+            controller.timeline(time_column, interval, agg_type, agg_column);
+        }
+
+        "timeslice" => {
+            check_data_loaded(controller, "timeslice");
+
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'timeslice' command requires a time column name");
+                process::exit(1);
+            }
+
+            let time_column = &cmd.args[0];
+
+            let start_time = cmd.options.get("start").and_then(|opt| opt.as_deref());
+            let end_time = cmd.options.get("end").and_then(|opt| opt.as_deref());
+
+            if start_time.is_none() && end_time.is_none() {
+                eprintln!(
+                    "Error: 'timeslice' command requires at least one of --start or --end options"
+                );
+                process::exit(1);
+            }
+
+            controller.timeslice(time_column, start_time, end_time);
+        }
+
+        "partition" => {
+            check_data_loaded(controller, "partition");
+
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'partition' command requires a column name");
+                process::exit(1);
+            }
+
+            let colname = &cmd.args[0];
+            let output_dir = if cmd.args.len() > 1 {
+                &cmd.args[1]
+            } else {
+                "./partitions"
+            };
+
+            controller.partition(colname, output_dir);
+        }
+
+        "pivot" => {
+            check_data_loaded(controller, "pivot");
+
+            let rows_str = cmd
+                .options
+                .get("rows")
+                .and_then(|opt| opt.as_deref())
+                .unwrap_or("");
+            let cols_str = cmd
+                .options
+                .get("cols")
+                .and_then(|opt| opt.as_deref())
+                .unwrap_or("");
+            let values = cmd
+                .options
+                .get("values")
+                .and_then(|opt| opt.as_deref())
+                .unwrap_or_else(|| {
+                    eprintln!("Error: 'pivot' command requires --values option");
+                    process::exit(1);
+                });
+            let agg_func = cmd
+                .options
+                .get("agg")
+                .and_then(|opt| opt.as_deref())
+                .unwrap_or("sum");
+
+            if rows_str.is_empty() && cols_str.is_empty() {
+                eprintln!(
+                    "Error: 'pivot' command requires at least one of --rows or --cols options"
+                );
+                process::exit(1);
+            }
+
+            let rows: Vec<String> = if rows_str.is_empty() {
+                Vec::new()
+            } else {
+                rows_str.split(',').map(|s| s.trim().to_string()).collect()
+            };
+
+            let columns: Vec<String> = if cols_str.is_empty() {
+                Vec::new()
+            } else {
+                cols_str.split(',').map(|s| s.trim().to_string()).collect()
+            };
+
+            controller.pivot(&rows, &columns, values, agg_func);
+        }
+
         // Quilters
         "quilt" => {
             if cmd.args.is_empty() {
@@ -427,7 +556,6 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             };
 
             let output_path_str = cmd.options.get("output").and_then(|o| o.as_deref());
-            let title_override = cmd.options.get("title").and_then(|t| t.as_deref());
 
             // quilt operation is destructive / stateful for the controller for now
             operations::quilters::quilt::quilt(
@@ -435,7 +563,6 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
                 config_path_str,
                 cli_input_files,
                 output_path_str,
-                title_override,
             );
         }
 

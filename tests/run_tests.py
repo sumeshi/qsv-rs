@@ -22,6 +22,8 @@ from test_chainables_sort import TestSort
 from test_chainables_count import TestCount
 from test_chainables_uniq import TestUniq
 from test_chainables_renamecol import TestRenamecol
+from test_chainables_timeline import TestTimeline
+from test_chainables_timeslice import TestTimeslice
 
 # Finalizers
 from test_finalizers_headers import TestHeaders
@@ -65,6 +67,10 @@ def run_test_suite():
     print("  ✓ Added TestUniq")
     suite.addTest(unittest.makeSuite(TestRenamecol))
     print("  ✓ Added TestRenamecol")
+    suite.addTest(unittest.makeSuite(TestTimeline))
+    print("  ✓ Added TestTimeline")
+    suite.addTest(unittest.makeSuite(TestTimeslice))
+    print("  ✓ Added TestTimeslice")
     
     # Finalizers
     suite.addTest(unittest.makeSuite(TestHeaders))

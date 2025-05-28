@@ -3,7 +3,7 @@ use crate::controllers::log::LogController;
 use polars::prelude::*;
 use std::path::PathBuf;
 
-pub fn load(paths: &[PathBuf], separator: &str, low_memory: bool) -> LazyFrame {
+pub fn load(paths: &[PathBuf], separator: &str, low_memory: bool, no_headers: bool) -> LazyFrame {
     if !exists_path(paths) {
         eprintln!("One or more files do not exist");
         std::process::exit(1);
@@ -19,5 +19,5 @@ pub fn load(paths: &[PathBuf], separator: &str, low_memory: bool) -> LazyFrame {
             .join(", ")
     ));
 
-    CsvController::new(paths).get_dataframe(separator, low_memory)
+    CsvController::new(paths).get_dataframe(separator, low_memory, no_headers)
 }
