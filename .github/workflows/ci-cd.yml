@@ -115,10 +115,10 @@ jobs:
         echo "Name: $name"
         echo "Output file: $outputFile"
         echo "Source file: target/${{ matrix.target }}/release/qsv.exe"
-        ls target/${{ matrix.target }}/release/
+        Get-ChildItem target/${{ matrix.target }}/release/
         cp target/${{ matrix.target }}/release/qsv.exe $outputFile
         echo "Created file:"
-        ls -la $outputFile
+        Get-ChildItem $outputFile | Format-List
       shell: powershell
         
     - name: Upload binary artifact
