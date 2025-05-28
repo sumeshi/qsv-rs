@@ -9,13 +9,238 @@ use std::path::{Path, PathBuf};
 
 // Re-import operations to call them directly with LazyFrame
 use crate::operations::chainables::{
-    changetz, contains, count, grep, head, isin, renamecol, sed, select, sort, tail, uniq,
+    changetz, contains, count, grep, head, isin, pivot, renamecol, sed, select, sort, tail,
+    timeline, timeslice, uniq,
 };
 use crate::operations::finalizers::{
-    dump as dump_op, headers as headers_op, show as show_op, showquery as showquery_op,
-    showtable as showtable_op, stats as stats_op,
+    dump as dump_op, headers as headers_op, partition as partition_op, show as show_op,
+    showquery as showquery_op, showtable as showtable_op, stats as stats_op,
 };
 use crate::operations::initializers::load as load_op;
+
+// Type alias for chainable operation functions
+type ChainableOperation = fn(&LazyFrame, &Value) -> LazyFrame;
+type FinalizerOperation = fn(&LazyFrame, &Value);
+
+// Create a dispatch table for chainable operations
+fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation> {
+    let mut table: HashMap<&'static str, ChainableOperation> = HashMap::new();
+
+    table.insert("select", |df, args| {
+        let colnames = if let Some(colnames_str) = get_string_from_value(args, "colnames") {
+            colnames_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
+        } else if let Some(colnames_vec) = get_string_vec_from_value(args, "colnames") {
+            colnames_vec
+        } else {
+            vec!["*".to_string()]
+        };
+        select::select(df, &colnames)
+    });
+
+    table.insert("isin", |df, args| {
+        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let values = get_string_vec_from_value(args, "values").unwrap_or_default();
+        isin::isin(df, &colname, &values)
+    });
+
+    table.insert("contains", |df, args| {
+        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
+        let ignorecase = get_bool_from_value(args, "ignorecase");
+        contains::contains(df, &colname, &pattern, ignorecase)
+    });
+
+    table.insert("sed", |df, args| {
+        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
+        let replacement = get_string_from_value(args, "replacement").unwrap_or_default();
+        let ignorecase = get_bool_from_value(args, "ignorecase");
+        sed::sed(df, &colname, &pattern, &replacement, ignorecase)
+    });
+
+    table.insert("grep", |df, args| {
+        let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
+        let ignorecase = get_bool_from_value(args, "ignorecase");
+        let is_inverted = get_bool_from_value(args, "invert_match");
+        grep::grep(df, &pattern, ignorecase, is_inverted)
+    });
+
+    table.insert("head", |df, args| {
+        let n = get_usize_from_value(args, "number")
+            .or_else(|| args.as_u64().and_then(|u| usize::try_from(u).ok()))
+            .unwrap_or(5);
+        head::head(df, n)
+    });
+
+    table.insert("tail", |df, args| {
+        let n = get_usize_from_value(args, "number")
+            .or_else(|| args.as_u64().and_then(|u| usize::try_from(u).ok()))
+            .unwrap_or(5);
+        tail::tail(df, n)
+    });
+
+    table.insert("sort", |df, args| {
+        let colnames = if let Some(colnames_str) = get_string_from_value(args, "colnames") {
+            colnames_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
+        } else if let Some(colnames_vec) = get_string_vec_from_value(args, "colnames") {
+            colnames_vec
+        } else {
+            vec!["*".to_string()]
+        };
+        let desc = get_bool_from_value(args, "desc");
+        sort::sort(df, &colnames, desc)
+    });
+
+    table.insert("count", |df, _args| count::count(df));
+
+    table.insert("uniq", |df, args| {
+        let colnames = if let Some(colnames_str) = get_string_from_value(args, "colnames") {
+            Some(
+                colnames_str
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .collect(),
+            )
+        } else {
+            get_string_vec_from_value(args, "colnames")
+        };
+        uniq::uniq(df, colnames.as_deref())
+    });
+
+    table.insert("changetz", |df, args| {
+        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let from_tz = get_string_from_value(args, "from_tz")
+            .or_else(|| get_string_from_value(args, "tz_from"))
+            .unwrap_or_default();
+        let to_tz = get_string_from_value(args, "to_tz")
+            .or_else(|| get_string_from_value(args, "tz_to"))
+            .unwrap_or_default();
+        let format = get_string_from_value(args, "format")
+            .or_else(|| get_string_from_value(args, "dt_format"));
+        let ambiguous = get_string_from_value(args, "ambiguous");
+        changetz::changetz(
+            df,
+            &colname,
+            &from_tz,
+            &to_tz,
+            format.as_deref().unwrap_or("auto"),
+            ambiguous.as_deref().unwrap_or("earliest"),
+        )
+    });
+
+    table.insert("renamecol", |df, args| {
+        let old_name = get_string_from_value(args, "old_name")
+            .or_else(|| get_string_from_value(args, "from"))
+            .unwrap_or_default();
+        let new_name = get_string_from_value(args, "new_name")
+            .or_else(|| get_string_from_value(args, "to"))
+            .unwrap_or_default();
+        renamecol::renamecol(df, &old_name, &new_name)
+    });
+
+    table.insert("timeline", |df, args| {
+        let time_column = get_string_from_value(args, "time_column").unwrap_or_default();
+        let interval = get_string_from_value(args, "interval").unwrap_or_default();
+        let agg_type =
+            get_string_from_value(args, "agg_type").unwrap_or_else(|| "count".to_string());
+        let agg_column = get_string_from_value(args, "agg_column");
+        timeline::timeline(
+            df,
+            &time_column,
+            &interval,
+            &agg_type,
+            agg_column.as_deref(),
+        )
+    });
+
+    table.insert("timeslice", |df, args| {
+        let time_column = get_string_from_value(args, "time_column").unwrap_or_default();
+        let start_time = get_string_from_value(args, "start");
+        let end_time = get_string_from_value(args, "end");
+        timeslice::timeslice(df, &time_column, start_time.as_deref(), end_time.as_deref())
+    });
+
+    table.insert("pivot", |df, args| {
+        let rows_str = get_string_from_value(args, "rows").unwrap_or_default();
+        let cols_str = get_string_from_value(args, "cols")
+            .or_else(|| get_string_from_value(args, "columns"))
+            .unwrap_or_default();
+        let values = get_string_from_value(args, "values")
+            .or_else(|| get_string_from_value(args, "value"))
+            .unwrap_or_default();
+        let agg_func = get_string_from_value(args, "agg")
+            .or_else(|| get_string_from_value(args, "aggregation"))
+            .unwrap_or_else(|| "sum".to_string());
+
+        let rows: Vec<String> = if rows_str.is_empty() {
+            Vec::new()
+        } else {
+            rows_str.split(',').map(|s| s.trim().to_string()).collect()
+        };
+
+        let columns: Vec<String> = if cols_str.is_empty() {
+            Vec::new()
+        } else {
+            cols_str.split(',').map(|s| s.trim().to_string()).collect()
+        };
+
+        pivot::pivot(df, &rows, &columns, &values, &agg_func)
+    });
+
+    table
+}
+
+// Create a dispatch table for finalizer operations
+fn create_finalizer_dispatch_table() -> HashMap<&'static str, FinalizerOperation> {
+    let mut table: HashMap<&'static str, FinalizerOperation> = HashMap::new();
+
+    table.insert("show", |df, _args| {
+        show_op::show(df);
+    });
+
+    table.insert("showtable", |df, _args| {
+        showtable_op::showtable(df);
+    });
+
+    table.insert("headers", |df, args| {
+        let plain = get_bool_from_value(args, "plain");
+        headers_op::headers(df, plain);
+    });
+
+    table.insert("stats", |df, _args| {
+        stats_op::stats(df);
+    });
+
+    table.insert("showquery", |df, _args| {
+        showquery_op::showquery(df);
+    });
+
+    table.insert("dump", |df, args| {
+        let path_from_yaml = get_string_from_value(args, "path")
+            .or_else(|| get_string_from_value(args, "output"))
+            .unwrap_or_else(|| "output.csv".to_string());
+        let separator = get_string_from_value(args, "separator")
+            .and_then(|s| s.chars().next())
+            .unwrap_or(',');
+        dump_op::dump(df, &path_from_yaml, separator);
+    });
+
+    table.insert("partition", |df, args| {
+        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let output_dir = get_string_from_value(args, "output_dir")
+            .or_else(|| get_string_from_value(args, "output_directory"))
+            .unwrap_or_else(|| "./partitions".to_string());
+        partition_op::partition(df, &colname, &output_dir);
+    });
+
+    table
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QuiltConfig {
@@ -62,7 +287,6 @@ pub fn quilt(
     config_path_str: &str,
     cli_input_files: Option<Vec<PathBuf>>,
     output_path_str: Option<&str>,
-    title_override: Option<&str>,
 ) {
     let config_path = Path::new(config_path_str);
     let config_content = match fs::read_to_string(config_path) {
@@ -73,17 +297,13 @@ pub fn quilt(
         }
     };
 
-    let mut quilt_config: QuiltConfig = match serde_yaml::from_str(&config_content) {
+    let quilt_config: QuiltConfig = match serde_yaml::from_str(&config_content) {
         Ok(config) => config,
         Err(e) => {
             eprintln!("Error parsing YAML config: {}", e);
             std::process::exit(1);
         }
     };
-
-    if let Some(t) = title_override {
-        quilt_config.title = t.to_string();
-    }
 
     LogController::info(&format!(
         "Executing quilt '{}' with {} stage entries in YAML",
@@ -136,9 +356,20 @@ pub fn quilt(
         let mut stage_output_df: Option<LazyFrame> = current_stage_input_df.clone();
 
         if stage_config.stage_type == "process" {
+            // Create dispatch tables
+            let chainable_ops = create_chainable_dispatch_table();
+            let finalizer_ops = create_finalizer_dispatch_table();
+
             if let Some(steps) = &stage_config.steps {
                 for (command_name_val, command_args_val) in steps {
-                    let command_name = command_name_val.as_str().unwrap_or("");
+                    // Handle command name with trailing underscores (for duplicates)
+                    let raw_command_name = command_name_val.as_str().unwrap_or("");
+                    let command_name = if raw_command_name.ends_with('_') {
+                        raw_command_name.trim_end_matches('_')
+                    } else {
+                        raw_command_name
+                    };
+
                     LogController::debug(&format!(
                         "Applying step: {} to stage '{}'",
                         command_name, stage_name
@@ -165,14 +396,28 @@ pub fn quilt(
                                         .join(source_path)
                                 };
                                 LogController::debug(&format!("Loading data from: {} (specified in quilt YAML for stage '{}')", path_to_load.display(), stage_name));
-                                loaded_df = Some(load_op::load(&[path_to_load], ",", false));
+
+                                let separator =
+                                    get_string_from_value(command_args_val, "separator")
+                                        .unwrap_or_else(|| ",".to_string());
+                                let low_memory =
+                                    get_bool_from_value(command_args_val, "low_memory");
+                                let no_headers =
+                                    get_bool_from_value(command_args_val, "no_headers");
+
+                                loaded_df = Some(load_op::load(
+                                    &[path_to_load],
+                                    &separator,
+                                    low_memory,
+                                    no_headers,
+                                ));
                             } else if let Some(ref cli_files) = cli_input_files {
                                 if stage_output_df.is_none() && !cli_files.is_empty() {
                                     LogController::debug(&format!(
                                         "Loading data from CLI for stage '{}': {:?}",
                                         stage_name, cli_files
                                     ));
-                                    loaded_df = Some(load_op::load(cli_files, ",", false));
+                                    loaded_df = Some(load_op::load(cli_files, ",", false, false));
                                 } else if stage_output_df.is_some() {
                                     LogController::debug(&format!("Stage '{}' already has data from source, 'load' step without path will not use CLI files.", stage_name));
                                 } else {
@@ -185,8 +430,12 @@ pub fn quilt(
                                     .unwrap_or_else(|| Path::new("."))
                                     .join("../sample/simple.csv");
                                 if default_data_path.exists() {
-                                    loaded_df =
-                                        Some(load_op::load(&[default_data_path], ",", false));
+                                    loaded_df = Some(load_op::load(
+                                        &[default_data_path],
+                                        ",",
+                                        false,
+                                        false,
+                                    ));
                                 }
                             }
                             if let Some(ref new_lf) = loaded_df {
@@ -196,278 +445,29 @@ pub fn quilt(
                                 continue;
                             }
                         }
-                        "select" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let Some(colnames_str) =
-                                    get_string_from_value(command_args_val, "colnames")
-                                {
-                                    let colnames: Vec<String> = colnames_str
-                                        .split(',')
-                                        .map(|s| s.trim().to_string())
-                                        .collect();
-                                    stage_output_df = Some(select::select(df, &colnames));
-                                } else if let Some(colnames_vec) =
-                                    get_string_vec_from_value(command_args_val, "colnames")
-                                {
-                                    stage_output_df = Some(select::select(df, &colnames_vec));
-                                } else {
-                                    LogController::warn("Select step has no 'colnames'.");
-                                }
-                            }
-                        }
-                        "isin" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let (Some(colname), Some(values)) = (
-                                    get_string_from_value(command_args_val, "colname"),
-                                    get_string_vec_from_value(command_args_val, "values"),
-                                ) {
-                                    stage_output_df = Some(isin::isin(df, &colname, &values));
-                                } else {
-                                    LogController::warn("Isin step missing 'colname' or 'values'.");
-                                }
-                            }
-                        }
-                        "head" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let Some(num) = get_usize_from_value(command_args_val, "number")
-                                    .or_else(|| {
-                                        command_args_val
-                                            .as_u64()
-                                            .and_then(|u| usize::try_from(u).ok())
-                                    })
-                                {
-                                    stage_output_df = Some(head::head(df, num));
-                                } else {
-                                    LogController::warn("Head step missing 'number' or invalid value. Defaulting to 5 for head.");
-                                    stage_output_df = Some(head::head(df, 5)); // Default to 5
-                                }
-                            }
-                        }
-                        "tail" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let Some(num) = get_usize_from_value(command_args_val, "number")
-                                    .or_else(|| {
-                                        command_args_val
-                                            .as_u64()
-                                            .and_then(|u| usize::try_from(u).ok())
-                                    })
-                                {
-                                    stage_output_df = Some(tail::tail(df, num));
-                                } else {
-                                    LogController::warn("Tail step missing 'number' or invalid value. Defaulting to 5 for tail.");
-                                    stage_output_df = Some(tail::tail(df, 5)); // Default to 5
-                                }
-                            }
-                        }
-                        "sort" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let Some(colnames_str) =
-                                    get_string_from_value(command_args_val, "colnames")
-                                {
-                                    let colnames: Vec<String> = colnames_str
-                                        .split(',')
-                                        .map(|s| s.trim().to_string())
-                                        .collect();
-                                    let desc = get_bool_from_value(command_args_val, "desc");
-                                    stage_output_df = Some(sort::sort(df, &colnames, desc));
-                                } else if let Some(colnames_vec) =
-                                    get_string_vec_from_value(command_args_val, "colnames")
-                                {
-                                    let desc = get_bool_from_value(command_args_val, "desc");
-                                    stage_output_df = Some(sort::sort(df, &colnames_vec, desc));
-                                } else {
-                                    LogController::warn("Sort step has no 'colnames'.");
-                                }
-                            }
-                        }
-                        "changetz" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let (Some(colname), Some(tz_from), Some(tz_to)) = (
-                                    get_string_from_value(command_args_val, "colname"),
-                                    get_string_from_value(command_args_val, "tz_from"),
-                                    get_string_from_value(command_args_val, "tz_to"),
-                                ) {
-                                    let dt_format =
-                                        get_string_from_value(command_args_val, "dt_format");
-                                    let ambiguous =
-                                        get_string_from_value(command_args_val, "ambiguous");
-                                    stage_output_df = Some(changetz::changetz(
-                                        df,
-                                        &colname,
-                                        &tz_from,
-                                        &tz_to,
-                                        dt_format.as_deref().unwrap_or("auto"),
-                                        ambiguous.as_deref().unwrap_or("earliest"),
-                                    ));
-                                } else {
-                                    LogController::warn(
-                                        "Changetz step missing 'colname', 'tz_from', or 'tz_to'.",
-                                    );
-                                }
-                            }
-                        }
-                        "renamecol" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let (Some(old_name), Some(new_name)) = (
-                                    get_string_from_value(command_args_val, "from").or_else(|| {
-                                        get_string_from_value(command_args_val, "old_name")
-                                    }),
-                                    get_string_from_value(command_args_val, "to").or_else(|| {
-                                        get_string_from_value(command_args_val, "new_name")
-                                    }),
-                                ) {
-                                    stage_output_df =
-                                        Some(renamecol::renamecol(df, &old_name, &new_name));
-                                } else {
-                                    LogController::warn("Renamecol step missing 'from'/'old_name' or 'to'/'new_name'.");
-                                }
-                            }
-                        }
-                        "count" => {
-                            if let Some(ref df) = stage_output_df {
-                                stage_output_df = Some(count::count(df));
-                            }
-                        }
-                        "uniq" => {
-                            if let Some(ref df) = stage_output_df {
-                                let colnames = get_string_from_value(command_args_val, "colnames")
-                                    .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
-                                    .or_else(|| {
-                                        get_string_vec_from_value(command_args_val, "colnames")
-                                    });
-                                stage_output_df = Some(uniq::uniq(df, colnames.as_deref()));
-                            }
-                        }
-                        "grep" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let Some(pattern) =
-                                    get_string_from_value(command_args_val, "pattern")
-                                {
-                                    let ignorecase =
-                                        get_bool_from_value(command_args_val, "ignorecase");
-                                    let inverted =
-                                        get_bool_from_value(command_args_val, "invert_match");
-                                    stage_output_df =
-                                        Some(grep::grep(df, &pattern, ignorecase, inverted));
-                                } else {
-                                    LogController::warn("Grep step missing 'pattern'.");
-                                }
-                            }
-                        }
-                        "contains" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let (Some(colname), Some(pattern)) = (
-                                    get_string_from_value(command_args_val, "colname"),
-                                    get_string_from_value(command_args_val, "pattern"),
-                                ) {
-                                    let ignorecase =
-                                        get_bool_from_value(command_args_val, "ignorecase");
-                                    stage_output_df = Some(contains::contains(
-                                        df, &colname, &pattern, ignorecase,
-                                    ));
-                                } else {
-                                    LogController::warn(
-                                        "Contains step missing 'colname' or 'pattern'.",
-                                    );
-                                }
-                            }
-                        }
-                        "sed" => {
-                            if let Some(ref df) = stage_output_df {
-                                if let (Some(colname), Some(pattern), Some(replacement)) = (
-                                    get_string_from_value(command_args_val, "colname"),
-                                    get_string_from_value(command_args_val, "pattern"),
-                                    get_string_from_value(command_args_val, "replacement"),
-                                ) {
-                                    let ignorecase =
-                                        get_bool_from_value(command_args_val, "ignorecase");
-                                    stage_output_df = Some(sed::sed(
-                                        df,
-                                        &colname,
-                                        &pattern,
-                                        &replacement,
-                                        ignorecase,
-                                    ));
-                                } else {
-                                    LogController::warn(
-                                        "Sed step missing 'colname', 'pattern', or 'replacement'.",
-                                    );
-                                }
-                            }
-                        }
-                        "showtable" => {
-                            if let Some(df) = &stage_output_df {
-                                showtable_op::showtable(df);
-                            } else {
-                                LogController::warn("No DataFrame to showtable for stage.");
-                            }
-                        }
-                        "show" => {
-                            if let Some(df) = &stage_output_df {
-                                show_op::show(df);
-                            } else {
-                                LogController::warn("No DataFrame to show for stage.");
-                            }
-                        }
-                        "headers" => {
-                            if let Some(df) = &stage_output_df {
-                                let plain = get_bool_from_value(command_args_val, "plain");
-                                headers_op::headers(df, plain);
-                            } else {
-                                LogController::warn("No DataFrame for headers for stage.");
-                            }
-                        }
-                        "stats" => {
-                            if let Some(df) = &stage_output_df {
-                                stats_op::stats(df);
-                            } else {
-                                LogController::warn("No DataFrame for stats for stage.");
-                            }
-                        }
-                        "showquery" => {
-                            if let Some(df) = &stage_output_df {
-                                showquery_op::showquery(df);
-                            } else {
-                                LogController::warn("No DataFrame for showquery for stage.");
-                            }
-                        }
-                        "dump" => {
-                            if let Some(df) = &stage_output_df {
-                                let path_from_yaml =
-                                    get_string_from_value(command_args_val, "path").or_else(|| {
-                                        get_string_from_value(command_args_val, "output")
-                                    });
-
-                                let separator_char =
-                                    get_string_from_value(command_args_val, "separator")
-                                        .and_then(|s| s.chars().next());
-
-                                if let Some(p) = path_from_yaml {
-                                    let dump_path_resolved = if Path::new(&p).is_absolute() {
-                                        PathBuf::from(p)
-                                    } else {
-                                        config_path
-                                            .parent()
-                                            .unwrap_or_else(|| Path::new("."))
-                                            .join(p)
-                                    };
-                                    dump_op::dump(
-                                        df,
-                                        dump_path_resolved.to_str().unwrap_or_default(),
-                                        separator_char.unwrap_or(','),
-                                    );
-                                } else {
-                                    LogController::warn("Dump step in YAML missing 'path' or 'output'. Will not dump from this step.");
-                                }
-                            } else {
-                                LogController::warn("No DataFrame to dump for stage.");
-                            }
-                        }
                         _ => {
-                            // LogController::warn(&format!("Unknown or unsupported step in 'process' stage: {}", command_name));
-                            LogController::error(&format!("Error: Unknown or unsupported step '{}' in 'process' stage '{}'. Halting quilt execution.", command_name, stage_name));
-                            eprintln!("Error: Unknown or unsupported step '{}' in 'process' stage '{}'. See qsv logs for more details.", command_name, stage_name);
-                            std::process::exit(1); // Halt processing
+                            // Try chainable operations first
+                            if let Some(operation) = chainable_ops.get(command_name) {
+                                if let Some(ref df) = stage_output_df {
+                                    stage_output_df = Some(operation(df, command_args_val));
+                                } else {
+                                    LogController::error(&format!("No DataFrame available for chainable operation '{}' in stage '{}'", command_name, stage_name));
+                                }
+                            }
+                            // Try finalizer operations
+                            else if let Some(operation) = finalizer_ops.get(command_name) {
+                                if let Some(ref df) = stage_output_df {
+                                    operation(df, command_args_val);
+                                } else {
+                                    LogController::warn(&format!("No DataFrame available for finalizer operation '{}' in stage '{}'", command_name, stage_name));
+                                }
+                            }
+                            // Unknown operation
+                            else {
+                                LogController::error(&format!("Error: Unknown or unsupported step '{}' in 'process' stage '{}'. Halting quilt execution.", command_name, stage_name));
+                                eprintln!("Error: Unknown or unsupported step '{}' in 'process' stage '{}'. See qsv logs for more details.", command_name, stage_name);
+                                std::process::exit(1);
+                            }
                         }
                     }
                 }

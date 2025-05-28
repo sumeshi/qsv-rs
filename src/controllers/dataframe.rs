@@ -1,7 +1,8 @@
 use crate::operations::chainables::{
-    changetz, contains, count, grep, head, isin, renamecol, sed, select, sort, tail, uniq,
+    changetz, contains, count, grep, head, isin, pivot, renamecol, sed, select, sort, tail,
+    timeline, timeslice, uniq,
 };
-use crate::operations::finalizers::{dump, headers, show, showquery, showtable, stats};
+use crate::operations::finalizers::{dump, headers, partition, show, showquery, showtable, stats};
 use crate::operations::initializers::load;
 use polars::prelude::*;
 use std::path::PathBuf;
@@ -20,8 +21,14 @@ impl DataFrameController {
     }
 
     // -- initializers --
-    pub fn load(&mut self, paths: &[PathBuf], separator: &str, low_memory: bool) -> &mut Self {
-        self.df = Some(load::load(paths, separator, low_memory));
+    pub fn load(
+        &mut self,
+        paths: &[PathBuf],
+        separator: &str,
+        low_memory: bool,
+        no_headers: bool,
+    ) -> &mut Self {
+        self.df = Some(load::load(paths, separator, low_memory, no_headers));
         self
     }
 
@@ -132,6 +139,50 @@ impl DataFrameController {
         self
     }
 
+    pub fn timeline(
+        &mut self,
+        time_column: &str,
+        interval: &str,
+        agg_type: &str,
+        agg_column: Option<&str>,
+    ) -> &mut Self {
+        if let Some(df) = &self.df {
+            self.df = Some(timeline::timeline(
+                df,
+                time_column,
+                interval,
+                agg_type,
+                agg_column,
+            ));
+        }
+        self
+    }
+
+    pub fn timeslice(
+        &mut self,
+        time_column: &str,
+        start_time: Option<&str>,
+        end_time: Option<&str>,
+    ) -> &mut Self {
+        if let Some(df) = &self.df {
+            self.df = Some(timeslice::timeslice(df, time_column, start_time, end_time));
+        }
+        self
+    }
+
+    pub fn pivot(
+        &mut self,
+        rows: &[String],
+        columns: &[String],
+        values: &str,
+        agg_func: &str,
+    ) -> &mut Self {
+        if let Some(df) = &self.df {
+            self.df = Some(pivot::pivot(df, rows, columns, values, agg_func));
+        }
+        self
+    }
+
     // -- finalizers --
     pub fn headers(&self, plain: bool) {
         if let Some(df) = &self.df {
@@ -160,6 +211,12 @@ impl DataFrameController {
     pub fn showtable(&self) {
         if let Some(df) = &self.df {
             showtable::showtable(df);
+        }
+    }
+
+    pub fn partition(&self, colname: &str, output_dir: &str) {
+        if let Some(df) = &self.df {
+            partition::partition(df, colname, output_dir);
         }
     }
 

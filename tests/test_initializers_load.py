@@ -71,6 +71,30 @@ class TestLoad(QsvTestBase):
         self.assert_output_contains(output, "datetime,col1,col2,col3,str")
         self.assert_output_contains(output, "2023-01-01 12:00:00,1,2,3,foo")
     
+    def test_load_with_no_headers_flag(self):
+        """Test loading with --no-headers flag"""
+        output = self.run_qsv_command("load sample/simple.csv --no-headers - show")
+        
+        # Should treat first row as data and generate automatic column names
+        self.assert_output_contains(output, "column_1,column_2,column_3,column_4,column_5")
+        self.assert_output_contains(output, "datetime,col1,col2,col3,str")  # First row becomes data
+        self.assert_output_contains(output, "2023-01-01 12:00:00,1,2,3,foo")
+    
+    def test_load_gzip_file(self):
+        """Test loading gzip compressed CSV file"""
+        # Create a gzipped test file
+        import gzip
+        gzip_file = os.path.join(self.temp_dir, "test.csv.gz")
+        with gzip.open(gzip_file, 'wt') as f:
+            f.write("col1,col2,col3\n1,2,3\n4,5,6\n")
+        
+        output = self.run_qsv_command(f"load {gzip_file} - show")
+        
+        # Should decompress and load the data correctly
+        self.assert_output_contains(output, "col1,col2,col3")
+        self.assert_output_contains(output, "1,2,3")
+        self.assert_output_contains(output, "4,5,6")
+    
     def test_load_nonexistent_file(self):
         """Test loading a non-existent file should fail gracefully"""
         # This should fail, but we test that it doesn't crash

@@ -62,7 +62,18 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "output"
                         | "separator"
                         | "number"
-                        | "title"
+                        | "interval"
+                        | "sum"
+                        | "avg"
+                        | "min"
+                        | "max"
+                        | "std"
+                        | "start"
+                        | "end"
+                        | "rows"
+                        | "cols"
+                        | "values"
+                        | "agg"
                 );
 
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
@@ -85,8 +96,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             if opt_key_to_parse.len() > 1
                 && (opt_key_to_parse.starts_with('s')
                     || opt_key_to_parse.starts_with('n')
-                    || opt_key_to_parse.starts_with('o')
-                    || opt_key_to_parse.starts_with('t'))
+                    || opt_key_to_parse.starts_with('o'))
             {
                 let (actual_key, actual_value) = if opt_key_to_parse.contains('=') {
                     // Case: -s=value
@@ -100,17 +110,13 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                     )
                 };
 
-                if (actual_key == "s"
-                    || actual_key == "n"
-                    || actual_key == "o"
-                    || actual_key == "t")
+                if (actual_key == "s" || actual_key == "n" || actual_key == "o")
                     && actual_value.is_some()
                 {
                     let full_key = match actual_key.as_str() {
                         "s" => "separator".to_string(),
                         "n" => "number".to_string(),
                         "o" => "output".to_string(),
-                        "t" => "title".to_string(),
                         _ => actual_key.clone(), // Should not happen
                     };
                     current_command.options.insert(full_key, actual_value);
@@ -123,7 +129,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             // Standard short option handling (e.g. -s value, or -f flag)
             let opt_char_str = if arg.len() >= 2 { &arg[1..2] } else { "" }; // Get the char e.g. "s"
 
-            if (opt_char_str == "s" || opt_char_str == "n" || opt_char_str == "o" || opt_char_str == "t") && // It's -s, -n, -o, or -t
+            if (opt_char_str == "s" || opt_char_str == "n" || opt_char_str == "o") && // It's -s, -n, or -o
                i + 1 < args.len() && // Next argument exists
                !args[i+1].starts_with('-')
             // Next argument is not another option
@@ -133,7 +139,6 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                     "s" => "separator".to_string(),
                     "n" => "number".to_string(),
                     "o" => "output".to_string(),
-                    "t" => "title".to_string(),
                     _ => opt_char_str.to_string(), // Fallback
                 };
                 current_command.options.insert(full_key, Some(value));
@@ -166,7 +171,6 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
             "s" => "separator".to_string(),
             "n" => "number".to_string(),
             "o" => "output".to_string(),
-            "t" => "title".to_string(),
             _ => key.to_string(),
         };
         cmd.options.insert(final_key, Some(value.to_string()));
@@ -177,7 +181,6 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
             "s" => "separator".to_string(), // if -s is passed as a flag, store as separator: None
             "n" => "number".to_string(),    // if -n is passed as a flag, store as number: None
             "o" => "output".to_string(),    // if -o is passed as a flag, store as output: None
-            "t" => "title".to_string(),     // if -t is passed as a flag, store as title: None
             // Add other short options that are flags here if necessary
             "i" => "ignorecase".to_string(), // Example for grep -i
             "d" => "desc".to_string(),       // Example for sort -d
@@ -210,6 +213,9 @@ pub fn print_help() {
     println!("  uniq         Remove duplicate rows");
     println!("  changetz     Change timezone");
     println!("  renamecol    Rename column");
+    println!("  timeline     Aggregate data by time intervals");
+    println!("  timeslice    Filter data by time range");
+    println!("  pivot        Create pivot tables with cross-tabulation");
     println!();
     println!("Finalizers:");
     println!("  show         Print as CSV");
@@ -218,6 +224,7 @@ pub fn print_help() {
     println!("  stats        Show statistics");
     println!("  showquery    Show query plan");
     println!("  dump         Save as CSV");
+    println!("  partition    Split data into separate files by column values");
     println!();
     println!("Quilters:");
     println!("  quilt        Execute a quilt (data processing pipeline from YAML)");
@@ -228,12 +235,14 @@ pub fn print_help() {
     println!("  qsv load data.csv - sort col1 -d - show");
     println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
     println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
+    println!("  qsv load data.csv - partition category ./partitions/");
     println!();
     println!("For more details, see README.md or --help");
 }
 
 pub fn print_chainable_help(cmd: &str) {
     match cmd {
+        "load" => print_load_help(),
         "select" => print_select_help(),
         "isin" => print_isin_help(),
         "contains" => print_contains_help(),
@@ -246,6 +255,10 @@ pub fn print_chainable_help(cmd: &str) {
         "uniq" => print_uniq_help(),
         "changetz" => print_changetz_help(),
         "renamecol" => print_renamecol_help(),
+        "timeline" => print_timeline_help(),
+        "timeslice" => print_timeslice_help(),
+        "partition" => print_partition_help(),
+        "pivot" => print_pivot_help(),
         "show" => print_show_help(),
         "showtable" => print_showtable_help(),
         "headers" => print_headers_help(),
@@ -255,6 +268,22 @@ pub fn print_chainable_help(cmd: &str) {
         "quilt" => print_quilt_help(),
         _ => println!("No detailed help available for this command."),
     }
+}
+
+fn print_load_help() {
+    println!("load: Load one or more CSV files\n");
+    println!("Usage: load <file1.csv> [file2.csv ...] [-s|--separator <char>] [--low-memory] [--no-headers]\n");
+    println!("Options:");
+    println!("  -s, --separator <char>  Field separator character (default: ',')");
+    println!("  --low-memory            Enable low-memory mode for very large files");
+    println!("  --no-headers            Treat first row as data, not headers");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - show");
+    println!("  qsv load data1.csv data2.csv data3.csv - show");
+    println!("  qsv load logs/*.tsv -s '\\t' - show");
+    println!("  qsv load data.csv --low-memory - show");
+    println!("  qsv load data.csv --no-headers - show");
+    println!("  qsv load data.csv.gz - show  # Automatically detects gzip files");
 }
 
 fn print_select_help() {
@@ -342,6 +371,64 @@ fn print_renamecol_help() {
     println!("Examples:");
     println!("  qsv load data.csv - renamecol col1 new_col - show");
 }
+fn print_timeline_help() {
+    println!("timeline: Aggregate data by time intervals\n");
+    println!("Usage: timeline <time_column> --interval <interval> [--sum|--avg|--min|--max|--std <column>]\n");
+    println!("Options:");
+    println!("  --interval   Time interval (e.g., 1h, 5m, 30s, 1d)");
+    println!("  --sum        Sum values in specified column");
+    println!("  --avg        Average values in specified column");
+    println!("  --min        Minimum values in specified column");
+    println!("  --max        Maximum values in specified column");
+    println!("  --std        Standard deviation of values in specified column");
+    println!("\nExamples:");
+    println!("  qsv load access.log - timeline timestamp --interval 1h - show");
+    println!("  qsv load metrics.csv - timeline time --interval 5m --avg cpu_usage - show");
+    println!("  qsv load sales.csv - timeline date --interval 1d --sum amount - show");
+}
+fn print_timeslice_help() {
+    println!("timeslice: Filter data by time range\n");
+    println!("Usage: timeslice <time_column> [--start <start_time>] [--end <end_time>]\n");
+    println!("Options:");
+    println!("  --start      Start time (inclusive)");
+    println!("  --end        End time (inclusive)");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - timeslice timestamp --start '2023-01-01 00:00:00' - show");
+    println!("  qsv load data.csv - timeslice timestamp --end '2023-12-31 23:59:59' - show");
+    println!(
+        "  qsv load data.csv - timeslice timestamp --start '2023-06-01' --end '2023-06-30' - show"
+    );
+}
+fn print_partition_help() {
+    println!("partition: Split data into separate files by column values\n");
+    println!("Usage: partition <colname> <output_directory>\n");
+    println!("Arguments:");
+    println!("  <colname>           Column name to partition by");
+    println!("  <output_directory>  Directory to save partitioned files");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - partition category ./partitions/ - show");
+    println!("  qsv load sales.csv - partition region ./by_region/ - show");
+    println!("  qsv load logs.csv - partition date ./daily_logs/ - show");
+    println!("\nNote: Creates one CSV file per unique value in the specified column.");
+}
+fn print_pivot_help() {
+    println!("pivot: Create pivot tables with cross-tabulation\n");
+    println!(
+        "Usage: pivot --rows <columns> --cols <columns> --values <column> [--agg <function>]\n"
+    );
+    println!("Options:");
+    println!("  --rows <columns>    Comma-separated list of columns for rows");
+    println!("  --cols <columns>    Comma-separated list of columns for columns");
+    println!("  --values <column>   Column to aggregate");
+    println!(
+        "  --agg <function>    Aggregation function (sum, mean, count, min, max, median, std)"
+    );
+    println!("\nExamples:");
+    println!("  qsv load sales.csv - pivot --rows region --cols product --values sales_amount --agg sum - show");
+    println!("  qsv load data.csv - pivot --rows category --cols year --values revenue --agg mean - show");
+    println!("  qsv load logs.csv - pivot --rows date --cols error_type --values count --agg count - show");
+    println!("\nNote: Creates a cross-tabulation table with specified rows and columns.");
+}
 fn print_show_help() {
     println!("show: Print result as CSV\n");
     println!("Usage: show\n");
@@ -383,17 +470,14 @@ fn print_dump_help() {
 }
 fn print_quilt_help() {
     println!("quilt: Execute a quilt (data processing pipeline from YAML)\n");
-    println!("Usage: quilt <config_path> [csv_file_paths...] [-o <output_file>] [-t <title>]\n");
+    println!("Usage: quilt <config_path> [csv_file_paths...] [-o <output_file>]\n");
     println!("Arguments:");
     println!("  <config_path>    Path to the Quilt YAML configuration file. (Required)");
     println!("  [csv_file_paths...] Optional paths to CSV files to be processed if not specified in YAML's load steps.");
     println!("Options:");
     println!("  -o, --output <output_file>  Optional path to save the result as CSV.");
     println!("                              If not provided, output is printed to console.");
-    println!("  -t, --title <title>         Optional title for the quilt execution.");
-    println!("                              Overrides title in the config file.");
     println!("Examples:");
     println!("  qsv quilt my_pipeline.yaml");
     println!("  qsv quilt my_pipeline.yaml -o result.csv");
-    println!("  qsv quilt complex.yaml -t \"My Report\" -o report.csv");
 }
