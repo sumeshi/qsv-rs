@@ -66,7 +66,7 @@ jobs:
             name: qsv-rs-linux-x64
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            name: qsv-rs-windows-x64.exe
+            name: qsv-rs-windows-x64
     
     runs-on: ${{ matrix.os }}
     
@@ -77,11 +77,7 @@ jobs:
     - name: Get version from tag
       id: get_version
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        else
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        fi
+        echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       shell: bash
       
     - name: Install Rust
@@ -113,15 +109,23 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         $version = "${{ steps.get_version.outputs.VERSION }}"
-        $name = "${{ matrix.name }}" -replace '\.exe$', ''
-        cp target/${{ matrix.target }}/release/qsv.exe "$name-$version.exe"
+        $name = "${{ matrix.name }}"
+        $outputFile = "$name-$version.exe"
+        echo "Version: $version"
+        echo "Name: $name"
+        echo "Output file: $outputFile"
+        echo "Source file: target/${{ matrix.target }}/release/qsv.exe"
+        ls target/${{ matrix.target }}/release/
+        cp target/${{ matrix.target }}/release/qsv.exe $outputFile
+        echo "Created file:"
+        ls -la $outputFile
       shell: powershell
         
     - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.name }}-${{ steps.get_version.outputs.VERSION }}
-        path: ${{ matrix.name }}-${{ steps.get_version.outputs.VERSION }}
+        path: ${{ matrix.name }}-${{ steps.get_version.outputs.VERSION }}*
 
   release:
     name: Create Release
@@ -141,8 +145,20 @@ jobs:
         path: artifacts
         
     - name: Display structure of downloaded files
-      run: ls -la artifacts/
-      
+      run: |
+        echo "=== Artifacts directory structure ==="
+        ls -la artifacts/
+        echo "=== Contents of each artifact directory ==="
+        for dir in artifacts/*/; do
+          echo "Directory: $dir"
+          ls -la "$dir"
+          echo "---"
+        done
+        echo "=== All files that match qsv-rs pattern ==="
+        find artifacts -name "*qsv-rs*" -type f
+        echo "=== All files in artifacts ==="
+        find artifacts -type f
+        
     - name: Get version from tag
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -150,11 +166,21 @@ jobs:
     - name: Create checksums
       run: |
         cd artifacts
+        echo "Creating checksums for all artifacts..."
         for dir in */; do
+          echo "Processing directory: $dir"
           cd "$dir"
-          sha256sum * > ../checksums-$(basename "$dir").txt
+          if [ -n "$(ls -A .)" ]; then
+            sha256sum * > ../checksums-$(basename "$dir").txt
+            echo "Created checksum file: checksums-$(basename "$dir").txt"
+            cat ../checksums-$(basename "$dir").txt
+          else
+            echo "Directory $dir is empty"
+          fi
           cd ..
         done
+        echo "All checksum files:"
+        ls -la checksums-*.txt
         
     - name: Generate release notes
       id: release_notes
@@ -191,7 +217,7 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          artifacts/*/qsv-rs-*
+          artifacts/*/*
           artifacts/checksums-*.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
