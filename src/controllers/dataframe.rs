@@ -40,13 +40,6 @@ impl DataFrameController {
         self
     }
 
-    pub fn select_rows(&mut self, row_numbers: &[usize]) -> &mut Self {
-        if let Some(df) = &self.df {
-            self.df = Some(select::select_rows(df, row_numbers));
-        }
-        self
-    }
-
     pub fn isin(&mut self, colname: &str, values: &[String]) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(isin::isin(df, colname, values));

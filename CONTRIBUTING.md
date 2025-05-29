@@ -55,10 +55,10 @@ If you prefer not to use Dev Containers:
    ```bash
    # Ubuntu/Debian
    sudo apt update
-   sudo apt install python3 python3-pip fish
+   sudo apt install python3 python3-pip
 
-       # macOS (if needed)
-    brew install python fish
+   # macOS (if needed)
+   brew install python
 
    # Install Python dependencies
    pip3 install polars pytest
@@ -86,13 +86,14 @@ qsv-rs/
 │   └── main.rs                  # Application entry point
 ├── tests/                       # Test suite
 │   ├── test_*.py               # Python test files
-│   ├── test_all.py             # Main test runner
-│   ├── simpletest.fish         # Fish shell test script
+│   ├── run_tests.py            # Main test runner
 │   └── test_base.py            # Test base classes and utilities
 ├── sample/                      # Sample data and configurations
 │   ├── simple.csv              # Test CSV data
 │   ├── quilt-test.yaml         # Basic quilt configuration
 │   └── quilt-complex.yaml      # Complex quilt example
+├── scripts/                     # Build and release scripts
+│   └── create-release.sh       # Release automation script
 ├── .devcontainer/              # Dev Container configuration
 └── README.md                   # Project documentation
 ```
@@ -101,9 +102,9 @@ qsv-rs/
 
 ### Running All Tests
 
-The project includes comprehensive test suites in both Python and Fish shell:
+The project includes a comprehensive Python test suite covering all functionality:
 
-#### Python Test Suite (Recommended)
+#### Python Test Suite
 
 ```bash
 # Run all tests
@@ -114,34 +115,30 @@ python3 -m pytest tests/test_chainables_select.py -v
 
 # Run tests with verbose output
 python3 tests/run_tests.py --verbose
-```
 
-#### Fish Shell Test Suite
-
-```bash
-# Make sure fish is installed and qsv is built
-cargo build
-
-# Run simple tests
-fish tests/simpletest.fish
+# Run Rust unit tests
+cargo test
 ```
 
 ### Test Categories
 
 1. **Initializer Tests** (`test_initializers_*.py`)
-   - Data loading functionality
+   - Data loading functionality (`test_initializers_load.py`)
    - File format support
    - Error handling
 
 2. **Chainable Operation Tests** (`test_chainables_*.py`)
-   - Data transformation operations
-   - Filtering and selection
-   - Sorting and aggregation
+   - Column selection (`test_chainables_select.py`)
+   - Data filtering (`test_chainables_isin.py`, `test_chainables_contains.py`, `test_chainables_grep.py`)
+   - Data transformation (`test_chainables_sed.py`, `test_chainables_convert.py`)
+   - Sorting and aggregation (`test_chainables_sort.py`, `test_chainables_count.py`, `test_chainables_uniq.py`)
+   - Time operations (`test_chainables_changetz.py`, `test_chainables_timeline.py`, `test_chainables_timeslice.py`)
+   - Utility operations (`test_chainables_head_tail.py`, `test_chainables_renamecol.py`, `test_chainables_pivot.py`)
 
 3. **Finalizer Tests** (`test_finalizers_*.py`)
-   - Output formatting
-   - File export functionality
-   - Display operations
+   - Output formatting (`test_finalizers_showtable.py`)
+   - File export functionality (`test_finalizers_dump.py`, `test_finalizers_partition.py`)
+   - Display operations (`test_finalizers_headers.py`, `test_finalizers_stats.py`, `test_finalizers_showquery.py`)
 
 ### Writing New Tests
 
@@ -211,6 +208,7 @@ cargo test
 1. **Run the full test suite:**
    ```bash
    python3 tests/run_tests.py
+   cargo test
    ```
 
 2. **Check code formatting:**
@@ -360,7 +358,7 @@ Releases are automated through GitHub Actions. To create a new release:
 
 3. **Monitor the build:**
    - The script will create a git tag and push it
-       - GitHub Actions will automatically:
+   - GitHub Actions will automatically:
       - Run all tests on multiple platforms
       - Build binaries for Linux and Windows
       - Create a GitHub release with downloadable binaries

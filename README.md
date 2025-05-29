@@ -93,16 +93,30 @@ $ qsv load data.csv --no-headers
 ### Chainable Functions
 
 #### `select`
-Select columns by name or range.
+Select columns by name, numeric index, or range notation.
 
 | Parameter | Type                | Default | Description                                                                                                |
 |-----------|---------------------|---------|------------------------------------------------------------------------------------------------------------|
-| colnames  | str/list/range      |         | Column name(s). Use comma-separated for specific columns (e.g., `col1,col3`) or hyphen-separated for a range (e.g., `col1-col3`). This is a required argument. |
+| colnames  | str/list/range      |         | Column name(s) or indices. Supports multiple formats (see examples below). This is a required argument. |
+
+**Column Selection Formats:**
+- **Individual columns**: `col1,col3` - Select specific columns by name
+- **Numeric indices**: `1,3` - Select columns by position (1-based indexing)  
+- **Range notation (hyphen)**: `col1-col3` - Select range using hyphen
+- **Range notation (colon)**: `col1:col3` - Select range using colon
+- **Numeric range**: `1:3` - Select columns 1 through 3 (inclusive)
+- **Quoted colon notation**: `"col:1":"col:3"` - For column names containing colons
+- **Mixed formats**: `1,col2,4:6` - Combine different selection methods
 
 ```bash
 $ qsv load data.csv - select datetime
 $ qsv load data.csv - select col1,col3
 $ qsv load data.csv - select col1-col3
+$ qsv load data.csv - select col1:col3  
+$ qsv load data.csv - select 1:3        # Select first 3 columns
+$ qsv load data.csv - select 2,4        # Select 2nd and 4th columns
+$ qsv load data.csv - select "col:1":"col:3"  # For columns with colons in names
+$ qsv load data.csv - select 1,datetime,3:5   # Mixed selection methods
 ```
 
 #### `isin`

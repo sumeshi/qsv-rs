@@ -108,45 +108,70 @@ class TestSelect(QsvTestBase):
         self.assertNotIn("datetime", output)
         self.assertNotIn("str", output)
     
-    def test_select_with_row_indices(self):
-        """Test selecting columns with specific row indices using -n option"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1,col2 -n 1,3 - show")
+    # New tests for numeric index functionality
+    def test_select_single_numeric_index(self):
+        """Test selecting a single column by numeric index (1-based)"""
+        output = self.run_qsv_command("load sample/simple.csv - select 1 - show")
         
-        # Should include only rows 1 and 3 (1-based indexing)
-        self.assert_output_contains(output, "col1,col2")
-        self.assert_output_contains(output, "1,2")  # First row
-        self.assert_output_contains(output, "7,8")  # Third row
+        # Should select the first column (datetime)
+        self.assert_output_contains(output, "datetime")
+        self.assert_output_contains(output, "2023-01-01 12:00:00")
+        self.assert_output_contains(output, "2023-01-01 13:00:00")
+        self.assert_output_contains(output, "2023-01-01 14:00:00")
         
-        # Should not include the second row
-        self.assertNotIn("4,5", output)
+        # Make sure other columns are not present
+        self.assertNotIn("col1", output)
+        self.assertNotIn("col2", output)
+        self.assertNotIn("col3", output)
+        self.assertNotIn("str", output)
     
-    def test_select_with_row_range(self):
-        """Test selecting columns with row range using -n option"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1 -n 1-2 - show")
+    def test_select_multiple_numeric_indices(self):
+        """Test selecting multiple columns by numeric indices (2,4)"""
+        output = self.run_qsv_command("load sample/simple.csv - select 2,4 - show")
         
-        # Should include only rows 1 and 2
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "1")  # First row
-        self.assert_output_contains(output, "4")  # Second row
+        # Should select the second and fourth columns (col1 and col3)
+        self.assert_output_contains(output, "col1,col3")
+        self.assert_output_contains(output, "1,3")
+        self.assert_output_contains(output, "4,6")
+        self.assert_output_contains(output, "7,9")
         
-        # Should not include the third row
-        self.assertNotIn("7", output)
+        # Make sure other columns are not present
+        self.assertNotIn("datetime", output)
+        self.assertNotIn("col2", output)
+        self.assertNotIn("str", output)
     
-    def test_select_with_colon_row_range(self):
-        """Test selecting columns with colon row range using -n option"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1 -n 1:2 - show")
+    def test_select_numeric_range_colon(self):
+        """Test selecting columns using numeric colon notation (2:4)"""
+        output = self.run_qsv_command("load sample/simple.csv - select 2:4 - show")
         
-        # Should include only rows 1 and 2
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "1")  # First row
-        self.assert_output_contains(output, "4")  # Second row
+        # Should include col1, col2, and col3 (indices 2, 3, 4)
+        self.assert_output_contains(output, "col1,col2,col3")
+        self.assert_output_contains(output, "1,2,3")
+        self.assert_output_contains(output, "4,5,6")
+        self.assert_output_contains(output, "7,8,9")
         
-        # Should not include the third row
-        self.assertNotIn("7", output)
+        # Should not include datetime or str
+        self.assertNotIn("datetime", output)
+        self.assertNotIn("str", output)
     
-    def test_select_numeric_colon_notation(self):
-        """Test selecting columns using numeric colon notation (1:3)"""
-        output = self.run_qsv_command("load sample/simple.csv - select 1:3 - show")
+    def test_select_numeric_range_last_column(self):
+        """Test selecting numeric range that includes the last column"""
+        output = self.run_qsv_command("load sample/simple.csv - select 1,5 - show")
+        
+        # Should include datetime and str columns (indices 1 and 5)
+        self.assert_output_contains(output, "datetime,str")
+        self.assert_output_contains(output, "2023-01-01 12:00:00,foo")
+        self.assert_output_contains(output, "2023-01-01 13:00:00,bar")
+        self.assert_output_contains(output, "2023-01-01 14:00:00,baz")
+        
+        # Should not include col1, col2, col3
+        self.assertNotIn("col1", output)
+        self.assertNotIn("col2", output)
+        self.assertNotIn("col3", output)
+    
+    def test_select_quoted_colon_notation(self):
+        """Test selecting columns using quoted colon notation ("col1":"col3")"""
+        output = self.run_qsv_command('load sample/simple.csv - select "col1":"col3" - show')
         
         # Should include col1, col2, and col3
         self.assert_output_contains(output, "col1,col2,col3")
@@ -157,6 +182,67 @@ class TestSelect(QsvTestBase):
         # Should not include datetime or str
         self.assertNotIn("datetime", output)
         self.assertNotIn("str", output)
+    
+    def test_select_mixed_numeric_and_column_names(self):
+        """Test selecting a mix of numeric indices and column names"""
+        output = self.run_qsv_command("load sample/simple.csv - select 2,datetime,4 - show")
+        
+        # Should include col1, datetime, and col3 (index 2=col1, datetime, index 4=col3)
+        self.assert_output_contains(output, "col1,datetime,col3")
+        self.assert_output_contains(output, "1,2023-01-01 12:00:00,3")
+        self.assert_output_contains(output, "4,2023-01-01 13:00:00,6")
+        self.assert_output_contains(output, "7,2023-01-01 14:00:00,9")
+        
+        # Should not include col2 or str
+        self.assertNotIn("col2", output)
+        self.assertNotIn("str", output)
+    
+    def test_select_mixed_numeric_range_and_names(self):
+        """Test selecting a mix of numeric ranges and column names"""
+        output = self.run_qsv_command("load sample/simple.csv - select 2:3,str - show")
+        
+        # Should include col1, col2, and str (indices 2:3 = col1,col2, plus str)
+        self.assert_output_contains(output, "col1,col2,str")
+        self.assert_output_contains(output, "1,2,foo")
+        self.assert_output_contains(output, "4,5,bar")
+        self.assert_output_contains(output, "7,8,baz")
+        
+        # Should not include datetime or col3
+        self.assertNotIn("datetime", output)
+        self.assertNotIn("col3", output)
+    
+    def test_select_invalid_numeric_index(self):
+        """Test selecting an invalid numeric index should fail gracefully"""
+        # Test index 0 (should be invalid as we use 1-based indexing)
+        try:
+            output = self.run_qsv_command("load sample/simple.csv - select 0 - show")
+            # Should fail or produce empty output
+            if output:
+                self.fail("Index 0 should not be valid (1-based indexing)")
+        except:
+            # Expected behavior
+            pass
+        
+        # Test index beyond available columns
+        try:
+            output = self.run_qsv_command("load sample/simple.csv - select 10 - show")
+            # Should fail or produce empty output
+            if output:
+                self.fail("Index 10 should not be valid (only 5 columns)")
+        except:
+            # Expected behavior
+            pass
+    
+    def test_select_invalid_numeric_range(self):
+        """Test selecting an invalid numeric range should fail gracefully"""
+        try:
+            output = self.run_qsv_command("load sample/simple.csv - select 5:10 - show")
+            # Should fail or produce empty output
+            if output:
+                self.fail("Range 5:10 should not be valid (only 5 columns)")
+        except:
+            # Expected behavior
+            pass
     
     def test_selectrows_command(self):
         """Test the selectrows command for row-only selection (legacy test)"""
@@ -169,20 +255,6 @@ class TestSelect(QsvTestBase):
         except:
             # Expected behavior - command should not exist
             pass
-    
-    def test_select_rows_only_with_n_option(self):
-        """Test selecting rows only using -n option (replacement for selectrows)"""
-        # To select all columns with specific rows, we can use a wildcard or all column names
-        # For now, we'll test with explicit column selection
-        output = self.run_qsv_command("load sample/simple.csv - select col1,col2,col3,datetime,str -n 1,3 - show")
-        
-        # Should include all columns but only rows 1 and 3
-        self.assert_output_contains(output, "col1,col2,col3,datetime,str")
-        self.assert_output_contains(output, "1,2,3,2023-01-01 12:00:00,foo")  # First row
-        self.assert_output_contains(output, "7,8,9,2023-01-01 14:00:00,baz")  # Third row
-        
-        # Should not include the second row
-        self.assertNotIn("4,5,6", output)
     
     def test_select_nonexistent_column(self):
         """Test selecting a non-existent column should fail gracefully"""

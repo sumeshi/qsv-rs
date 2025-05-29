@@ -203,7 +203,7 @@ pub fn print_help() {
     println!("  load         Load CSV file(s)");
     println!();
     println!("Chainables:");
-    println!("  select       Select columns and rows");
+    println!("  select       Select columns");
     println!("  isin         Filter rows by values");
     println!("  contains     Filter rows by pattern");
     println!("  sed          Replace values by pattern");
@@ -234,6 +234,7 @@ pub fn print_help() {
     println!();
     println!("Examples:");
     println!("  qsv load data.csv - select col1,col2 - head 10 - show");
+    println!("  qsv load data.csv - select 1:3 - show");
     println!("  qsv load data.csv - grep pattern - showtable");
     println!("  qsv load data.csv - sort col1 -d - show");
     println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
@@ -291,18 +292,14 @@ fn print_load_help() {
 }
 
 fn print_select_help() {
-    println!("select: Select columns and rows from the DataFrame\n");
-    println!("Usage: select <col1>[,<col2>,...] [-n <indices>]\n");
+    println!("select: Select columns from the DataFrame\n");
+    println!("Usage: select <col1>[,<col2>,...]\n");
     println!("Column Selection:");
     println!("  - Individual columns: col1,col2,col3");
     println!("  - Range notation: col1-col3 (hyphen-separated)");
     println!("  - Colon notation: col1:col3 (colon-separated)");
     println!("  - Quoted colon notation: \"col:1\":\"col:3\" (for columns with colons)");
     println!("  - Numeric colon notation: 1:3 (selects col1, col2, col3)");
-    println!("\nRow Selection:");
-    println!("  -n, --number <indices>  Select specific rows by index (1-based)");
-    println!("                          Supports comma-separated (1,3,5) and ranges (1-5)");
-    println!("                          Also supports colon notation: 1:3");
     println!("\nExamples:");
     println!("  qsv load data.csv - select col1 - show");
     println!("  qsv load data.csv - select col1,col2 - show");
@@ -310,8 +307,6 @@ fn print_select_help() {
     println!("  qsv load data.csv - select col1:col3 - show");
     println!("  qsv load data.csv - select 1:3 - show  # Select col1, col2, col3");
     println!("  qsv load data.csv - select \"col:1\":\"col:3\" - show  # Quoted for colons");
-    println!("  qsv load data.csv - select col1,col2 -n 1,3,5 - show");
-    println!("  qsv load data.csv - select col1:col3 -n 1:3 - show");
 }
 
 fn print_isin_help() {

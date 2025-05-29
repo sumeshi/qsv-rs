@@ -198,47 +198,17 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             check_data_loaded(controller, "select");
 
             if cmd.args.is_empty() {
-                eprintln!("Error: 'select' command requires column names or row numbers");
+                eprintln!("Error: 'select' command requires column names");
                 process::exit(1);
             }
 
-            // Check if -r (rows) option is specified
-            let is_row_selection =
-                cmd.options.contains_key("r") || cmd.options.contains_key("rows");
-
-            if is_row_selection {
-                // Parse as row numbers (1-based)
-                let row_numbers: Vec<usize> = if cmd.args.len() == 1 {
-                    cmd.args[0]
-                        .split(',')
-                        .map(|s| {
-                            s.trim().parse::<usize>().unwrap_or_else(|_| {
-                                eprintln!("Error: Invalid row number '{}'", s);
-                                process::exit(1);
-                            })
-                        })
-                        .collect()
-                } else {
-                    cmd.args
-                        .iter()
-                        .map(|s| {
-                            s.parse::<usize>().unwrap_or_else(|_| {
-                                eprintln!("Error: Invalid row number '{}'", s);
-                                process::exit(1);
-                            })
-                        })
-                        .collect()
-                };
-                controller.select_rows(&row_numbers);
+            // Parse as column names
+            let colnames = if cmd.args.len() == 1 {
+                parse_column_names(&cmd.args[0])
             } else {
-                // Parse as column names
-                let colnames = if cmd.args.len() == 1 {
-                    parse_column_names(&cmd.args[0])
-                } else {
-                    cmd.args.clone()
-                };
-                controller.select(&colnames);
-            }
+                cmd.args.clone()
+            };
+            controller.select(&colnames);
         }
 
         "isin" => {
