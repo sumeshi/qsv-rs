@@ -21,6 +21,14 @@ A fast, flexible, and memory-efficient command-line tool written in Rust for pro
 ## Usage
 ![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
 
+### Getting Help
+
+To see available commands and options, run `qsv` without any arguments:
+
+```bash
+$ qsv -h
+```
+
 ### Example
 
 Here's an example of reading a CSV file, extracting rows that contain 4624 in the 'Event ID' column, and displaying the top 3 rows sorted by the 'Date and Time' column:
@@ -47,6 +55,14 @@ Each step is separated by a hyphen (`-`):
 
 ```bash
 $ qsv <INITIALIZER> <args> - <CHAINABLE> <args> - <FINALIZER> <args>
+```
+
+**Note:** If no finalizer is explicitly specified, `showtable` is automatically used as the default finalizer, making it easy to quickly view results:
+
+```bash
+$ qsv load data.csv - select col1,col2 - head 5
+# Equivalent to:
+$ qsv load data.csv - select col1,col2 - head 5 - showtable
 ```
 
 ## Command Reference
@@ -239,6 +255,33 @@ Renames a specific column.
 $ qsv load data.csv - renamecol current_name new_name
 ```
 
+#### `convert`
+Converts data formats between JSON, YAML, and XML. Also supports formatting/prettifying data in the same format.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| colname | str |         | Column name containing the data to convert. Required. |
+| --from | str |         | Source format: `json`, `yaml`, or `xml`. Required. |
+| --to | str |         | Target format: `json`, `yaml`, or `xml`. Required. |
+
+**Supported conversions:**
+- Cross-format: `json ↔ yaml`, `json ↔ xml`, `yaml ↔ xml`
+- Same-format (formatting): `json → json`, `yaml → yaml`, `xml → xml`
+
+**Features:**
+- Automatically handles malformed JSON with extra quotes
+- Prettifies and formats data for better readability
+- Preserves data structure during conversion
+
+Example:
+```bash
+$ qsv load data.csv - convert json_col --from json --to yaml
+$ qsv load data.csv - convert config --from yaml --to json
+$ qsv load data.csv - convert data --from json --to xml
+$ qsv load data.csv - convert messy_json --from json --to json  # Format/prettify JSON
+$ qsv load data.csv - convert compact_yaml --from yaml --to yaml  # Format YAML
+```
+
 #### `timeline`
 Aggregates data by time intervals, creating time-based summaries.
 
@@ -252,14 +295,24 @@ Aggregates data by time intervals, creating time-based summaries.
 | --max | str | | Column name to find maximum within each time bucket. Optional. |
 | --std | str | | Column name to calculate standard deviation within each time bucket. Optional. |
 
-If no aggregation column is specified, only row counts are provided for each time bucket.
+**Features:**
+- Creates a time bucket column named `timeline_{interval}` (e.g., `timeline_1h`, `timeline_30m`)
+- If no aggregation column is specified, only row counts are provided for each time bucket
+- Supports various time interval formats: hours (`1h`), minutes (`30m`), seconds (`5s`), days (`1d`)
 
 Example:
 ```bash
 $ qsv load access.log - timeline timestamp --interval 1h
+# Creates column: timeline_1h
+
 $ qsv load metrics.csv - timeline time --interval 5m --avg cpu_usage
+# Creates columns: timeline_5m, count, avg_cpu_usage
+
 $ qsv load sales.csv - timeline date --interval 1d --sum amount
+# Creates columns: timeline_1d, count, sum_amount
+
 $ qsv load server.log - timeline timestamp --interval 30s --max response_time
+# Creates columns: timeline_30s, count, max_response_time
 ```
 
 #### `timeslice`
@@ -347,13 +400,23 @@ $ qsv load data.csv - head 5 - show
 ```
 
 #### `showtable`
-Displays the resulting data in a formatted table to standard output.
+Displays the resulting data in a formatted table to standard output. Shows table dimensions and intelligently truncates large datasets.
+
+**Features:**
+- Displays table size information (rows × columns) like Python Polars
+- For datasets with 8+ rows: shows first 3 rows, truncation indicator (`…`), and last 3 rows
+- For datasets with 7 or fewer rows: shows all rows without truncation
+- Automatically used as default finalizer when no explicit finalizer is specified
 
 This command does not take any arguments or options.
 
 Example:
 ```bash
 $ qsv load data.csv - select col1,col2 - head 3 - showtable
+# Output includes: shape: (3, 2) followed by formatted table
+
+$ qsv load large_data.csv - select col1,col2
+# Automatically calls showtable if no finalizer specified
 ```
 
 #### `dump`
