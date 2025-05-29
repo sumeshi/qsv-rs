@@ -234,6 +234,7 @@ pub fn print_help() {
     println!();
     println!("Examples:");
     println!("  qsv load data.csv - select col1,col2 - head 10 - show");
+    println!("  qsv load data.csv - select 1:3 - show");
     println!("  qsv load data.csv - grep pattern - showtable");
     println!("  qsv load data.csv - sort col1 -d - show");
     println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
@@ -293,17 +294,28 @@ fn print_load_help() {
 fn print_select_help() {
     println!("select: Select columns from the DataFrame\n");
     println!("Usage: select <col1>[,<col2>,...]\n");
-    println!("Examples:");
+    println!("Column Selection:");
+    println!("  - Individual columns: col1,col2,col3");
+    println!("  - Range notation: col1-col3 (hyphen-separated)");
+    println!("  - Colon notation: col1:col3 (colon-separated)");
+    println!("  - Quoted colon notation: \"col:1\":\"col:3\" (for columns with colons)");
+    println!("  - Numeric colon notation: 1:3 (selects col1, col2, col3)");
+    println!("\nExamples:");
     println!("  qsv load data.csv - select col1 - show");
     println!("  qsv load data.csv - select col1,col2 - show");
     println!("  qsv load data.csv - select col1-col3 - show");
+    println!("  qsv load data.csv - select col1:col3 - show");
+    println!("  qsv load data.csv - select 1:3 - show  # Select col1, col2, col3");
+    println!("  qsv load data.csv - select \"col:1\":\"col:3\" - show  # Quoted for colons");
 }
+
 fn print_isin_help() {
     println!("isin: Filter rows by values in a column\n");
     println!("Usage: isin <colname> <value1>[,<value2>,...]\n");
     println!("Examples:");
     println!("  qsv load data.csv - isin col1 1,2,3 - show");
 }
+
 fn print_contains_help() {
     println!("contains: Filter rows by substring or pattern in a column\n");
     println!("Usage: contains <colname> <pattern> [-i]\n");
@@ -311,6 +323,7 @@ fn print_contains_help() {
     println!("  qsv load data.csv - contains col1 foo - show");
     println!("  qsv load data.csv - contains col1 bar -i - show");
 }
+
 fn print_sed_help() {
     println!("sed: Replace values in a column using a pattern\n");
     println!("Usage: sed <colname> <pattern> <replacement> [-i]\n");
@@ -318,6 +331,7 @@ fn print_sed_help() {
     println!("  qsv load data.csv - sed col1 foo bar - show");
     println!("  qsv load data.csv - sed col1 foo bar -i - show");
 }
+
 fn print_grep_help() {
     println!("grep: Filter rows by regex pattern (any column)\n");
     println!("Usage: grep <pattern> [-i]\n");
@@ -325,18 +339,21 @@ fn print_grep_help() {
     println!("  qsv load data.csv - grep foo - show");
     println!("  qsv load data.csv - grep bar -i - show");
 }
+
 fn print_head_help() {
     println!("head: Show first N rows\n");
     println!("Usage: head <number>\n");
     println!("Examples:");
     println!("  qsv load data.csv - head 10 - show");
 }
+
 fn print_tail_help() {
     println!("tail: Show last N rows\n");
     println!("Usage: tail <number>\n");
     println!("Examples:");
     println!("  qsv load data.csv - tail 10 - show");
 }
+
 fn print_sort_help() {
     println!("sort: Sort rows by column(s)\n");
     println!("Usage: sort <col1>[,<col2>,...] [-d]\n");
@@ -345,18 +362,21 @@ fn print_sort_help() {
     println!("  qsv load data.csv - sort col1 - show");
     println!("  qsv load data.csv - sort col1,col2 -d - show");
 }
+
 fn print_count_help() {
     println!("count: Count duplicate rows, grouping by all columns\n");
     println!("Usage: count\n");
     println!("Examples:");
     println!("  qsv load data.csv - count - show");
 }
+
 fn print_uniq_help() {
     println!("uniq: Remove duplicate rows based on column(s)\n");
     println!("Usage: uniq <col1>[,<col2>,...]\n");
     println!("Examples:");
     println!("  qsv load data.csv - uniq col1 - show");
 }
+
 fn print_changetz_help() {
     println!("changetz: Change timezone of a datetime column\n");
     println!("Usage: changetz <colname> --from_tz <from_tz> --to_tz <to_tz> [--format <format>] [--ambiguous <strategy>]\n");
@@ -369,12 +389,14 @@ fn print_changetz_help() {
     println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
     println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format '%Y/%m/%d %H:%M' - show");
 }
+
 fn print_renamecol_help() {
     println!("renamecol: Rename a column\n");
     println!("Usage: renamecol <old_colname> <new_colname>\n");
     println!("Examples:");
     println!("  qsv load data.csv - renamecol col1 new_col - show");
 }
+
 fn print_convert_help() {
     println!("convert: Convert data formats (JSON, YAML, XML, etc.)\n");
     println!("Usage: convert <colname> --from <format> --to <format>\n");
@@ -400,6 +422,7 @@ fn print_convert_help() {
     println!("  qsv load data.csv - convert json_data --from json --to json - show  # Format JSON");
     println!("\nNote: Handles malformed JSON with extra quotes automatically.");
 }
+
 fn print_timeline_help() {
     println!("timeline: Aggregate data by time intervals\n");
     println!("Usage: timeline <time_column> --interval <interval> [--sum|--avg|--min|--max|--std <column>]\n");
@@ -415,6 +438,7 @@ fn print_timeline_help() {
     println!("  qsv load metrics.csv - timeline time --interval 5m --avg cpu_usage - show");
     println!("  qsv load sales.csv - timeline date --interval 1d --sum amount - show");
 }
+
 fn print_timeslice_help() {
     println!("timeslice: Filter data by time range\n");
     println!("Usage: timeslice <time_column> [--start <start_time>] [--end <end_time>]\n");
@@ -428,6 +452,7 @@ fn print_timeslice_help() {
         "  qsv load data.csv - timeslice timestamp --start '2023-06-01' --end '2023-06-30' - show"
     );
 }
+
 fn print_partition_help() {
     println!("partition: Split data into separate files by column values\n");
     println!("Usage: partition <colname> <output_directory>\n");
@@ -440,6 +465,7 @@ fn print_partition_help() {
     println!("  qsv load logs.csv - partition date ./daily_logs/ - show");
     println!("\nNote: Creates one CSV file per unique value in the specified column.");
 }
+
 fn print_pivot_help() {
     println!("pivot: Create pivot tables with cross-tabulation\n");
     println!(
@@ -458,18 +484,21 @@ fn print_pivot_help() {
     println!("  qsv load logs.csv - pivot --rows date --cols error_type --values count --agg count - show");
     println!("\nNote: Creates a cross-tabulation table with specified rows and columns.");
 }
+
 fn print_show_help() {
     println!("show: Print result as CSV\n");
     println!("Usage: show\n");
     println!("Examples:");
     println!("  qsv load data.csv - show");
 }
+
 fn print_showtable_help() {
     println!("showtable: Print result as a table\n");
     println!("Usage: showtable\n");
     println!("Examples:");
     println!("  qsv load data.csv - showtable");
 }
+
 fn print_headers_help() {
     println!("headers: Show column names\n");
     println!("Usage: headers [-p]\n");
@@ -478,18 +507,21 @@ fn print_headers_help() {
     println!("  qsv load data.csv - headers");
     println!("  qsv load data.csv - headers -p");
 }
+
 fn print_stats_help() {
     println!("stats: Show statistics of the data\n");
     println!("Usage: stats\n");
     println!("Examples:");
     println!("  qsv load data.csv - stats");
 }
+
 fn print_showquery_help() {
     println!("showquery: Show query plan\n");
     println!("Usage: showquery\n");
     println!("Examples:");
     println!("  qsv load data.csv - showquery");
 }
+
 fn print_dump_help() {
     println!("dump: Save DataFrame as CSV\n");
     println!("Usage: dump [output_path] [--separator <char>]\n");
@@ -497,6 +529,7 @@ fn print_dump_help() {
     println!("  qsv load data.csv - dump results.csv");
     println!("  qsv load data.csv - dump --separator ';' results.csv");
 }
+
 fn print_quilt_help() {
     println!("quilt: Execute a quilt (data processing pipeline from YAML)\n");
     println!("Usage: quilt <config_path> [csv_file_paths...] [-o <output_file>]\n");

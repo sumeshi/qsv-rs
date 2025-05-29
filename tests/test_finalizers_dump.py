@@ -10,7 +10,12 @@ class TestDump(QsvTestBase):
     
     def setUp(self):
         """Set up test fixtures"""
+        super().__init__()
         self.temp_dir = tempfile.mkdtemp()
+        # Add necessary attributes from QsvTestBase
+        self.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        self.qsv_path = os.path.join(self.root_dir, 'target', 'debug', 'qsv')
+        self.sample_file = os.path.join(self.root_dir, 'sample', 'simple.csv')
     
     def tearDown(self):
         """Clean up test fixtures"""
@@ -37,6 +42,42 @@ class TestDump(QsvTestBase):
             self.assertIn("2023-01-01 12:00:00,1,2,3,foo", content)
             self.assertIn("2023-01-01 13:00:00,4,5,6,bar", content)
             self.assertIn("2023-01-01 14:00:00,7,8,9,baz", content)
+    
+    def test_dump_no_arguments_default_filename(self):
+        """Test dump with no arguments defaults to output.csv"""
+        # Change to temp directory to avoid cluttering project directory
+        original_cwd = os.getcwd()
+        os.chdir(self.temp_dir)
+        
+        try:
+            # Run dump without specifying output file - should default to output.csv
+            # We need to override the cwd for this specific test
+            import subprocess
+            import contextlib
+            import io
+            
+            full_command = f"{self.qsv_path} load {self.sample_file} - dump"
+            
+            # Capture stdout to prevent unwanted output during tests
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = subprocess.run(full_command, shell=True, capture_output=True, text=True, cwd=self.temp_dir)
+            
+            if result.returncode != 0:
+                self.fail(f"Command failed: {result.stderr}")
+            
+            # Should create output.csv in current directory (temp directory)
+            self.assertTrue(os.path.exists("output.csv"))
+            
+            # Check file contents
+            with open("output.csv", 'r') as f:
+                content = f.read()
+                self.assertIn("datetime,col1,col2,col3,str", content)
+                self.assertIn("2023-01-01 12:00:00,1,2,3,foo", content)
+                self.assertIn("2023-01-01 13:00:00,4,5,6,bar", content)
+                self.assertIn("2023-01-01 14:00:00,7,8,9,baz", content)
+        finally:
+            # Always restore original working directory
+            os.chdir(original_cwd)
     
     def test_dump_custom_output_positional(self):
         """Test dump with custom output file as positional argument"""

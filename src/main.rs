@@ -107,86 +107,61 @@ fn check_data_loaded(controller: &DataFrameController, cmd_name: &str) {
 
 // New parse_column_names function with range expansion
 fn parse_column_names(input: &str) -> Vec<String> {
-    let mut expanded_colnames = Vec::new();
+    let mut result = Vec::new();
 
     for part in input.split(',') {
-        let token = part.trim();
-        if token.is_empty() {
+        let part = part.trim();
+
+        // Handle quoted colon notation: "col1":"col3"
+        if part.starts_with('"') && part.contains("\":\"") && part.ends_with('"') {
+            // Pass quoted colon range as-is to select.rs for proper processing
+            result.push(part.to_string());
             continue;
         }
 
-        if let Some(caps) = RE_COL_RANGE.captures(token) {
-            // These .unwrap() calls are safe because the groups are mandatory in the regex if it matches.
-            let p1 = caps.name("p1").unwrap().as_str();
-            let n1_str = caps.name("n1").unwrap().as_str();
+        if let Some(captures) = RE_COL_RANGE.captures(part) {
+            let prefix1 = captures.name("p1").unwrap().as_str();
+            let num1: usize = captures.name("n1").unwrap().as_str().parse().unwrap();
 
-            let n1 = match n1_str.parse::<usize>() {
-                Ok(num) => num,
-                Err(_) => {
-                    eprintln!(
-                        "Warning: Invalid start number in range token '{}'. Treating as literal.",
-                        token
-                    );
-                    expanded_colnames.push(token.to_string());
-                    continue;
-                }
+            let (prefix2, num2) = if let Some(p2) = captures.name("p2") {
+                // Format: col1-col3
+                let prefix2 = p2.as_str();
+                let num2: usize = captures.name("n2").unwrap().as_str().parse().unwrap();
+                (prefix2, num2)
+            } else {
+                // Format: col1-3
+                let num2: usize = captures.name("n3").unwrap().as_str().parse().unwrap();
+                (prefix1, num2)
             };
 
-            let (n_end, effective_prefix) = if let (Some(p2_match), Some(n2_match)) =
-                (caps.name("p2"), caps.name("n2"))
-            {
-                // Case: p1n1-p2n2 (e.g., col1-col3, data1-data5)
-                let p2 = p2_match.as_str();
-                if p1 != p2 {
-                    eprintln!("Warning: Mismatched prefixes ('{}' and '{}') in range token '{}'. Treating as literal.", p1, p2, token);
-                    expanded_colnames.push(token.to_string());
-                    continue;
-                }
-                match n2_match.as_str().parse::<usize>() {
-                    Ok(num) => (num, p1), // Use p1 as the effective prefix
-                    Err(_) => {
-                        eprintln!("Warning: Invalid end number in range token '{}' (with explicit end prefix). Treating as literal.", token);
-                        expanded_colnames.push(token.to_string());
-                        continue;
-                    }
-                }
-            } else if let Some(n3_match) = caps.name("n3") {
-                // Case: p1n1-n3 (e.g., col1-3)
-                match n3_match.as_str().parse::<usize>() {
-                    Ok(num) => (num, p1), // Use p1 as the effective prefix
-                    Err(_) => {
-                        eprintln!("Warning: Invalid end number in range token '{}' (with implicit end prefix). Treating as literal.", token);
-                        expanded_colnames.push(token.to_string());
-                        continue;
-                    }
-                }
-            } else {
-                // This case should ideally not be reached if the regex matches,
-                // as one of the OR branches for the end part should capture.
+            // Ensure both prefixes are the same
+            if prefix1 != prefix2 {
                 eprintln!(
-                    "Warning: Unparsable range format for token '{}'. Treating as literal.",
-                    token
+                    "Error: Mismatched prefixes in range '{}'. Both sides must have the same prefix.",
+                    part
                 );
-                expanded_colnames.push(token.to_string());
-                continue;
-            };
+                process::exit(1);
+            }
 
-            if n1 <= n_end {
-                for i in n1..=n_end {
-                    expanded_colnames.push(format!("{}{}", effective_prefix, i));
+            // Generate the range
+            if num1 <= num2 {
+                for i in num1..=num2 {
+                    result.push(format!("{}{}", prefix1, i));
                 }
             } else {
-                // Example: col5-col1. Decide behavior: error, single item, or empty.
-                // For now, warn and treat as literal, consistent with other parsing errors.
-                eprintln!("Warning: Start of range ({}{}) is greater than end ({}{}) in token '{}'. Treating as literal.", effective_prefix, n1, effective_prefix, n_end, token);
-                expanded_colnames.push(token.to_string());
+                eprintln!(
+                    "Error: Invalid range '{}'. Start number must be <= end number.",
+                    part
+                );
+                process::exit(1);
             }
         } else {
-            // Does not match the range pattern, add token as literal
-            expanded_colnames.push(token.to_string());
+            // Not a range, add as-is
+            result.push(part.to_string());
         }
     }
-    expanded_colnames
+
+    result
 }
 
 // Process a single command
@@ -227,12 +202,12 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
                 process::exit(1);
             }
 
+            // Parse as column names
             let colnames = if cmd.args.len() == 1 {
                 parse_column_names(&cmd.args[0])
             } else {
                 cmd.args.clone()
             };
-
             controller.select(&colnames);
         }
 

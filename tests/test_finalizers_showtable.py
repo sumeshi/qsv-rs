@@ -30,6 +30,50 @@ class TestShowtable(QsvTestBase):
         has_table_char = any(char in output for char in table_chars)
         self.assertTrue(has_table_char, f"Output should contain table formatting characters. Got: {output}")
     
+    def test_showtable_displays_table_size_info(self):
+        """Test that showtable displays table size information like Python Polars"""
+        output = self.run_qsv_command("load sample/simple.csv - showtable")
+        
+        # Should display shape information like "shape: (3, 5)" for 3 rows × 5 columns
+        self.assertTrue(
+            any("shape:" in line and "3" in line and "5" in line for line in output.split('\n')),
+            f"Output should contain shape information. Got: {output}"
+        )
+    
+    def test_showtable_automatic_default_finalizer(self):
+        """Test that showtable is automatically used as default finalizer when no explicit finalizer is specified"""
+        # Test without explicit finalizer - should automatically use showtable
+        output_implicit = self.run_qsv_command("load sample/simple.csv - select col1,col2")
+        
+        # Test with explicit showtable
+        output_explicit = self.run_qsv_command("load sample/simple.csv - select col1,col2 - showtable")
+        
+        # Both should produce similar formatted output
+        self.assertTrue(len(output_implicit) > 0, "Implicit showtable should produce output")
+        self.assertTrue(len(output_explicit) > 0, "Explicit showtable should produce output")
+        
+        # Both should contain table formatting
+        table_chars = ["|", "+", "-", "┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼"]
+        has_table_char_implicit = any(char in output_implicit for char in table_chars)
+        has_table_char_explicit = any(char in output_explicit for char in table_chars)
+        
+        self.assertTrue(has_table_char_implicit, "Implicit showtable should contain table formatting")
+        self.assertTrue(has_table_char_explicit, "Explicit showtable should contain table formatting")
+    
+    def test_showtable_small_dataset_no_truncation(self):
+        """Test that datasets with 7 or fewer rows show all rows without truncation"""
+        # Our sample data has 3 rows, so should show all without truncation
+        output = self.run_qsv_command("load sample/simple.csv - showtable")
+        
+        # Should contain all 3 data rows
+        self.assert_output_contains(output, "foo")
+        self.assert_output_contains(output, "bar")
+        self.assert_output_contains(output, "baz")
+        
+        # Should not contain truncation indicators
+        self.assertNotIn("…", output)
+        self.assertNotIn("...", output)
+    
     def test_showtable_after_select(self):
         """Test showtable after column selection"""
         output = self.run_qsv_command("load sample/simple.csv - select col1,str - showtable")
@@ -37,6 +81,12 @@ class TestShowtable(QsvTestBase):
         # Should display only selected columns in table format
         self.assert_output_contains(output, "col1")
         self.assert_output_contains(output, "str")
+        
+        # Should display shape information for 3 rows × 2 columns
+        self.assertTrue(
+            any("shape:" in line and "3" in line and "2" in line for line in output.split('\n')),
+            f"Output should contain shape (3, 2). Got: {output}"
+        )
         
         # Should not contain non-selected columns
         self.assertNotIn("datetime", output)
@@ -59,6 +109,12 @@ class TestShowtable(QsvTestBase):
         self.assert_output_contains(output, "col3")
         self.assert_output_contains(output, "str")
         
+        # Should display shape information for 2 rows × 5 columns (filtered to 'bar' and 'baz')
+        self.assertTrue(
+            any("shape:" in line and "2" in line and "5" in line for line in output.split('\n')),
+            f"Output should contain shape (2, 5). Got: {output}"
+        )
+        
         # Should contain filtered data
         self.assert_output_contains(output, "bar")
         self.assert_output_contains(output, "baz")
@@ -76,6 +132,12 @@ class TestShowtable(QsvTestBase):
         self.assert_output_contains(output, "col2")
         self.assert_output_contains(output, "col3")
         self.assert_output_contains(output, "str")
+        
+        # Should display shape information for 2 rows × 5 columns
+        self.assertTrue(
+            any("shape:" in line and "2" in line and "5" in line for line in output.split('\n')),
+            f"Output should contain shape (2, 5). Got: {output}"
+        )
         
         # Should contain first 2 rows
         self.assert_output_contains(output, "foo")
@@ -95,6 +157,12 @@ class TestShowtable(QsvTestBase):
         self.assert_output_contains(output, "col3")
         self.assert_output_contains(output, "str")
         
+        # Should display shape information for 3 rows × 5 columns
+        self.assertTrue(
+            any("shape:" in line and "3" in line and "5" in line for line in output.split('\n')),
+            f"Output should contain shape (3, 5). Got: {output}"
+        )
+        
         # Should contain all data (sorted by str: bar, baz, foo)
         self.assert_output_contains(output, "foo")
         self.assert_output_contains(output, "bar")
@@ -110,6 +178,12 @@ class TestShowtable(QsvTestBase):
         self.assert_output_contains(output, "col2")
         self.assert_output_contains(output, "col3")
         self.assert_output_contains(output, "str")
+        
+        # Should display shape information for 0 rows × 5 columns
+        self.assertTrue(
+            any("shape:" in line and "0" in line and "5" in line for line in output.split('\n')),
+            f"Output should contain shape (0, 5). Got: {output}"
+        )
         
         # Should not contain any data rows
         self.assertNotIn("foo", output)
@@ -143,6 +217,12 @@ class TestShowtable(QsvTestBase):
         self.assert_output_contains(output, "col1")
         self.assert_output_contains(output, "str")
         
+        # Should display shape information for 2 rows × 2 columns
+        self.assertTrue(
+            any("shape:" in line and "2" in line and "2" in line for line in output.split('\n')),
+            f"Output should contain shape (2, 2). Got: {output}"
+        )
+        
         # Should contain filtered and sorted data
         self.assert_output_contains(output, "bar")
         self.assert_output_contains(output, "baz")
@@ -162,6 +242,12 @@ class TestShowtable(QsvTestBase):
         self.assert_output_contains(output, "col2")
         self.assert_output_contains(output, "col3")
         
+        # Should display shape information for 3 rows × 3 columns
+        self.assertTrue(
+            any("shape:" in line and "3" in line and "3" in line for line in output.split('\n')),
+            f"Output should contain shape (3, 3). Got: {output}"
+        )
+        
         # Should contain numeric values
         self.assert_output_contains(output, "1")
         self.assert_output_contains(output, "2")
@@ -179,6 +265,12 @@ class TestShowtable(QsvTestBase):
         
         # Should display datetime column in table format
         self.assert_output_contains(output, "datetime")
+        
+        # Should display shape information for 3 rows × 1 column
+        self.assertTrue(
+            any("shape:" in line and "3" in line and "1" in line for line in output.split('\n')),
+            f"Output should contain shape (3, 1). Got: {output}"
+        )
         
         # Should contain datetime values
         self.assert_output_contains(output, "2023-01-01 12:00:00")
