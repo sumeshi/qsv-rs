@@ -254,14 +254,14 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
         "sed" => {
             check_data_loaded(controller, "sed");
 
-            if cmd.args.len() < 3 {
-                eprintln!("Error: 'sed' command requires a column name, pattern, and replacement");
+            if cmd.args.len() < 2 {
+                eprintln!("Error: 'sed' command requires pattern and replacement");
                 process::exit(1);
             }
 
-            let colname = &cmd.args[0];
-            let pattern = &cmd.args[1];
-            let replacement = &cmd.args[2];
+            let pattern = &cmd.args[0];
+            let replacement = &cmd.args[1];
+            let colname = cmd.options.get("column").and_then(|opt| opt.as_deref());
             let ignorecase = cmd.options.contains_key("ignorecase");
 
             controller.sed(colname, pattern, replacement, ignorecase);

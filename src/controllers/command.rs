@@ -76,6 +76,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "agg"
                         | "from"
                         | "to"
+                        | "column"
                 );
 
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
@@ -325,11 +326,17 @@ fn print_contains_help() {
 }
 
 fn print_sed_help() {
-    println!("sed: Replace values in a column using a pattern\n");
-    println!("Usage: sed <colname> <pattern> <replacement> [-i]\n");
+    println!("sed: Replace values in column(s) using a pattern\n");
+    println!("Usage:");
+    println!("  sed <pattern> <replacement> [-i]                    (apply to all columns)");
+    println!("  sed <pattern> <replacement> --column <colname> [-i] (apply to specific column)\n");
+    println!("Options:");
+    println!("  -i, --ignorecase    Case-insensitive matching");
+    println!("  --column <colname>  Apply replacement to specific column only\n");
     println!("Examples:");
-    println!("  qsv load data.csv - sed col1 foo bar - show");
-    println!("  qsv load data.csv - sed col1 foo bar -i - show");
+    println!("  qsv load data.csv - sed foo bar - show                       # Replace 'foo' with 'bar' in all columns");
+    println!("  qsv load data.csv - sed foo bar --column str - show          # Replace 'foo' with 'bar' in 'str' column only");
+    println!("  qsv load data.csv - sed john JOHN -i - show                  # Case-insensitive replacement");
 }
 
 fn print_grep_help() {

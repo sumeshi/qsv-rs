@@ -56,7 +56,7 @@ impl DataFrameController {
 
     pub fn sed(
         &mut self,
-        colname: &str,
+        colname: Option<&str>,
         pattern: &str,
         replacement: &str,
         ignorecase: bool,

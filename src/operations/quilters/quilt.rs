@@ -54,11 +54,11 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
     });
 
     table.insert("sed", |df, args| {
-        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let colname = get_string_from_value(args, "colname");
         let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
         let replacement = get_string_from_value(args, "replacement").unwrap_or_default();
         let ignorecase = get_bool_from_value(args, "ignorecase");
-        sed::sed(df, &colname, &pattern, &replacement, ignorecase)
+        sed::sed(df, colname.as_deref(), &pattern, &replacement, ignorecase)
     });
 
     table.insert("grep", |df, args| {
