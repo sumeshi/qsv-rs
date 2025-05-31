@@ -189,10 +189,9 @@ jobs:
         ## Quilter-CSV ${{ steps.get_version.outputs.VERSION }}
         
         ### Features
-        - Fast CSV processing with Rust and Polars
-        - Pipeline-style command chaining
-        - YAML-based batch processing (Quilt)
-        - Memory efficient processing of large datasets
+        - Pipeline-style command chaining: Chain multiple commands in a single line for fast and efficient data processing
+        - Flexible filtering and transformation: Perform operations like select, filter, sort, deduplicate, and timezone conversion
+        - YAML-based batch processing (Quilt): Automate complex workflows using YAML configuration files
         
         ### Supported Platforms
         - Linux (x64)
