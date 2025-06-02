@@ -355,12 +355,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
         "uniq" => {
             check_data_loaded(controller, "uniq");
-            let colnames = if cmd.args.is_empty() {
-                None
-            } else {
-                Some(parse_column_names(&cmd.args[0]))
-            };
-            controller.uniq(colnames);
+            controller.uniq();
         }
 
         "changetz" => {
@@ -373,32 +368,38 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
             let colname = &cmd.args[0];
 
-            let tz_from = match cmd.options.get("from_tz") {
+            let tz_from = match cmd.options.get("from-tz") {
                 Some(Some(tz)) => tz,
                 _ => {
-                    eprintln!("Error: 'changetz' command requires --from_tz option");
+                    eprintln!("Error: 'changetz' command requires --from-tz option");
                     process::exit(1);
                 }
             };
 
-            let tz_to = match cmd.options.get("to_tz") {
+            let tz_to = match cmd.options.get("to-tz") {
                 Some(Some(tz)) => tz,
                 _ => {
-                    eprintln!("Error: 'changetz' command requires --to_tz option");
+                    eprintln!("Error: 'changetz' command requires --to-tz option");
                     process::exit(1);
                 }
             };
 
-            let dt_format = cmd
+            let input_format = cmd
                 .options
-                .get("format")
+                .get("input_format")
+                .or_else(|| cmd.options.get("input-format"))
+                .and_then(|opt_val| opt_val.as_deref());
+            let output_format = cmd
+                .options
+                .get("output_format")
+                .or_else(|| cmd.options.get("output-format"))
                 .and_then(|opt_val| opt_val.as_deref());
             let ambiguous_time = cmd
                 .options
                 .get("ambiguous")
                 .and_then(|opt_val| opt_val.as_deref());
 
-            controller.changetz(colname, tz_from, tz_to, dt_format, ambiguous_time);
+            controller.changetz(colname, tz_from, tz_to, input_format, output_format, ambiguous_time);
         }
 
         "renamecol" => {

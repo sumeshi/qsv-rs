@@ -55,9 +55,10 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                 // Check if this is a long option that expects a value
                 let needs_value = matches!(
                     option_str,
-                    "from_tz"
-                        | "to_tz"
-                        | "format"
+                    "from-tz"
+                        | "to-tz"
+                        | "input-format" | "input_format"
+                        | "output-format" | "output_format"
                         | "ambiguous"
                         | "output"
                         | "separator"
@@ -386,15 +387,17 @@ fn print_uniq_help() {
 
 fn print_changetz_help() {
     println!("changetz: Change timezone of a datetime column\n");
-    println!("Usage: changetz <colname> --from_tz <from_tz> --to_tz <to_tz> [--format <format>] [--ambiguous <strategy>]\n");
+    println!("Usage: changetz <colname> --from-tz <from_tz> --to-tz <to_tz> [--input-format <format>] [--output-format <format>] [--ambiguous <strategy>]\n");
     println!("Options:");
-    println!("  --from_tz    Source timezone (e.g., UTC, America/New_York, local)");
-    println!("  --to_tz      Target timezone (e.g., Asia/Tokyo)");
-    println!("  --format     Input datetime format (default: auto)");
-    println!("  --ambiguous  Strategy for ambiguous times: earliest or latest (default: earliest)");
+    println!("  --from-tz       Source timezone (e.g., UTC, America/New_York, local)");
+    println!("  --to-tz         Target timezone (e.g., Asia/Tokyo)");
+    println!("  --input-format  Input datetime format (default: auto)");
+    println!("  --output-format Output datetime format (default: auto - ISO8601)");
+    println!("  --ambiguous     Strategy for ambiguous times: earliest or latest (default: earliest)");
     println!("\nExamples:");
-    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
-    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format '%Y/%m/%d %H:%M' - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo --input-format '%Y/%m/%d %H:%M' - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz America/New_York --to-tz UTC --ambiguous latest - show");
 }
 
 fn print_renamecol_help() {

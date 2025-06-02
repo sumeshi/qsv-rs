@@ -40,12 +40,12 @@ pub fn sed(
             ));
 
             let replace_expr = polars::prelude::col(col)
-                .cast(DataType::String) // Ensure the column is String
-                .str()
-                .replace_all(lit(final_pattern), lit(replacement.to_string()), false) // literal: false for regex
+        .cast(DataType::String) // Ensure the column is String
+        .str()
+        .replace_all(lit(final_pattern), lit(replacement.to_string()), false) // literal: false for regex
                 .alias(col);
 
-            df.clone().with_column(replace_expr)
+    df.clone().with_column(replace_expr)
         }
         None => {
             // Apply sed to all columns

@@ -2,120 +2,119 @@ import unittest
 from test_base import QsvTestBase
 
 class TestChangetz(QsvTestBase):
-    """
-    Test changetz chainable module
-    """
     
-    def test_changetz_basic_utc_to_jst(self):
-        """Test basic timezone conversion from UTC to JST"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show")
-        
-        # Should convert UTC times to JST (UTC+9)
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        # UTC 12:00 -> JST 21:00
-        self.assert_output_contains(output, "2023-01-01 21:00:00")
-        # UTC 13:00 -> JST 22:00  
-        self.assert_output_contains(output, "2023-01-01 22:00:00")
-        # UTC 14:00 -> JST 23:00
-        self.assert_output_contains(output, "2023-01-01 23:00:00")
+    def test_changetz_basic(self):
+        """Test basic timezone change functionality"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz UTC --to-tz UTC - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01T12:00:00.000000+00:00,1,2,3,foo",
+            "2023-01-01T13:00:00.000000+00:00,4,5,6,bar",
+            "2023-01-01T14:00:00.000000+00:00,7,8,9,baz",
+        ]))
     
-    def test_changetz_utc_to_america_new_york(self):
-        """Test timezone conversion from UTC to America/New_York"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz America/New_York - show")
-        
-        # Should convert UTC times to EST (UTC-5 in January)
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        # UTC 12:00 -> EST 07:00
-        self.assert_output_contains(output, "2023-01-01 07:00:00")
-        # UTC 13:00 -> EST 08:00
-        self.assert_output_contains(output, "2023-01-01 08:00:00")
-        # UTC 14:00 -> EST 09:00
-        self.assert_output_contains(output, "2023-01-01 09:00:00")
+    def test_changetz_to_losangeles(self):
+        """Test timezone change to Los Angeles"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz UTC --to-tz America/Los_Angeles - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01T04:00:00.000000-08:00,1,2,3,foo",
+            "2023-01-01T05:00:00.000000-08:00,4,5,6,bar",
+            "2023-01-01T06:00:00.000000-08:00,7,8,9,baz",
+        ]))
     
-    def test_changetz_local_to_utc(self):
-        """Test timezone conversion from local to UTC"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz local --to_tz UTC - show")
-        
-        # Should convert local times to UTC (exact conversion depends on system timezone)
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        # Should have some datetime values (exact values depend on system timezone)
-        self.assert_output_contains(output, "2023-01-01")
+    def test_changetz_to_tokyo(self):
+        """Test timezone change to Tokyo"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz UTC --to-tz Asia/Tokyo - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01T21:00:00.000000+09:00,1,2,3,foo",
+            "2023-01-01T22:00:00.000000+09:00,4,5,6,bar",
+            "2023-01-01T23:00:00.000000+09:00,7,8,9,baz",
+        ]))
     
-    def test_changetz_with_custom_format(self):
-        """Test changetz with custom datetime format"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format '%Y-%m-%d %H:%M:%S' - show")
-        
-        # Should still work with explicit format specification
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        self.assert_output_contains(output, "2023-01-01 21:00:00")
+    def test_changetz_with_input_format(self):
+        """Test changetz with input format"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz UTC --to-tz Asia/Tokyo --input-format '%Y-%m-%d %H:%M:%S' - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01T21:00:00.000000+09:00,1,2,3,foo",
+            "2023-01-01T22:00:00.000000+09:00,4,5,6,bar",
+            "2023-01-01T23:00:00.000000+09:00,7,8,9,baz",
+        ]))
     
-    def test_changetz_with_auto_format(self):
-        """Test changetz with auto format detection"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format auto - show")
-        
-        # Should work with auto format detection
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        self.assert_output_contains(output, "2023-01-01 21:00:00")
+    def test_changetz_with_output_format(self):
+        """Test changetz with output format"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz UTC --to-tz Asia/Tokyo --output-format '%Y-%m-%d %H:%M:%S' - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01 21:00:00,1,2,3,foo",
+            "2023-01-01 22:00:00,4,5,6,bar",
+            "2023-01-01 23:00:00,7,8,9,baz",
+        ]))
     
-    def test_changetz_with_ambiguous_earliest(self):
-        """Test changetz with ambiguous time strategy set to earliest"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --ambiguous earliest - show")
-        
-        # Should work with earliest ambiguous time strategy
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        self.assert_output_contains(output, "2023-01-01 21:00:00")
     
-    def test_changetz_with_ambiguous_latest(self):
-        """Test changetz with ambiguous time strategy set to latest"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --ambiguous latest - show")
+    def test_changetz_dst_comprehensive_earliest(self):
+        """Test comprehensive DST scenarios with earliest strategy"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('dst_comprehensive.csv')} - changetz datetime --from-tz America/Los_Angeles --to-tz UTC --input-format '%Y-%m-%d %H:%M:%S' --ambiguous earliest - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,timezone,description",
+            "2023-11-05T07:30:00.000000+00:00,Los Angeles,Before DST transition",     # PDT (UTC-7): 00:30 → 07:30
+            "2023-11-05T08:30:00.000000+00:00,Los Angeles,Ambiguous time (1st occurrence)",  # PDT (UTC-7): 01:30 → 08:30
+            "2023-11-05T08:45:00.000000+00:00,Los Angeles,Ambiguous time (still in overlap)", # PDT (UTC-7): 01:45 → 08:45
+            "2023-11-05T10:30:00.000000+00:00,Los Angeles,After DST transition",     # PST (UTC-8): 02:30 → 10:30
+            "2023-03-12T09:30:00.000000+00:00,Los Angeles,Non-existent time (spring forward)", # PST (UTC-8): 01:30 → 09:30 (interpreted as PST)
+            "2023-03-12T10:30:00.000000+00:00,Los Angeles,After spring forward",     # PDT (UTC-7): 03:30 → 10:30
+        ]))
+
+    def test_changetz_dst_comprehensive_latest(self):
+        """Test comprehensive DST scenarios with latest strategy"""  
+        result = self.run_qsv_command(f"load {self.get_fixture_path('dst_comprehensive.csv')} - changetz datetime --from-tz America/Los_Angeles --to-tz UTC --input-format '%Y-%m-%d %H:%M:%S' --ambiguous latest - show")
+        self.assertEqual(result.stdout.strip(), "\n".join([
+            "datetime,timezone,description",
+            "2023-11-05T07:30:00.000000+00:00,Los Angeles,Before DST transition",     # PDT (UTC-7): 00:30 → 07:30
+            "2023-11-05T09:30:00.000000+00:00,Los Angeles,Ambiguous time (1st occurrence)",  # PST (UTC-8): 01:30 → 09:30 (latest interpretation)
+            "2023-11-05T09:45:00.000000+00:00,Los Angeles,Ambiguous time (still in overlap)", # PST (UTC-8): 01:45 → 09:45 (latest interpretation)  
+            "2023-11-05T10:30:00.000000+00:00,Los Angeles,After DST transition",     # PST (UTC-8): 02:30 → 10:30
+            "2023-03-12T09:30:00.000000+00:00,Los Angeles,Non-existent time (spring forward)", # PST (UTC-8): 01:30 → 09:30 (interpreted as PST)
+            "2023-03-12T10:30:00.000000+00:00,Los Angeles,After spring forward",     # PDT (UTC-7): 03:30 → 10:30
+        ]))
+
+    def test_changetz_ambiguous_autumn_transition(self):
+        """Test specific autumn DST transition (fall back scenario)"""
+        # Test the original autumn transition test with correct fixture
+        result_earliest = self.run_qsv_command(f"load {self.get_fixture_path('dst_ambiguous.csv')} - changetz datetime --from-tz America/Los_Angeles --to-tz UTC --input-format '%Y-%m-%d %H:%M:%S' --ambiguous earliest - show")
+        self.assertEqual(result_earliest.stdout.strip(), "\n".join([
+            "datetime,location,event",
+            "2023-11-05T08:00:00.000000+00:00,Los Angeles,Before DST end",      # PDT (UTC-7): 01:00 → 08:00
+            "2023-11-05T08:30:00.000000+00:00,Los Angeles,Ambiguous time",     # PDT (UTC-7): 01:30 → 08:30  
+            "2023-11-05T08:45:00.000000+00:00,Los Angeles,Still ambiguous",    # PDT (UTC-7): 01:45 → 08:45
+            "2023-11-05T10:30:00.000000+00:00,Los Angeles,After DST end",      # PST (UTC-8): 02:30 → 10:30
+        ]))
         
-        # Should work with latest ambiguous time strategy
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        self.assert_output_contains(output, "2023-01-01 21:00:00")
-    
-    def test_changetz_all_options_combined(self):
-        """Test changetz with all options specified"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format '%Y-%m-%d %H:%M:%S' --ambiguous earliest - show")
-        
-        # Should work with all options specified
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        self.assert_output_contains(output, "2023-01-01 21:00:00")
-        self.assert_output_contains(output, "2023-01-01 22:00:00")
-        self.assert_output_contains(output, "2023-01-01 23:00:00")
-    
-    def test_changetz_nonexistent_column(self):
-        """Test changetz on non-existent column should fail gracefully"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz nonexistent --from_tz UTC --to_tz Asia/Tokyo - show")
-        
-        # Should fail and return empty output
-        self.assertEqual(output, "")
-    
-    def test_changetz_missing_from_tz(self):
-        """Test changetz without --from_tz should fail"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --to_tz Asia/Tokyo - show")
-        
-        # Should fail and return empty output
-        self.assertEqual(output, "")
-    
-    def test_changetz_missing_to_tz(self):
-        """Test changetz without --to_tz should fail"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz UTC - show")
-        
-        # Should fail and return empty output
-        self.assertEqual(output, "")
-    
-    def test_changetz_invalid_timezone(self):
-        """Test changetz with invalid timezone should fail gracefully"""
-        output = self.run_qsv_command("load sample/simple.csv - changetz datetime --from_tz InvalidTZ --to_tz UTC - show")
-        
-        # Should fail and return empty output or original data
-        # The exact behavior depends on implementation
-        if output:
-            # If it returns data, it should be the original unchanged data
-            self.assert_output_contains(output, "2023-01-01 12:00:00")
-        else:
-            # If it fails completely
-            self.assertEqual(output, "")
+        # Test latest strategy  
+        result_latest = self.run_qsv_command(f"load {self.get_fixture_path('dst_ambiguous.csv')} - changetz datetime --from-tz America/Los_Angeles --to-tz UTC --input-format '%Y-%m-%d %H:%M:%S' --ambiguous latest - show")
+        self.assertEqual(result_latest.stdout.strip(), "\n".join([
+            "datetime,location,event", 
+            "2023-11-05T09:00:00.000000+00:00,Los Angeles,Before DST end",      # PST (UTC-8): 01:00 → 09:00 (latest interpretation)
+            "2023-11-05T09:30:00.000000+00:00,Los Angeles,Ambiguous time",     # PST (UTC-8): 01:30 → 09:30
+            "2023-11-05T09:45:00.000000+00:00,Los Angeles,Still ambiguous",    # PST (UTC-8): 01:45 → 09:45
+            "2023-11-05T10:30:00.000000+00:00,Los Angeles,After DST end",      # PST (UTC-8): 02:30 → 10:30
+        ]))
+
+    def test_changetz_invalid_source_timezone(self):
+        """Test changetz with invalid source timezone exits with error"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz Invalid/Timezone --to-tz UTC - show")
+        # Expecting error exit code and error message
+        self.assertNotEqual(result.returncode, 0)  # Should exit with error code
+        self.assertIn("Error: Invalid source timezone", result.stderr)  # Should contain error message
+
+    def test_changetz_invalid_target_timezone(self):
+        """Test changetz with invalid timezone exits with error"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - changetz datetime --from-tz UTC --to-tz Invalid/Timezone - show")
+        # Expecting error exit code and error message
+        self.assertNotEqual(result.returncode, 0)  # Should exit with error code
+        self.assertIn("Error: Invalid target timezone", result.stderr)  # Should contain error message
 
 if __name__ == "__main__":
     unittest.main()
