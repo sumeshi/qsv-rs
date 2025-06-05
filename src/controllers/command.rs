@@ -57,8 +57,10 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                     option_str,
                     "from-tz"
                         | "to-tz"
-                        | "input-format" | "input_format"
-                        | "output-format" | "output_format"
+                        | "input-format"
+                        | "input_format"
+                        | "output-format"
+                        | "output_format"
                         | "ambiguous"
                         | "output"
                         | "separator"
@@ -78,6 +80,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "from"
                         | "to"
                         | "column"
+                        | "unit"
                 );
 
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
@@ -186,9 +189,10 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
             "n" => "number".to_string(),    // if -n is passed as a flag, store as number: None
             "o" => "output".to_string(),    // if -o is passed as a flag, store as output: None
             // Add other short options that are flags here if necessary
-            "i" => "ignorecase".to_string(), // Example for grep -i
-            "d" => "desc".to_string(),       // Example for sort -d
-            "p" => "plain".to_string(),      // Example for headers -p
+            "i" | "ignorecase" => "ignorecase".to_string(), // Example for grep -i or --ignorecase
+            "d" | "desc" => "desc".to_string(),             // Example for sort -d or --desc
+            "p" | "plain" => "plain".to_string(),           // Example for headers -p or --plain
+            "v" | "invert-match" => "invert-match".to_string(), // Example for grep -v or --invert-match
             _ => option_str.to_string(),
         };
         // If it's a known flag that should be stored with its full name, do so.
@@ -221,6 +225,7 @@ pub fn print_help() {
     println!("  timeline     Aggregate data by time intervals");
     println!("  timeslice    Filter data by time range");
     println!("  pivot        Create pivot tables with cross-tabulation");
+    println!("  timeround    Round datetime to specified time unit");
     println!();
     println!("Finalizers:");
     println!("  show         Print as CSV");
@@ -266,6 +271,7 @@ pub fn print_chainable_help(cmd: &str) {
         "timeslice" => print_timeslice_help(),
         "partition" => print_partition_help(),
         "pivot" => print_pivot_help(),
+        "timeround" => print_timeround_help(),
         "show" => print_show_help(),
         "showtable" => print_showtable_help(),
         "headers" => print_headers_help(),
@@ -364,11 +370,12 @@ fn print_tail_help() {
 
 fn print_sort_help() {
     println!("sort: Sort rows by column(s)\n");
-    println!("Usage: sort <col1>[,<col2>,...] [-d]\n");
-    println!("Options: -d (descending order)\n");
+    println!("Usage: sort <col1>[,<col2>,...] [-d|--desc]\n");
+    println!("Options: -d, --desc (descending order)\n");
     println!("Examples:");
     println!("  qsv load data.csv - sort col1 - show");
     println!("  qsv load data.csv - sort col1,col2 -d - show");
+    println!("  qsv load data.csv - sort col1,col2 --desc - show");
 }
 
 fn print_count_help() {
@@ -393,7 +400,9 @@ fn print_changetz_help() {
     println!("  --to-tz         Target timezone (e.g., Asia/Tokyo)");
     println!("  --input-format  Input datetime format (default: auto)");
     println!("  --output-format Output datetime format (default: auto - ISO8601)");
-    println!("  --ambiguous     Strategy for ambiguous times: earliest or latest (default: earliest)");
+    println!(
+        "  --ambiguous     Strategy for ambiguous times: earliest or latest (default: earliest)"
+    );
     println!("\nExamples:");
     println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo - show");
     println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo --input-format '%Y/%m/%d %H:%M' - show");
@@ -495,6 +504,26 @@ fn print_pivot_help() {
     println!("\nNote: Creates a cross-tabulation table with specified rows and columns.");
 }
 
+fn print_timeround_help() {
+    println!("timeround: Round datetime to specified time unit\n");
+    println!("Usage: timeround <colname> --unit <unit> [--output <colname>]\n");
+    println!("Options:");
+    println!("  --unit      Time unit: y/year, M/month, d/day, h/hour, m/minute, s/second");
+    println!("  --output    Output column name (default: replaces original column)");
+    println!("\nOutput formats by unit:");
+    println!("  year (y):   2023");
+    println!("  month (M):  2023-01");
+    println!("  day (d):    2023-01-01");
+    println!("  hour (h):   2023-01-01 12");
+    println!("  minute (m): 2023-01-01 12:34");
+    println!("  second (s): 2023-01-01 12:34:56");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - timeround timestamp --unit d --output date_only");
+    println!("  qsv load data.csv - timeround timestamp --unit h --output hour_rounded");
+    println!("  qsv load data.csv - timeround timestamp --unit m");
+    println!("  qsv load logs.csv - timeround created_at --unit day --output created_day");
+}
+
 fn print_show_help() {
     println!("show: Print result as CSV\n");
     println!("Usage: show\n");
@@ -511,11 +540,12 @@ fn print_showtable_help() {
 
 fn print_headers_help() {
     println!("headers: Show column names\n");
-    println!("Usage: headers [-p]\n");
-    println!("Options: -p (plain format)\n");
+    println!("Usage: headers [-p|--plain]\n");
+    println!("Options: -p, --plain (plain format)\n");
     println!("Examples:");
     println!("  qsv load data.csv - headers");
     println!("  qsv load data.csv - headers -p");
+    println!("  qsv load data.csv - headers --plain");
 }
 
 fn print_stats_help() {

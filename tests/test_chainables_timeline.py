@@ -10,7 +10,7 @@ class TestTimeline(QsvTestBase):
     
     def test_timeline_basic(self):
         """Test basic timeline functionality"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_timeline.csv')} - timeline str --interval 1h - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_timeline.csv')} - timeline datetime --interval 1h - show")
         self.assertEqual(result.stdout.strip(), "\n".join([
             "timeline_1h,count",
             "2023-01-01 00:00:00,1",

@@ -40,12 +40,12 @@ pub fn sed(
             ));
 
             let replace_expr = polars::prelude::col(col)
-        .cast(DataType::String) // Ensure the column is String
-        .str()
-        .replace_all(lit(final_pattern), lit(replacement.to_string()), false) // literal: false for regex
+                .cast(DataType::String) // Ensure the column is String
+                .str()
+                .replace_all(lit(final_pattern), lit(replacement.to_string()), false) // literal: false for regex
                 .alias(col);
 
-    df.clone().with_column(replace_expr)
+            df.clone().with_column(replace_expr)
         }
         None => {
             // Apply sed to all columns
@@ -55,19 +55,23 @@ pub fn sed(
             ));
 
             let mut result_df = df.clone();
-            
+
             // Apply replacement to all columns
             for column_name in schema.iter_names() {
                 let col_str = column_name.as_str();
                 let replace_expr = polars::prelude::col(col_str)
                     .cast(DataType::String) // Ensure the column is String
                     .str()
-                    .replace_all(lit(final_pattern.clone()), lit(replacement.to_string()), false) // literal: false for regex
+                    .replace_all(
+                        lit(final_pattern.clone()),
+                        lit(replacement.to_string()),
+                        false,
+                    ) // literal: false for regex
                     .alias(col_str);
-                
+
                 result_df = result_df.with_column(replace_expr);
             }
-            
+
             result_df
         }
     }

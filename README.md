@@ -104,7 +104,7 @@ Select columns by name, numeric index, or range notation.
 - **Numeric indices**: `1,3` - Select columns by position (1-based indexing)  
 - **Range notation (hyphen)**: `col1-col3` - Select range using hyphen
 - **Range notation (colon)**: `col1:col3` - Select range using colon
-- **Numeric range**: `1:3` - Select columns 1 through 3 (inclusive)
+- **Numeric range**: `1:3` - Select columns col1, col2, col3 (1-based column names)
 - **Quoted colon notation**: `"col:1":"col:3"` - For column names containing colons
 - **Mixed formats**: `1,col2,4:6` - Combine different selection methods
 
@@ -113,7 +113,7 @@ $ qsv load data.csv - select datetime
 $ qsv load data.csv - select col1,col3
 $ qsv load data.csv - select col1-col3
 $ qsv load data.csv - select col1:col3  
-$ qsv load data.csv - select 1:3        # Select first 3 columns
+$ qsv load data.csv - select 1:3        # Select col1, col2, col3
 $ qsv load data.csv - select 2,4        # Select 2nd and 4th columns
 $ qsv load data.csv - select "col:1":"col:3"  # For columns with colons in names
 $ qsv load data.csv - select 1,datetime,3:5   # Mixed selection methods
@@ -184,11 +184,11 @@ Displays the first N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| -n, --number | int  | 5       | Number of rows to display. This can be provided as a direct argument or via `-n`/`--number` option. |
+| number | int  | | Number of rows to display. This is a required positional argument. |
 
 ```bash
 $ qsv load data.csv - head 3
-$ qsv load data.csv - head -n 7 
+$ qsv load data.csv - head 10
 ```
 
 #### `tail`
@@ -196,11 +196,11 @@ Displays the last N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| -n, --number | int  | 5       | Number of rows to display. This can be provided as a direct argument or via `-n`/`--number` option. |
+| number | int  | | Number of rows to display. This is a required positional argument. |
 
 ```bash
 $ qsv load data.csv - tail 3
-$ qsv load data.csv - tail -n 7
+$ qsv load data.csv - tail 10
 ```
 
 #### `sort`
@@ -213,6 +213,7 @@ Sorts the dataset based on the specified column(s).
 
 ```bash
 $ qsv load data.csv - sort str
+$ qsv load data.csv - sort str -d
 $ qsv load data.csv - sort str --desc
 $ qsv load data.csv - sort col1,col2,col3 --desc
 ```
@@ -231,9 +232,6 @@ $ qsv load data.csv - count - sort col1  # Count and then sort by col1 instead
 
 #### `uniq`
 Filters unique rows, removing duplicates based on all columns.
-
-> [!NOTE]
-> The `uniq` command uses a stable algorithm, meaning the order of the unique rows in the output will match their first appearance in the input data.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -370,6 +368,71 @@ $ qsv load data.csv - timeslice timestamp --start "2023-06-01" --end "2023-06-30
 $ qsv load access.log - timeslice timestamp --start "2023-01-01T10:00:00"
 ```
 
+#### `pivot`
+Creates pivot tables with cross-tabulation functionality.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| --rows | str |         | Comma-separated list of columns for rows. Optional. |
+| --cols | str |         | Comma-separated list of columns for columns. Optional. |
+| --values | str |         | Column to aggregate values from. Required. |
+| --agg | str |         | Aggregation function: `sum`, `mean`, `count`, `min`, `max`, `median`, `std`. Optional (default behavior depends on implementation). |
+
+At least one of `--rows` or `--cols` must be specified. Creates a cross-tabulation table with specified row and column groupings, aggregating values using the chosen function.
+
+Example:
+```bash
+$ qsv load sales.csv - pivot --rows region --cols product --values sales_amount --agg sum
+$ qsv load data.csv - pivot --rows category --cols year --values revenue --agg mean
+$ qsv load logs.csv - pivot --rows date --cols error_type --values count --agg count
+$ qsv load metrics.csv - pivot --rows department --values performance --agg median
+```
+
+#### `timeround`
+Rounds datetime values to specified time units, creating a new rounded column while preserving the original.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| colname | str |         | Name of the datetime column to round. Required. |
+| --unit | str |         | Time unit for rounding: `y`/`year`, `M`/`month`, `d`/`day`, `h`/`hour`, `m`/`minute`, `s`/`second`. Required. |
+| --output | str | (replaces original) | Name for the output column. If not specified, replaces the original column. |
+
+**Features:**
+- Rounds datetime values down to the nearest specified time unit boundary
+- Useful for time-based grouping and analysis
+- Supports both short (`h`, `d`) and long (`hour`, `day`) unit names
+- Output format automatically adjusts to the specified unit (clean, minimal format)
+
+**Output formats by unit:**
+- **year (y)**: `2023`
+- **month (M)**: `2023-01`
+- **day (d)**: `2023-01-01`
+- **hour (h)**: `2023-01-01 12`
+- **minute (m)**: `2023-01-01 12:34`
+- **second (s)**: `2023-01-01 12:34:56`
+
+Example:
+```bash
+$ qsv load data.csv - timeround timestamp --unit d --output date_only
+# Input:  2023-01-01 12:34:56
+# Output: 2023-01-01
+
+$ qsv load data.csv - timeround timestamp --unit h --output hour_rounded
+# Input:  2023-01-01 12:34:56
+# Output: 2023-01-01 12
+
+$ qsv load logs.csv - timeround timestamp --unit m
+# Rounds to minute boundary, replaces original column
+
+$ qsv load metrics.csv - timeround created_at --unit year --output created_year
+# Input:  2023-01-01 12:34:56
+# Output: 2023
+```
+
+### Finalizers
+
+Finalizers are used to output or summarize the processed data. They are typically the last command in a chain.
+
 #### `partition`
 Splits data into separate CSV files based on unique values in a specified column. Each unique value creates its own file.
 
@@ -388,20 +451,17 @@ $ qsv load logs.csv - partition date ./daily_logs/
 $ qsv load data.csv - select col1,col2 - partition col1 ./numeric_partitions/
 ```
 
-### Finalizers
-
-Finalizers are used to output or summarize the processed data. They are typically the last command in a chain.
-
 #### `headers`
 Displays the column headers of the current dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| --plain   | flag | `false` | Display headers as plain text, one per line, instead of a formatted table. |
+| -p, --plain   | flag | `false` | Display headers as plain text, one per line, instead of a formatted table. |
 
 Example:
 ```bash
 $ qsv load data.csv - headers
+$ qsv load data.csv - headers -p
 $ qsv load data.csv - headers --plain
 ```
 
@@ -460,14 +520,14 @@ Outputs the processing results to a CSV file.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| output_path | str | `output.csv` | File path to save the CSV data. Can be provided as a positional argument (e.g., `dump my_file.csv`) or via `--output <path>` / `-o <path>` option. If omitted, defaults to `output.csv`. |
-| --separator, --sep | char | `,` | Field separator character for the output CSV file. |
+| output_path | str | | File path to save the CSV data. Optional positional argument. |
+| --separator | char | `,` | Field separator character for the output CSV file. |
 
 Example:
 ```bash
-$ qsv load data.csv - head 100 - dump
-$ qsv load data.csv - head 100 - dump --output result.csv
-$ qsv load data.csv - head 100 - dump --output result.tsv --separator=\t
+$ qsv load data.csv - head 100 - dump results.csv
+$ qsv load data.csv - head 100 - dump --separator ';' results.csv
+$ qsv load data.csv - head 100 - dump  # May use default filename
 ```
 
 ### Quilt (YAML Workflows)

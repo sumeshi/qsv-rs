@@ -1,6 +1,6 @@
 use crate::operations::chainables::{
     changetz, contains, convert, count, grep, head, isin, pivot, renamecol, sed, select, sort,
-    tail, timeline, timeslice, uniq,
+    tail, timeline, timeround, timeslice, uniq,
 };
 use crate::operations::finalizers::{dump, headers, partition, show, showquery, showtable, stats};
 use crate::operations::initializers::load;
@@ -189,6 +189,18 @@ impl DataFrameController {
     ) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(pivot::pivot(df, rows, columns, values, agg_func));
+        }
+        self
+    }
+
+    pub fn timeround(
+        &mut self,
+        colname: &str,
+        unit: &str,
+        output_colname: Option<&str>,
+    ) -> &mut Self {
+        if let Some(df) = &self.df {
+            self.df = Some(timeround::timeround(df, colname, unit, output_colname));
         }
         self
     }

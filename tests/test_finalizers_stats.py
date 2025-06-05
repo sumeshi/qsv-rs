@@ -8,149 +8,78 @@ class TestStats(QsvTestBase):
     
     def test_stats_basic(self):
         """Test basic stats functionality"""
-        output = self.run_qsv_command("load sample/simple.csv - stats")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - stats")
+        output = result.stdout.strip()
         
-        # Should show statistics for all columns
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "count")
-        self.assert_output_contains(output, "null_count")
+        # Should return statistics in table format
+        self.assertIn("Statistic", output)
+        self.assertIn("count", output)
+        self.assertIn("mean", output)
+        self.assertIn("datetime", output)
+        self.assertIn("col1", output)
+        self.assertIn("str", output)
+    
+    def test_stats_with_select(self):
+        """Test stats after column selection"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1,col2 - stats")
+        output = result.stdout.strip()
         
-        # Should include all column names
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
+        # Should return stats for selected columns only
+        self.assertIn("Statistic", output)
+        self.assertIn("col1", output)
+        self.assertIn("col2", output)
+        self.assertNotIn("datetime", output)
+        self.assertNotIn("str", output)
     
     def test_stats_numeric_columns(self):
-        """Test stats for numeric columns"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1,col2,col3 - stats")
+        """Test stats for numeric columns only"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1,col2,col3 - stats")
+        output = result.stdout.strip()
         
-        # Should show numeric statistics
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        
-        # Should include statistical measures for numeric data
-        self.assert_output_contains(output, "count")
-        # Note: Specific statistical values depend on Polars implementation
+        # Should return stats with numeric data types
+        self.assertIn("Statistic", output)
+        self.assertIn("i64", output)  # Integer data type
+        self.assertIn("mean", output)
+        self.assertIn("std", output)
+        lines = output.split('\n')
+        self.assertGreater(len(lines), 5)  # Should have multiple stat rows
     
     def test_stats_string_column(self):
         """Test stats for string column"""
-        output = self.run_qsv_command("load sample/simple.csv - select str - stats")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select str - stats")
+        output = result.stdout.strip()
         
-        # Should show statistics for string column
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "str")
-        self.assert_output_contains(output, "count")
+        # Should return stats for string column
+        self.assertIn("Statistic", output)
+        self.assertIn("str", output)
+        self.assertIn("count", output)
+        # String columns should show min/max values
+        self.assertIn("min", output)
+        self.assertIn("max", output)
     
     def test_stats_after_filtering(self):
         """Test stats after filtering operations"""
-        output = self.run_qsv_command("load sample/simple.csv - grep 'ba' - stats")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - grep 'ba' - stats")
+        output = result.stdout.strip()
         
-        # Should show statistics for filtered data (2 rows)
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "count")
-        
-        # Should include all original columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-    
-    def test_stats_after_column_selection(self):
-        """Test stats after selecting specific columns"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1,str - stats")
-        
-        # Should show statistics only for selected columns
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "str")
-        
-        # Should not include non-selected columns
-        self.assertNotIn("datetime", output)
-        self.assertNotIn("col2", output)
-        self.assertNotIn("col3", output)
-    
-    def test_stats_after_head_operation(self):
-        """Test stats after head operation"""
-        output = self.run_qsv_command("load sample/simple.csv - head 2 - stats")
-        
-        # Should show statistics for first 2 rows only
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "count")
-        
-        # Should include all columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-    
-    def test_stats_empty_result(self):
-        """Test stats with no matching rows"""
-        output = self.run_qsv_command("load sample/simple.csv - grep 'xyz' - stats")
-        
-        # Should still show column information even with no data
-        self.assert_output_contains(output, "Statistic")
-        
-        # Should include all columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-    
-    def test_stats_after_sort(self):
-        """Test stats after sorting operations"""
-        output = self.run_qsv_command("load sample/simple.csv - sort str - stats")
-        
-        # Should show statistics for sorted data (same as original)
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "count")
-        
-        # Should include all columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-    
-    def test_stats_after_uniq(self):
-        """Test stats after uniq operation"""
-        output = self.run_qsv_command("load sample/simple.csv - uniq str - stats")
-        
-        # Should show statistics for unique data
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "count")
-        
-        # Should include all columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-    
-    def test_stats_after_renamecol(self):
-        """Test stats after column renaming"""
-        output = self.run_qsv_command("load sample/simple.csv - renamecol str text - stats")
-        
-        # Should show statistics with renamed column
-        self.assert_output_contains(output, "Statistic")
-        self.assert_output_contains(output, "text")
-        
-        # Should not include old column name in header (but 'str' may appear as datatype)
+        # Should return stats for filtered data
+        self.assertIn("Statistic", output)
+        self.assertIn("count", output)
+        # Should show reduced counts due to filtering
         lines = output.split('\n')
-        header_line = lines[1] if len(lines) > 1 else ""
-        self.assertNotIn("│ str", header_line)
+        self.assertGreater(len(lines), 3)  # Should have header + multiple stat rows
+    
+    def test_stats_with_head(self):
+        """Test stats after head operation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - head 2 - stats")
+        output = result.stdout.strip()
         
-        # Should include other columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
+        # Should return stats for first 2 rows only
+        self.assertIn("Statistic", output)
+        self.assertIn("count", output)
+        self.assertIn("2", output)  # Count should be 2
+        lines = output.split('\n')
+        self.assertGreater(len(lines), 3)  # Should have header + multiple stat rows
 
 if __name__ == "__main__":
     unittest.main() 

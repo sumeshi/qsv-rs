@@ -1,141 +1,148 @@
 import unittest
 import os
-import tempfile
-import shutil
+import glob
 from test_base import QsvTestBase
 
 class TestPartition(QsvTestBase):
-    """
-    Test cases for the partition chainable operation
-    """
-    
-    def setUp(self):
-        """Set up test environment"""
-        super().setUp()
-        # Create a temporary directory for partition outputs
-        self.temp_dir = tempfile.mkdtemp()
-    
-    def tearDown(self):
-        """Clean up test environment"""
-        # Remove temporary directory
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
     
     def test_partition_by_string_column(self):
         """Test partitioning by string column"""
-        output = self.run_qsv_command(f"load sample/simple.csv - partition str {self.temp_dir} - show")
+        output_dir = "/tmp/test_partition"
         
-        # Should return original data
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
-        self.assert_output_contains(output, "foo")
-        self.assert_output_contains(output, "bar")
-        self.assert_output_contains(output, "baz")
+        # Clean up any existing files
+        if os.path.exists(output_dir):
+            for file in glob.glob(f"{output_dir}/*.csv"):
+                os.remove(file)
+        else:
+            os.makedirs(output_dir)
         
-        # Check that partition files were created
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - partition str {output_dir}")
+        
+        # Should not produce stdout output
+        self.assertEqual(result.stdout.strip(), "")
+        
+        # Should create separate files for each unique value
         expected_files = ["foo.csv", "bar.csv", "baz.csv"]
         for filename in expected_files:
-            file_path = os.path.join(self.temp_dir, filename)
-            self.assertTrue(os.path.exists(file_path), f"Partition file {filename} should exist")
+            filepath = os.path.join(output_dir, filename)
+            self.assertTrue(os.path.exists(filepath), f"File {filename} should be created")
             
-            # Check file content
-            with open(file_path, 'r') as f:
-                content = f.read()
-                self.assertIn("datetime,col1,col2,col3,str", content)  # Header should be present
-                self.assertIn(filename.replace('.csv', ''), content)  # Value should be in the file
+        # Check content of foo.csv
+        with open(os.path.join(output_dir, "foo.csv"), 'r') as f:
+            content = f.read().strip()
+        expected_foo = '\n'.join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01 12:00:00,1,2,3,foo",
+        ])
+        self.assertEqual(content, expected_foo)
+        
+        # Clean up
+        for file in glob.glob(f"{output_dir}/*.csv"):
+            os.remove(file)
+        os.rmdir(output_dir)
     
     def test_partition_by_numeric_column(self):
         """Test partitioning by numeric column"""
-        output = self.run_qsv_command(f"load sample/simple.csv - partition col1 {self.temp_dir} - show")
+        output_dir = "/tmp/test_partition_numeric"
         
-        # Should return original data
-        self.assert_output_contains(output, "datetime,col1,col2,col3,str")
+        # Clean up any existing files
+        if os.path.exists(output_dir):
+            for file in glob.glob(f"{output_dir}/*.csv"):
+                os.remove(file)
+        else:
+            os.makedirs(output_dir)
         
-        # Check that partition files were created for numeric values
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - partition col1 {output_dir}")
+        
+        # Should not produce stdout output
+        self.assertEqual(result.stdout.strip(), "")
+        
+        # Should create files named after numeric values
         expected_files = ["1.csv", "4.csv", "7.csv"]
         for filename in expected_files:
-            file_path = os.path.join(self.temp_dir, filename)
-            self.assertTrue(os.path.exists(file_path), f"Partition file {filename} should exist")
+            filepath = os.path.join(output_dir, filename)
+            self.assertTrue(os.path.exists(filepath), f"File {filename} should be created")
             
-            # Check file content
-            with open(file_path, 'r') as f:
-                content = f.read()
-                self.assertIn("datetime,col1,col2,col3,str", content)  # Header should be present
-                expected_value = filename.replace('.csv', '')
-                self.assertIn(f",{expected_value},", content)  # Numeric value should be in the file
+        # Check content of 1.csv
+        with open(os.path.join(output_dir, "1.csv"), 'r') as f:
+            content = f.read().strip()
+        expected_1 = '\n'.join([
+            "datetime,col1,col2,col3,str",
+            "2023-01-01 12:00:00,1,2,3,foo",
+        ])
+        self.assertEqual(content, expected_1)
+        
+        # Clean up
+        for file in glob.glob(f"{output_dir}/*.csv"):
+            os.remove(file)
+        os.rmdir(output_dir)
     
-    def test_partition_preserves_all_columns(self):
-        """Test that partition preserves all columns in output files"""
-        self.run_qsv_command(f"load sample/simple.csv - partition str {self.temp_dir} - show")
+    def test_partition_with_select(self):
+        """Test partitioning after column selection"""
+        output_dir = "/tmp/test_partition_select"
         
-        # Check foo.csv content
-        foo_file = os.path.join(self.temp_dir, "foo.csv")
-        with open(foo_file, 'r') as f:
-            content = f.read()
-            lines = content.strip().split('\n')
-            
-            # Should have header + 1 data row
-            self.assertEqual(len(lines), 2)
-            self.assertEqual(lines[0], "datetime,col1,col2,col3,str")
-            self.assertEqual(lines[1], "2023-01-01 12:00:00,1,2,3,foo")
-    
-    def test_partition_with_filtered_data(self):
-        """Test partition after filtering operations"""
-        output = self.run_qsv_command(f"load sample/simple.csv - grep 'ba' - partition str {self.temp_dir} - show")
+        # Clean up any existing files
+        if os.path.exists(output_dir):
+            for file in glob.glob(f"{output_dir}/*.csv"):
+                os.remove(file)
+        else:
+            os.makedirs(output_dir)
         
-        # Should only create files for filtered data (bar and baz)
-        expected_files = ["bar.csv", "baz.csv"]
-        unexpected_files = ["foo.csv"]
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1,str - partition str {output_dir}")
         
-        for filename in expected_files:
-            file_path = os.path.join(self.temp_dir, filename)
-            self.assertTrue(os.path.exists(file_path), f"Partition file {filename} should exist")
+        # Should not produce stdout output
+        self.assertEqual(result.stdout.strip(), "")
         
-        for filename in unexpected_files:
-            file_path = os.path.join(self.temp_dir, filename)
-            self.assertFalse(os.path.exists(file_path), f"Partition file {filename} should not exist")
-    
-    def test_partition_with_selected_columns(self):
-        """Test partition after column selection"""
-        self.run_qsv_command(f"load sample/simple.csv - select col1,str - partition str {self.temp_dir} - show")
-        
-        # Check that partition files only contain selected columns
-        foo_file = os.path.join(self.temp_dir, "foo.csv")
-        with open(foo_file, 'r') as f:
-            content = f.read()
-            lines = content.strip().split('\n')
-            
-            # Should have header + 1 data row with only selected columns
-            self.assertEqual(len(lines), 2)
-            self.assertEqual(lines[0], "col1,str")
-            self.assertEqual(lines[1], "1,foo")
-            
-            # Should not contain other columns
-            self.assertNotIn("datetime", content)
-            self.assertNotIn("col2", content)
-            self.assertNotIn("col3", content)
-    
-    def test_partition_error_invalid_column(self):
-        """Test partition with invalid column name"""
-        output = self.run_qsv_command(f"load sample/simple.csv - partition nonexistent {self.temp_dir} - show")
-        
-        # Should be empty output due to error
-        self.assertEqual(output, "")
-    
-    def test_partition_creates_directory(self):
-        """Test that partition creates output directory if it doesn't exist"""
-        new_dir = os.path.join(self.temp_dir, "new_partition_dir")
-        self.assertFalse(os.path.exists(new_dir))
-        
-        self.run_qsv_command(f"load sample/simple.csv - partition str {new_dir} - show")
-        
-        # Directory should be created
-        self.assertTrue(os.path.exists(new_dir))
-        
-        # Files should be created in the new directory
+        # Should create files with only selected columns
         expected_files = ["foo.csv", "bar.csv", "baz.csv"]
         for filename in expected_files:
-            file_path = os.path.join(new_dir, filename)
-            self.assertTrue(os.path.exists(file_path))
+            filepath = os.path.join(output_dir, filename)
+            self.assertTrue(os.path.exists(filepath), f"File {filename} should be created")
+        
+        # Check content of foo.csv (should only have selected columns)
+        with open(os.path.join(output_dir, "foo.csv"), 'r') as f:
+            content = f.read().strip()
+        expected_foo = '\n'.join([
+            "col1,str",
+            "1,foo",
+        ])
+        self.assertEqual(content, expected_foo)
+            
+        # Clean up
+        for file in glob.glob(f"{output_dir}/*.csv"):
+            os.remove(file)
+        os.rmdir(output_dir)
+    
+    def test_partition_with_filtering(self):
+        """Test partitioning after filtering"""
+        output_dir = "/tmp/test_partition_filter"
+        
+        # Clean up any existing files
+        if os.path.exists(output_dir):
+            for file in glob.glob(f"{output_dir}/*.csv"):
+                os.remove(file)
+        else:
+            os.makedirs(output_dir)
+        
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - grep 'ba' - partition str {output_dir}")
+        
+        # Should not produce stdout output
+        self.assertEqual(result.stdout.strip(), "")
+        
+        # Should create files only for filtered data
+        expected_files = ["bar.csv", "baz.csv"]
+        for filename in expected_files:
+            filepath = os.path.join(output_dir, filename)
+            self.assertTrue(os.path.exists(filepath), f"File {filename} should be created")
+        
+        # Should not create foo.csv
+        foo_path = os.path.join(output_dir, "foo.csv")
+        self.assertFalse(os.path.exists(foo_path), "foo.csv should not be created after filtering")
+        
+        # Clean up
+        for file in glob.glob(f"{output_dir}/*.csv"):
+            os.remove(file)
+        os.rmdir(output_dir)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main() 

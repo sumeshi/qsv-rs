@@ -12,5 +12,6 @@ pub mod select;
 pub mod sort;
 pub mod tail;
 pub mod timeline;
+pub mod timeround;
 pub mod timeslice;
 pub mod uniq;

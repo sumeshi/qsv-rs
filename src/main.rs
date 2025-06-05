@@ -399,7 +399,14 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
                 .get("ambiguous")
                 .and_then(|opt_val| opt_val.as_deref());
 
-            controller.changetz(colname, tz_from, tz_to, input_format, output_format, ambiguous_time);
+            controller.changetz(
+                colname,
+                tz_from,
+                tz_to,
+                input_format,
+                output_format,
+                ambiguous_time,
+            );
         }
 
         "renamecol" => {
@@ -564,6 +571,30 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             };
 
             controller.pivot(&rows, &columns, values, agg_func);
+        }
+
+        "timeround" => {
+            check_data_loaded(controller, "timeround");
+
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'timeround' command requires a column name");
+                process::exit(1);
+            }
+
+            let colname = &cmd.args[0];
+
+            let unit = cmd
+                .options
+                .get("unit")
+                .and_then(|opt| opt.as_deref())
+                .unwrap_or_else(|| {
+                    eprintln!("Error: 'timeround' command requires --unit option (e.g., --unit d)");
+                    process::exit(1);
+                });
+
+            let output_colname = cmd.options.get("output").and_then(|opt| opt.as_deref());
+
+            controller.timeround(colname, unit, output_colname);
         }
 
         // Quilters

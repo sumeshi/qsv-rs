@@ -99,16 +99,12 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
 
     table.insert("count", |df, _args| count::count(df));
 
-    table.insert("uniq", |df, _args| {
-        uniq::uniq(df)
-    });
+    table.insert("uniq", |df, _args| uniq::uniq(df));
 
     table.insert("changetz", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
-        let from_tz = get_string_from_value(args, "from-tz")
-            .unwrap_or_default();
-        let to_tz = get_string_from_value(args, "to-tz")
-            .unwrap_or_default();
+        let from_tz = get_string_from_value(args, "from-tz").unwrap_or_default();
+        let to_tz = get_string_from_value(args, "to-tz").unwrap_or_default();
         let input_format = get_string_from_value(args, "input_format")
             .or_else(|| get_string_from_value(args, "input-format"))
             .or_else(|| get_string_from_value(args, "format"));

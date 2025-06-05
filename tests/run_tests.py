@@ -23,6 +23,7 @@ from test_chainables_convert import TestConvert
 from test_chainables_pivot import TestPivot
 from test_chainables_timeline import TestTimeline
 from test_chainables_timeslice import TestTimeslice
+from test_chainables_timeround import TestTimeround
 
 # Finalizers
 from test_finalizers_headers import TestHeaders
@@ -60,6 +61,7 @@ def run_test_suite():
         TestPivot,
         TestTimeline,
         TestTimeslice,
+        TestTimeround,
     ]
     for chainable in chainables:
         suite.addTest(unittest.makeSuite(chainable))

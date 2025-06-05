@@ -150,19 +150,17 @@ pub fn changetz(
     }
 
     // Validate timezones early to fail fast
-    if from_tz.to_lowercase() != "local" {
-        if let Err(_) = from_tz.parse::<Tz>() {
-            eprintln!(
-                "Error: Invalid source timezone '{}' in changetz operation",
-                from_tz
-            );
-            std::process::exit(1);
-        }
-    }
-    
-    if let Err(_) = to_tz.parse::<Tz>() {
+    if from_tz.to_lowercase() != "local" && from_tz.parse::<Tz>().is_err() {
         eprintln!(
-            "Error: Invalid target timezone '{}' in changetz operation", 
+            "Error: Invalid source timezone '{}' in changetz operation",
+            from_tz
+        );
+        std::process::exit(1);
+    }
+
+    if to_tz.parse::<Tz>().is_err() {
+        eprintln!(
+            "Error: Invalid target timezone '{}' in changetz operation",
             to_tz
         );
         std::process::exit(1);

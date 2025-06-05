@@ -1,98 +1,89 @@
 import unittest
-import os
-import tempfile
 from test_base import QsvTestBase
 
 class TestPivot(QsvTestBase):
-    """
-    Test cases for the pivot chainable operation
-    """
     
-    def setUp(self):
-        """Set up test environment"""
-        super().setUp()
-        # Create test data for pivot operations
-        self.test_data = """region,product,sales_amount,quantity
-North,Laptop,1200,2
-North,Phone,800,4
-South,Laptop,1500,3
-South,Phone,600,3
-North,Laptop,1800,3
-South,Phone,900,4"""
-        
-        self.test_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
-        self.test_file.write(self.test_data)
-        self.test_file.close()
-    
-    def tearDown(self):
-        """Clean up test environment"""
-        if os.path.exists(self.test_file.name):
-            os.unlink(self.test_file.name)
-    
-    def test_pivot_with_rows_and_cols(self):
-        """Test pivot with both rows and columns"""
-        output = self.run_qsv_command(f"load {self.test_file.name} - pivot --rows region --cols product --values sales_amount --agg sum - show")
-        
-        # Should contain pivot table with regions as rows and products as columns
-        self.assertIn("region", output)
-        self.assertIn("product", output)
-        self.assertIn("sales_amount_sum", output)
-        self.assertIn("North", output)
-        self.assertIn("South", output)
-    
-    def test_pivot_with_rows_only(self):
-        """Test pivot with only rows (no columns)"""
-        output = self.run_qsv_command(f"load {self.test_file.name} - pivot --rows region --values sales_amount --agg mean - show")
-        
-        # Should contain aggregated data by region
-        self.assertIn("region", output)
-        self.assertIn("sales_amount_mean", output)
-        self.assertIn("North", output)
-        self.assertIn("South", output)
-    
-    def test_pivot_with_cols_only(self):
-        """Test pivot with only columns (no rows)"""
-        output = self.run_qsv_command(f"load {self.test_file.name} - pivot --cols product --values quantity --agg count - show")
-        
-        # Should contain aggregated data by product
-        self.assertIn("product", output)
-        self.assertIn("quantity_count", output)
-        self.assertIn("Laptop", output)
-        self.assertIn("Phone", output)
-    
-    def test_pivot_different_aggregations(self):
-        """Test pivot with different aggregation functions"""
-        # Test sum
-        output_sum = self.run_qsv_command(f"load {self.test_file.name} - pivot --rows region --values sales_amount --agg sum - show")
-        self.assertIn("sales_amount_sum", output_sum)
-        
-        # Test mean
-        output_mean = self.run_qsv_command(f"load {self.test_file.name} - pivot --rows region --values sales_amount --agg mean - show")
-        self.assertIn("sales_amount_mean", output_mean)
-        
-        # Test count
-        output_count = self.run_qsv_command(f"load {self.test_file.name} - pivot --rows region --values sales_amount --agg count - show")
-        self.assertIn("sales_amount_count", output_count)
-    
-    def test_pivot_error_no_values(self):
-        """Test that pivot fails without --values option"""
-        try:
-            output = self.run_qsv_command(f"load {self.test_file.name} - pivot --rows region --cols product - show")
-            # If we get here, the command didn't fail as expected
-            self.fail("Expected pivot to fail without --values option")
-        except Exception as e:
-            # This is expected - pivot should fail without --values
-            pass
-    
-    def test_pivot_error_no_rows_or_cols(self):
-        """Test that pivot fails without --rows or --cols options"""
-        try:
-            output = self.run_qsv_command(f"load {self.test_file.name} - pivot --values sales_amount - show")
-            # If we get here, the command didn't fail as expected
-            self.fail("Expected pivot to fail without --rows or --cols options")
-        except Exception as e:
-            # This is expected - pivot should fail without rows or cols
-            pass
+    def test_pivot_basic_rows_cols(self):
+        """Test basic pivot functionality with rows and cols"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg sum - show")
+        self.assertEqual(result.returncode, 0)
+        # The output should be CSV with pivoted data
+        lines = result.stdout.strip().split('\n')
+        self.assertTrue(len(lines) >= 2)  # Header + at least one data row
+        self.assertIn('region', lines[0])  # Should contain region column
 
-if __name__ == '__main__':
+    def test_pivot_rows_only(self):
+        """Test pivot with only rows specified"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --values sales --agg sum - show")
+        self.assertEqual(result.returncode, 0)
+        lines = result.stdout.strip().split('\n')
+        self.assertTrue(len(lines) >= 2)
+        self.assertIn('region', lines[0])
+
+    def test_pivot_cols_only(self):
+        """Test pivot with only cols specified"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --cols product --values sales --agg sum - show")
+        self.assertEqual(result.returncode, 0)
+        lines = result.stdout.strip().split('\n')
+        self.assertTrue(len(lines) >= 2)
+        
+    def test_pivot_mean_aggregation(self):
+        """Test pivot with mean aggregation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg mean - show")
+        self.assertEqual(result.returncode, 0)
+        
+    def test_pivot_count_aggregation(self):
+        """Test pivot with count aggregation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg count - show")
+        self.assertEqual(result.returncode, 0)
+
+    def test_pivot_min_aggregation(self):
+        """Test pivot with min aggregation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg min - show")
+        self.assertEqual(result.returncode, 0)
+
+    def test_pivot_max_aggregation(self):
+        """Test pivot with max aggregation"""  
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg max - show")
+        self.assertEqual(result.returncode, 0)
+
+    def test_pivot_median_aggregation(self):
+        """Test pivot with median aggregation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg median - show")
+        self.assertEqual(result.returncode, 0)
+
+    def test_pivot_std_aggregation(self):
+        """Test pivot with std aggregation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product --values sales --agg std - show")
+        self.assertEqual(result.returncode, 0)
+
+    def test_pivot_multiple_grouping_columns(self):
+        """Test pivot with multiple columns for grouping"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region,quarter --cols product --values sales --agg sum - show")
+        self.assertEqual(result.returncode, 0)
+        
+    def test_pivot_missing_values_option(self):
+        """Test pivot without --values option should fail"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --cols product - show")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Error:", result.stderr)
+
+    def test_pivot_missing_rows_and_cols(self):
+        """Test pivot without both --rows and --cols should fail"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --values sales - show")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Error:", result.stderr)
+
+    def test_pivot_with_specific_expected_output(self):
+        """Test pivot with expected output format"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_pivot.csv')} - pivot --rows region --values sales --agg sum - show")
+        self.assertEqual(result.returncode, 0)
+        lines = result.stdout.strip().split('\n')
+        # Check header
+        self.assertIn('region', lines[0])
+        self.assertIn('sales_sum', lines[0])
+        # Should have data for 4 regions (North, South, East, West)
+        self.assertEqual(len(lines), 5)  # Header + 4 regions
+
+if __name__ == "__main__":
     unittest.main() 

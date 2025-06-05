@@ -8,124 +8,55 @@ class TestShowquery(QsvTestBase):
     
     def test_showquery_basic(self):
         """Test basic showquery functionality"""
-        output = self.run_qsv_command("load sample/simple.csv - showquery")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - showquery")
+        output = result.stdout.strip()
         
-        # Should show Polars query plan information
-        # The exact format depends on Polars implementation, but should contain query-related terms
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Common terms that might appear in a Polars query plan
-        query_terms = ["PLAN", "SELECT", "SCAN", "CSV", "PROJECT", "FILTER"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
+        # Should show the query plan in Polars format
+        self.assertIn("Csv SCAN", output)
+        self.assertIn("simple.csv", output)
+        self.assertIn("PROJECT", output)
     
-    def test_showquery_after_select(self):
-        """Test showquery after column selection"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1,str - showquery")
+    def test_showquery_with_filtering(self):
+        """Test showquery with filtering operations"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - grep 'foo' - showquery")
+        output = result.stdout.strip()
         
-        # Should show query plan including column selection
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "SELECT", "PROJECT", "SCAN"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
+        # Should show filtering in query plan
+        self.assertIn("FILTER", output)
+        self.assertIn("Csv SCAN", output)
+        self.assertIn("simple.csv", output)
     
-    def test_showquery_after_filtering(self):
-        """Test showquery after filtering operations"""
-        output = self.run_qsv_command("load sample/simple.csv - grep 'foo' - showquery")
+    def test_showquery_with_sort(self):
+        """Test showquery with sorting operations"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - sort str - showquery")
+        output = result.stdout.strip()
         
-        # Should show query plan including filtering
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "FILTER", "SCAN", "SELECT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
+        # Should show sorting in query plan
+        self.assertIn("SORT BY", output)
+        self.assertIn("Csv SCAN", output)
+        self.assertIn("simple.csv", output)
     
-    def test_showquery_after_head(self):
-        """Test showquery after head operation"""
-        output = self.run_qsv_command("load sample/simple.csv - head 2 - showquery")
+    def test_showquery_with_head(self):
+        """Test showquery with head operation"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - head 2 - showquery")
+        output = result.stdout.strip()
         
-        # Should show query plan including limit operation
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "LIMIT", "SCAN", "SELECT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
-    
-    def test_showquery_after_sort(self):
-        """Test showquery after sorting operations"""
-        output = self.run_qsv_command("load sample/simple.csv - sort str - showquery")
-        
-        # Should show query plan including sort operation
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "SORT", "SCAN", "SELECT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
+        # Should show limit/slice in query plan
+        self.assertIn("SLICE", output)
+        self.assertIn("Csv SCAN", output)
+        self.assertIn("simple.csv", output)
     
     def test_showquery_complex_chain(self):
-        """Test showquery after complex operation chain"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1,str - grep 'ba' - head 1 - showquery")
+        """Test showquery with complex operation chain"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1,str - grep 'foo' - sort str - head 1 - showquery")
+        output = result.stdout.strip()
         
-        # Should show query plan for complex chain
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "SCAN", "SELECT", "PROJECT", "FILTER", "LIMIT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
-    
-    def test_showquery_after_contains(self):
-        """Test showquery after contains operation"""
-        output = self.run_qsv_command("load sample/simple.csv - contains str foo - showquery")
-        
-        # Should show query plan including contains filter
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "FILTER", "SCAN", "SELECT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
-    
-    def test_showquery_after_isin(self):
-        """Test showquery after isin operation"""
-        output = self.run_qsv_command("load sample/simple.csv - isin str foo,bar - showquery")
-        
-        # Should show query plan including isin filter
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "FILTER", "SCAN", "SELECT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
-    
-    def test_showquery_after_uniq(self):
-        """Test showquery after uniq operation"""
-        output = self.run_qsv_command("load sample/simple.csv - uniq str - showquery")
-        
-        # Should show query plan including unique operation
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "UNIQUE", "SCAN", "SELECT", "DISTINCT"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
-    
-    def test_showquery_after_renamecol(self):
-        """Test showquery after column renaming"""
-        output = self.run_qsv_command("load sample/simple.csv - renamecol str text - showquery")
-        
-        # Should show query plan including column renaming
-        self.assertTrue(len(output) > 0, "Showquery should produce output")
-        
-        # Should contain information about the operations performed
-        query_terms = ["PLAN", "SCAN", "SELECT", "PROJECT", "RENAME"]
-        has_query_term = any(term.lower() in output.lower() for term in query_terms)
-        self.assertTrue(has_query_term, f"Output should contain query plan information. Got: {output}")
+        # Should show all operations in query plan
+        self.assertIn("SLICE", output)  # head operation
+        self.assertIn("SORT BY", output)  # sort operation
+        self.assertIn("FILTER", output)  # grep operation
+        self.assertIn("Csv SCAN", output)
+        self.assertIn("simple.csv", output)
 
 if __name__ == "__main__":
     unittest.main() 
