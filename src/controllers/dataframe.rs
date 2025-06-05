@@ -1,6 +1,6 @@
 use crate::operations::chainables::{
     changetz, contains, convert, count, grep, head, isin, pivot, renamecol, sed, select, sort,
-    tail, timeline, timeslice, uniq,
+    tail, timeline, timeround, timeslice, uniq,
 };
 use crate::operations::finalizers::{dump, headers, partition, show, showquery, showtable, stats};
 use crate::operations::initializers::load;
@@ -56,7 +56,7 @@ impl DataFrameController {
 
     pub fn sed(
         &mut self,
-        colname: &str,
+        colname: Option<&str>,
         pattern: &str,
         replacement: &str,
         ignorecase: bool,
@@ -102,9 +102,9 @@ impl DataFrameController {
         self
     }
 
-    pub fn uniq(&mut self, colnames: Option<Vec<String>>) -> &mut Self {
+    pub fn uniq(&mut self) -> &mut Self {
         if let Some(df) = &self.df {
-            self.df = Some(uniq::uniq(df, colnames.as_deref()));
+            self.df = Some(uniq::uniq(df));
         }
         self
     }
@@ -114,18 +114,21 @@ impl DataFrameController {
         colname: &str,
         tz_from: &str,
         tz_to: &str,
-        dt_format: Option<&str>,
+        input_format: Option<&str>,
+        output_format: Option<&str>,
         ambiguous_time: Option<&str>,
     ) -> &mut Self {
         if let Some(df) = &self.df {
-            let format_str = dt_format.unwrap_or("auto");
+            let input_format_str = input_format.unwrap_or("auto");
+            let output_format_str = output_format.unwrap_or("auto");
             let ambiguous_str = ambiguous_time.unwrap_or("earliest");
             self.df = Some(changetz::changetz(
                 df,
                 colname,
                 tz_from,
                 tz_to,
-                format_str,
+                input_format_str,
+                output_format_str,
                 ambiguous_str,
             ));
         }
@@ -186,6 +189,18 @@ impl DataFrameController {
     ) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(pivot::pivot(df, rows, columns, values, agg_func));
+        }
+        self
+    }
+
+    pub fn timeround(
+        &mut self,
+        colname: &str,
+        unit: &str,
+        output_colname: Option<&str>,
+    ) -> &mut Self {
+        if let Some(df) = &self.df {
+            self.df = Some(timeround::timeround(df, colname, unit, output_colname));
         }
         self
     }

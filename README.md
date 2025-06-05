@@ -104,7 +104,7 @@ Select columns by name, numeric index, or range notation.
 - **Numeric indices**: `1,3` - Select columns by position (1-based indexing)  
 - **Range notation (hyphen)**: `col1-col3` - Select range using hyphen
 - **Range notation (colon)**: `col1:col3` - Select range using colon
-- **Numeric range**: `1:3` - Select columns 1 through 3 (inclusive)
+- **Numeric range**: `1:3` - Select columns col1, col2, col3 (1-based column names)
 - **Quoted colon notation**: `"col:1":"col:3"` - For column names containing colons
 - **Mixed formats**: `1,col2,4:6` - Combine different selection methods
 
@@ -113,7 +113,7 @@ $ qsv load data.csv - select datetime
 $ qsv load data.csv - select col1,col3
 $ qsv load data.csv - select col1-col3
 $ qsv load data.csv - select col1:col3  
-$ qsv load data.csv - select 1:3        # Select first 3 columns
+$ qsv load data.csv - select 1:3        # Select col1, col2, col3
 $ qsv load data.csv - select 2,4        # Select 2nd and 4th columns
 $ qsv load data.csv - select "col:1":"col:3"  # For columns with colons in names
 $ qsv load data.csv - select 1,datetime,3:5   # Mixed selection methods
@@ -184,11 +184,11 @@ Displays the first N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| N         | int  | 5       | Number of rows to display. This can be provided as a direct argument or via `-n`/`--number` option. |
+| number | int  | | Number of rows to display. This is a required positional argument. |
 
 ```bash
 $ qsv load data.csv - head 3
-$ qsv load data.csv - head -n 7 
+$ qsv load data.csv - head 10
 ```
 
 #### `tail`
@@ -196,11 +196,11 @@ Displays the last N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| N         | int  | 5       | Number of rows to display. This can be provided as a direct argument or via `-n`/`--number` option. |
+| number | int  | | Number of rows to display. This is a required positional argument. |
 
 ```bash
 $ qsv load data.csv - tail 3
-$ qsv load data.csv - tail -n 7
+$ qsv load data.csv - tail 10
 ```
 
 #### `sort`
@@ -209,34 +209,36 @@ Sorts the dataset based on the specified column(s).
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | colnames  | str/list |         | Column name(s) to sort by. Comma-separated for multiple columns (e.g., `col1,col3`) or a single column name. Required. |
-| --desc    | flag | `false` | Sort in descending order. Applies to all specified columns. |
+| -d, --desc    | flag | `false` | Sort in descending order. Applies to all specified columns. |
 
 ```bash
 $ qsv load data.csv - sort str
+$ qsv load data.csv - sort str -d
 $ qsv load data.csv - sort str --desc
 $ qsv load data.csv - sort col1,col2,col3 --desc
 ```
 
 #### `count`
-Counts duplicate rows, grouping by all columns, and adds a 'count' column.
+Count duplicate rows, grouping by all columns. Results are automatically sorted by count in descending order.
 
-This command does not take any arguments or options.
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| (None)    |      |         | Takes no arguments. Automatically sorts output by count column in descending order. |
 
 ```bash
 $ qsv load data.csv - count
+$ qsv load data.csv - count - sort col1  # Count and then sort by col1 instead
 ```
 
 #### `uniq`
-Filters unique rows. If `colnames` is specified, uniqueness is based on those columns. If no `colnames` are specified, uniqueness is based on all columns.
+Filters unique rows, removing duplicates based on all columns.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| colnames  | str/list | all columns | Optional. Column name(s) to consider for uniqueness. Can be a single column name, or comma-separated for multiple columns. If omitted, all columns are used. |
+| (None)    |      |         | Takes no arguments. Removes duplicate rows based on all columns. |
 
 ```bash
 $ qsv load data.csv - uniq
-$ qsv load data.csv - uniq col1
-$ qsv load data.csv - uniq "col1,col2"
 ```
 
 #### `changetz`
@@ -245,17 +247,35 @@ Changes the timezone of a datetime column.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | colname | str |         | Name of the datetime column. Required. |
-| from_tz | str |         | Source timezone (e.g., `UTC`, `America/New_York`, `local`). Required. |
-| to_tz | str |         | Target timezone (e.g., `Asia/Tokyo`). Required. |
-| --format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` attempts to parse common formats. |
-| --ambiguous | str | `earliest` | Strategy for ambiguous times during DST transitions: `earliest` or `latest`. |
+| --from-tz | str |         | Source timezone (e.g., `UTC`, `America/New_York`, `local`). Required. |
+| --to-tz | str |         | Target timezone (e.g., `Asia/Tokyo`). Required. |
+| --input-format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` attempts to parse common formats. |
+| --output-format | str | `auto` | Output datetime format string (e.g., `%Y/%m/%d %H:%M:%S`). `auto` uses ISO8601 format `%Y-%m-%dT%H:%M:%S%.7f%:z` (100-nanosecond precision for Windows forensics). |
+| --ambiguous | str | `earliest` | Strategy for ambiguous times during DST transitions: `earliest` (first occurrence) or `latest` (second occurrence). |
+
+**Understanding `--ambiguous` option:**
+
+During Daylight Saving Time (DST) transitions in autumn, clocks "fall back" creating duplicate hours. For example, 2:30 AM occurs twice:
+- First time: 2:30 AM DST (before transition)  
+- Second time: 2:30 AM Standard Time (after transition)
+
+When encountering such ambiguous times:
+- `earliest`: Uses the first occurrence (DST time)
+- `latest`: Uses the second occurrence (Standard time)
 
 Example:
 ```bash
-$ qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo
-$ qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format "%Y/%m/%d %H:%M"
-$ qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format "%Y/%m/%d %H:%M" --ambiguous latest
+$ qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo
+# Output: 2023-01-01T09:00:00.123456+09:00 (ISO8601 with microsecond precision)
+
+$ qsv load data.csv - changetz datetime --from-tz UTC --to-tz America/New_York --input-format "%Y/%m/%d %H:%M" --output-format "%Y-%m-%d %H:%M:%S"
+# Custom output format
+
+$ qsv load data.csv - changetz datetime --from-tz America/New_York --to-tz UTC --ambiguous latest
+# Handle ambiguous DST times
 ```
+
+**TODO:** Upgrade to 7-digit sub-second precision (100-nanosecond precision for Windows FILETIME compatibility) when chrono-tz library supports it.
 
 #### `renamecol`
 Renames a specific column.
@@ -348,6 +368,71 @@ $ qsv load data.csv - timeslice timestamp --start "2023-06-01" --end "2023-06-30
 $ qsv load access.log - timeslice timestamp --start "2023-01-01T10:00:00"
 ```
 
+#### `pivot`
+Creates pivot tables with cross-tabulation functionality.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| --rows | str |         | Comma-separated list of columns for rows. Optional. |
+| --cols | str |         | Comma-separated list of columns for columns. Optional. |
+| --values | str |         | Column to aggregate values from. Required. |
+| --agg | str |         | Aggregation function: `sum`, `mean`, `count`, `min`, `max`, `median`, `std`. Optional (default behavior depends on implementation). |
+
+At least one of `--rows` or `--cols` must be specified. Creates a cross-tabulation table with specified row and column groupings, aggregating values using the chosen function.
+
+Example:
+```bash
+$ qsv load sales.csv - pivot --rows region --cols product --values sales_amount --agg sum
+$ qsv load data.csv - pivot --rows category --cols year --values revenue --agg mean
+$ qsv load logs.csv - pivot --rows date --cols error_type --values count --agg count
+$ qsv load metrics.csv - pivot --rows department --values performance --agg median
+```
+
+#### `timeround`
+Rounds datetime values to specified time units, creating a new rounded column while preserving the original.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| colname | str |         | Name of the datetime column to round. Required. |
+| --unit | str |         | Time unit for rounding: `y`/`year`, `M`/`month`, `d`/`day`, `h`/`hour`, `m`/`minute`, `s`/`second`. Required. |
+| --output | str | (replaces original) | Name for the output column. If not specified, replaces the original column. |
+
+**Features:**
+- Rounds datetime values down to the nearest specified time unit boundary
+- Useful for time-based grouping and analysis
+- Supports both short (`h`, `d`) and long (`hour`, `day`) unit names
+- Output format automatically adjusts to the specified unit (clean, minimal format)
+
+**Output formats by unit:**
+- **year (y)**: `2023`
+- **month (M)**: `2023-01`
+- **day (d)**: `2023-01-01`
+- **hour (h)**: `2023-01-01 12`
+- **minute (m)**: `2023-01-01 12:34`
+- **second (s)**: `2023-01-01 12:34:56`
+
+Example:
+```bash
+$ qsv load data.csv - timeround timestamp --unit d --output date_only
+# Input:  2023-01-01 12:34:56
+# Output: 2023-01-01
+
+$ qsv load data.csv - timeround timestamp --unit h --output hour_rounded
+# Input:  2023-01-01 12:34:56
+# Output: 2023-01-01 12
+
+$ qsv load logs.csv - timeround timestamp --unit m
+# Rounds to minute boundary, replaces original column
+
+$ qsv load metrics.csv - timeround created_at --unit year --output created_year
+# Input:  2023-01-01 12:34:56
+# Output: 2023
+```
+
+### Finalizers
+
+Finalizers are used to output or summarize the processed data. They are typically the last command in a chain.
+
 #### `partition`
 Splits data into separate CSV files based on unique values in a specified column. Each unique value creates its own file.
 
@@ -366,20 +451,17 @@ $ qsv load logs.csv - partition date ./daily_logs/
 $ qsv load data.csv - select col1,col2 - partition col1 ./numeric_partitions/
 ```
 
-### Finalizers
-
-Finalizers are used to output or summarize the processed data. They are typically the last command in a chain.
-
 #### `headers`
 Displays the column headers of the current dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| --plain   | flag | `false` | Display headers as plain text, one per line, instead of a formatted table. |
+| -p, --plain   | flag | `false` | Display headers as plain text, one per line, instead of a formatted table. |
 
 Example:
 ```bash
 $ qsv load data.csv - headers
+$ qsv load data.csv - headers -p
 $ qsv load data.csv - headers --plain
 ```
 
@@ -438,14 +520,14 @@ Outputs the processing results to a CSV file.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| output_path | str | `output.csv` | File path to save the CSV data. Can be provided as a positional argument (e.g., `dump my_file.csv`) or via `--output <path>` / `-o <path>` option. If omitted, defaults to `output.csv`. |
-| --separator, --sep | char | `,` | Field separator character for the output CSV file. |
+| output_path | str | | File path to save the CSV data. Optional positional argument. |
+| --separator | char | `,` | Field separator character for the output CSV file. |
 
 Example:
 ```bash
-$ qsv load data.csv - head 100 - dump
-$ qsv load data.csv - head 100 - dump --output result.csv
-$ qsv load data.csv - head 100 - dump --output result.tsv --separator=\t
+$ qsv load data.csv - head 100 - dump results.csv
+$ qsv load data.csv - head 100 - dump --separator ';' results.csv
+$ qsv load data.csv - head 100 - dump  # May use default filename
 ```
 
 ### Quilt (YAML Workflows)
@@ -482,115 +564,4 @@ Within a Quilt YAML file, stages can be of different types to orchestrate the fl
 | -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `process`      | Executes a series of qsv operations on a dataset.          | `steps`: A dictionary of operations (e.g., `load`, `select`, `head`, `showtable`). Each key is a qsv command, and its value contains its arguments/options. <br> `source` (optional): Specifies the output of a previous stage as input. |
 | `concat`       | Concatenates multiple datasets (stages).                   | `sources`: List of stage names whose outputs to concatenate. <br>`params.how` (optional): Method for concatenation, e.g., `vertical` (default), `horizontal`. Polars `UnionArgs` can be used. |
-| `join`         | Joins datasets from multiple stages based on keys.         | `sources`: List of two stage names whose outputs to join. <br>`params.left_on`/`params.right_on` or `params.on`: Column(s) for joining. <br>`params.how`: Type of join, e.g., `inner` (default), `left`, `outer`, `cross`. <br>`params.coalesce` (optional): bool, whether to coalesce a key if it is present in both DataFrames. |
-
-#### Sample YAML (`rules/test.yaml`):
-```yaml
-title: 'Test Data Processing Pipeline'
-description: 'A sample Quilt pipeline demonstrating various stages and operations.'
-version: '0.1.1'
-author: 'Qsv User <user@example.com>'
-stages:
-  raw_data_load:
-    type: process
-    steps:
-      load:
-        path: "../sample/simple.csv" # Relative to the YAML file location or absolute
-        # separator: "," # Optional, defaults to comma
-
-  stage_1_select_data1:
-    type: process
-    source: raw_data_load # Use output from 'raw_data_load' stage
-    steps:
-      select:
-        colnames: 
-          - col1
-          - col2 # Assuming 'simple.csv' has col1, col2, col3
-
-  stage_2_select_data2:
-    type: process
-    source: raw_data_load
-    steps:
-      select:
-        colnames: 
-          - col1 # Common key for join
-          - col3
-
-  merged_data:
-    type: join
-    sources: # List of two stages to join
-      - stage_1_select_data1
-      - stage_2_select_data2
-    params:
-      how: "inner" # e.g., inner, left, outer
-      on: "col1"   # Column to join on (must exist in both sources)
-      # coalesce: true # Optional: if true, duplicate join key columns are merged
-
-  final_output_table:
-    type: process
-    source: merged_data
-    steps:
-      head: 5 # Takes the first 5 rows
-      showtable: # Displays the result as a table
-        # No arguments needed for showtable
-```
-
-#### Note: Step Duplication in YAML
-Quilt supports YAML configurations where multiple steps of the same command type (e.g., `renamecol`) are needed within a single `process` stage.
-
-```yaml
-stages:
-  data_cleaning_stage:
-    type: process
-    source: raw_data_load
-  steps:
-      renamecol: # First renamecol
-        old_name: "old_col_name_1"
-        new_name: "new_col_1"
-      renamecol_: # Second renamecol (note the underscore)
-        old_name: "anotherOldName"
-        new_name: "clean_col_2"
-      renamecol__: # Third renamecol
-        old_name: "yet_another"
-        new_name: "final_col_3"
-      show: # Finalizer for this stage
-```
-To achieve this, append underscores (`_`, `__`, etc.) to the command name in the YAML to make the keys unique. Internally, `qsv` will still recognize them as the base command (e.g., all three will be treated as `renamecol` operations).
-
-## Installation
-
-### From Source (Recommended for latest features)
-1.  Ensure you have Rust installed. If not, visit [rust-lang.org](https://www.rust-lang.org/tools/install).
-2.  Clone the repository:
-    ```bash
-    git clone https://github.com/sumeshi/qsv-rs.git
-    cd qsv-rs
-    ```
-3.  Build and install:
-    ```bash
-    cargo install --path .
-    ```
-    This will install `qsv` to your Cargo binary directory (e.g., `~/.cargo/bin`), which should be in your PATH.
-
-### From GitHub Releases (Pre-compiled binaries)
-Pre-compiled binary versions for various platforms (Linux, macOS, Windows) may be available on the [GitHub Releases page](https://github.com/sumeshi/qsv-rs/releases). Download the appropriate binary for your system.
-
-#### For Linux/macOS:
-```bash
-# Download the binary
-chmod +x ./qsv-rs-linux-x86_64
-# Optionally, move it to a directory in your PATH, e.g., /usr/local/bin/qsv
-sudo mv ./qsv-rs-linux-x86_64 /usr/local/bin/qsv
-# Then you can run it directly
-qsv --version
-```
-
-#### For Windows:
-```bash
-# Download the .exe file, e.g., qsv-x86_64-pc-windows-msvc.exe
-# You can run it directly or add its location to your system's PATH environment variable.
-./qsv-x86_64-pc-windows-msvc.exe --version
-```
-
-## License
-Quilter-CSV is released under the [MIT](https://github.com/sumeshi/qsv-rs/blob/master/LICENSE) License.
+| `join`         | Joins datasets from multiple stages based on keys.         | `sources`: List of two stage names whose outputs to join. <br>`params.left_on`/`params.right_on` or `params.on`: Column(s) for joining. <br>`

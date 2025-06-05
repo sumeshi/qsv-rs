@@ -54,11 +54,11 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
     });
 
     table.insert("sed", |df, args| {
-        let colname = get_string_from_value(args, "colname").unwrap_or_default();
+        let colname = get_string_from_value(args, "colname");
         let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
         let replacement = get_string_from_value(args, "replacement").unwrap_or_default();
         let ignorecase = get_bool_from_value(args, "ignorecase");
-        sed::sed(df, &colname, &pattern, &replacement, ignorecase)
+        sed::sed(df, colname.as_deref(), &pattern, &replacement, ignorecase)
     });
 
     table.insert("grep", |df, args| {
@@ -99,37 +99,25 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
 
     table.insert("count", |df, _args| count::count(df));
 
-    table.insert("uniq", |df, args| {
-        let colnames = if let Some(colnames_str) = get_string_from_value(args, "colnames") {
-            Some(
-                colnames_str
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .collect(),
-            )
-        } else {
-            get_string_vec_from_value(args, "colnames")
-        };
-        uniq::uniq(df, colnames.as_deref())
-    });
+    table.insert("uniq", |df, _args| uniq::uniq(df));
 
     table.insert("changetz", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
-        let from_tz = get_string_from_value(args, "from_tz")
-            .or_else(|| get_string_from_value(args, "tz_from"))
-            .unwrap_or_default();
-        let to_tz = get_string_from_value(args, "to_tz")
-            .or_else(|| get_string_from_value(args, "tz_to"))
-            .unwrap_or_default();
-        let format = get_string_from_value(args, "format")
-            .or_else(|| get_string_from_value(args, "dt_format"));
+        let from_tz = get_string_from_value(args, "from-tz").unwrap_or_default();
+        let to_tz = get_string_from_value(args, "to-tz").unwrap_or_default();
+        let input_format = get_string_from_value(args, "input_format")
+            .or_else(|| get_string_from_value(args, "input-format"))
+            .or_else(|| get_string_from_value(args, "format"));
+        let output_format = get_string_from_value(args, "output_format")
+            .or_else(|| get_string_from_value(args, "output-format"));
         let ambiguous = get_string_from_value(args, "ambiguous");
         changetz::changetz(
             df,
             &colname,
             &from_tz,
             &to_tz,
-            format.as_deref().unwrap_or("auto"),
+            input_format.as_deref().unwrap_or("auto"),
+            output_format.as_deref().unwrap_or("auto"),
             ambiguous.as_deref().unwrap_or("earliest"),
         )
     });

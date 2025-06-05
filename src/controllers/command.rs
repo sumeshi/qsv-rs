@@ -55,9 +55,12 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                 // Check if this is a long option that expects a value
                 let needs_value = matches!(
                     option_str,
-                    "from_tz"
-                        | "to_tz"
-                        | "format"
+                    "from-tz"
+                        | "to-tz"
+                        | "input-format"
+                        | "input_format"
+                        | "output-format"
+                        | "output_format"
                         | "ambiguous"
                         | "output"
                         | "separator"
@@ -76,6 +79,8 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "agg"
                         | "from"
                         | "to"
+                        | "column"
+                        | "unit"
                 );
 
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
@@ -184,9 +189,10 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
             "n" => "number".to_string(),    // if -n is passed as a flag, store as number: None
             "o" => "output".to_string(),    // if -o is passed as a flag, store as output: None
             // Add other short options that are flags here if necessary
-            "i" => "ignorecase".to_string(), // Example for grep -i
-            "d" => "desc".to_string(),       // Example for sort -d
-            "p" => "plain".to_string(),      // Example for headers -p
+            "i" | "ignorecase" => "ignorecase".to_string(), // Example for grep -i or --ignorecase
+            "d" | "desc" => "desc".to_string(),             // Example for sort -d or --desc
+            "p" | "plain" => "plain".to_string(),           // Example for headers -p or --plain
+            "v" | "invert-match" => "invert-match".to_string(), // Example for grep -v or --invert-match
             _ => option_str.to_string(),
         };
         // If it's a known flag that should be stored with its full name, do so.
@@ -219,6 +225,7 @@ pub fn print_help() {
     println!("  timeline     Aggregate data by time intervals");
     println!("  timeslice    Filter data by time range");
     println!("  pivot        Create pivot tables with cross-tabulation");
+    println!("  timeround    Round datetime to specified time unit");
     println!();
     println!("Finalizers:");
     println!("  show         Print as CSV");
@@ -264,6 +271,7 @@ pub fn print_chainable_help(cmd: &str) {
         "timeslice" => print_timeslice_help(),
         "partition" => print_partition_help(),
         "pivot" => print_pivot_help(),
+        "timeround" => print_timeround_help(),
         "show" => print_show_help(),
         "showtable" => print_showtable_help(),
         "headers" => print_headers_help(),
@@ -325,11 +333,17 @@ fn print_contains_help() {
 }
 
 fn print_sed_help() {
-    println!("sed: Replace values in a column using a pattern\n");
-    println!("Usage: sed <colname> <pattern> <replacement> [-i]\n");
+    println!("sed: Replace values in column(s) using a pattern\n");
+    println!("Usage:");
+    println!("  sed <pattern> <replacement> [-i]                    (apply to all columns)");
+    println!("  sed <pattern> <replacement> --column <colname> [-i] (apply to specific column)\n");
+    println!("Options:");
+    println!("  -i, --ignorecase    Case-insensitive matching");
+    println!("  --column <colname>  Apply replacement to specific column only\n");
     println!("Examples:");
-    println!("  qsv load data.csv - sed col1 foo bar - show");
-    println!("  qsv load data.csv - sed col1 foo bar -i - show");
+    println!("  qsv load data.csv - sed foo bar - show                       # Replace 'foo' with 'bar' in all columns");
+    println!("  qsv load data.csv - sed foo bar --column str - show          # Replace 'foo' with 'bar' in 'str' column only");
+    println!("  qsv load data.csv - sed john JOHN -i - show                  # Case-insensitive replacement");
 }
 
 fn print_grep_help() {
@@ -356,11 +370,12 @@ fn print_tail_help() {
 
 fn print_sort_help() {
     println!("sort: Sort rows by column(s)\n");
-    println!("Usage: sort <col1>[,<col2>,...] [-d]\n");
-    println!("Options: -d (descending order)\n");
+    println!("Usage: sort <col1>[,<col2>,...] [-d|--desc]\n");
+    println!("Options: -d, --desc (descending order)\n");
     println!("Examples:");
     println!("  qsv load data.csv - sort col1 - show");
     println!("  qsv load data.csv - sort col1,col2 -d - show");
+    println!("  qsv load data.csv - sort col1,col2 --desc - show");
 }
 
 fn print_count_help() {
@@ -379,15 +394,19 @@ fn print_uniq_help() {
 
 fn print_changetz_help() {
     println!("changetz: Change timezone of a datetime column\n");
-    println!("Usage: changetz <colname> --from_tz <from_tz> --to_tz <to_tz> [--format <format>] [--ambiguous <strategy>]\n");
+    println!("Usage: changetz <colname> --from-tz <from_tz> --to-tz <to_tz> [--input-format <format>] [--output-format <format>] [--ambiguous <strategy>]\n");
     println!("Options:");
-    println!("  --from_tz    Source timezone (e.g., UTC, America/New_York, local)");
-    println!("  --to_tz      Target timezone (e.g., Asia/Tokyo)");
-    println!("  --format     Input datetime format (default: auto)");
-    println!("  --ambiguous  Strategy for ambiguous times: earliest or latest (default: earliest)");
+    println!("  --from-tz       Source timezone (e.g., UTC, America/New_York, local)");
+    println!("  --to-tz         Target timezone (e.g., Asia/Tokyo)");
+    println!("  --input-format  Input datetime format (default: auto)");
+    println!("  --output-format Output datetime format (default: auto - ISO8601)");
+    println!(
+        "  --ambiguous     Strategy for ambiguous times: earliest or latest (default: earliest)"
+    );
     println!("\nExamples:");
-    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
-    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo --format '%Y/%m/%d %H:%M' - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo --input-format '%Y/%m/%d %H:%M' - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz America/New_York --to-tz UTC --ambiguous latest - show");
 }
 
 fn print_renamecol_help() {
@@ -485,6 +504,26 @@ fn print_pivot_help() {
     println!("\nNote: Creates a cross-tabulation table with specified rows and columns.");
 }
 
+fn print_timeround_help() {
+    println!("timeround: Round datetime to specified time unit\n");
+    println!("Usage: timeround <colname> --unit <unit> [--output <colname>]\n");
+    println!("Options:");
+    println!("  --unit      Time unit: y/year, M/month, d/day, h/hour, m/minute, s/second");
+    println!("  --output    Output column name (default: replaces original column)");
+    println!("\nOutput formats by unit:");
+    println!("  year (y):   2023");
+    println!("  month (M):  2023-01");
+    println!("  day (d):    2023-01-01");
+    println!("  hour (h):   2023-01-01 12");
+    println!("  minute (m): 2023-01-01 12:34");
+    println!("  second (s): 2023-01-01 12:34:56");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - timeround timestamp --unit d --output date_only");
+    println!("  qsv load data.csv - timeround timestamp --unit h --output hour_rounded");
+    println!("  qsv load data.csv - timeround timestamp --unit m");
+    println!("  qsv load logs.csv - timeround created_at --unit day --output created_day");
+}
+
 fn print_show_help() {
     println!("show: Print result as CSV\n");
     println!("Usage: show\n");
@@ -501,11 +540,12 @@ fn print_showtable_help() {
 
 fn print_headers_help() {
     println!("headers: Show column names\n");
-    println!("Usage: headers [-p]\n");
-    println!("Options: -p (plain format)\n");
+    println!("Usage: headers [-p|--plain]\n");
+    println!("Options: -p, --plain (plain format)\n");
     println!("Examples:");
     println!("  qsv load data.csv - headers");
     println!("  qsv load data.csv - headers -p");
+    println!("  qsv load data.csv - headers --plain");
 }
 
 fn print_stats_help() {

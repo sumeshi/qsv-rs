@@ -254,14 +254,14 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
         "sed" => {
             check_data_loaded(controller, "sed");
 
-            if cmd.args.len() < 3 {
-                eprintln!("Error: 'sed' command requires a column name, pattern, and replacement");
+            if cmd.args.len() < 2 {
+                eprintln!("Error: 'sed' command requires pattern and replacement");
                 process::exit(1);
             }
 
-            let colname = &cmd.args[0];
-            let pattern = &cmd.args[1];
-            let replacement = &cmd.args[2];
+            let pattern = &cmd.args[0];
+            let replacement = &cmd.args[1];
+            let colname = cmd.options.get("column").and_then(|opt| opt.as_deref());
             let ignorecase = cmd.options.contains_key("ignorecase");
 
             controller.sed(colname, pattern, replacement, ignorecase);
@@ -355,12 +355,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
         "uniq" => {
             check_data_loaded(controller, "uniq");
-            let colnames = if cmd.args.is_empty() {
-                None
-            } else {
-                Some(parse_column_names(&cmd.args[0]))
-            };
-            controller.uniq(colnames);
+            controller.uniq();
         }
 
         "changetz" => {
@@ -373,32 +368,45 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
             let colname = &cmd.args[0];
 
-            let tz_from = match cmd.options.get("from_tz") {
+            let tz_from = match cmd.options.get("from-tz") {
                 Some(Some(tz)) => tz,
                 _ => {
-                    eprintln!("Error: 'changetz' command requires --from_tz option");
+                    eprintln!("Error: 'changetz' command requires --from-tz option");
                     process::exit(1);
                 }
             };
 
-            let tz_to = match cmd.options.get("to_tz") {
+            let tz_to = match cmd.options.get("to-tz") {
                 Some(Some(tz)) => tz,
                 _ => {
-                    eprintln!("Error: 'changetz' command requires --to_tz option");
+                    eprintln!("Error: 'changetz' command requires --to-tz option");
                     process::exit(1);
                 }
             };
 
-            let dt_format = cmd
+            let input_format = cmd
                 .options
-                .get("format")
+                .get("input_format")
+                .or_else(|| cmd.options.get("input-format"))
+                .and_then(|opt_val| opt_val.as_deref());
+            let output_format = cmd
+                .options
+                .get("output_format")
+                .or_else(|| cmd.options.get("output-format"))
                 .and_then(|opt_val| opt_val.as_deref());
             let ambiguous_time = cmd
                 .options
                 .get("ambiguous")
                 .and_then(|opt_val| opt_val.as_deref());
 
-            controller.changetz(colname, tz_from, tz_to, dt_format, ambiguous_time);
+            controller.changetz(
+                colname,
+                tz_from,
+                tz_to,
+                input_format,
+                output_format,
+                ambiguous_time,
+            );
         }
 
         "renamecol" => {
@@ -563,6 +571,30 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             };
 
             controller.pivot(&rows, &columns, values, agg_func);
+        }
+
+        "timeround" => {
+            check_data_loaded(controller, "timeround");
+
+            if cmd.args.is_empty() {
+                eprintln!("Error: 'timeround' command requires a column name");
+                process::exit(1);
+            }
+
+            let colname = &cmd.args[0];
+
+            let unit = cmd
+                .options
+                .get("unit")
+                .and_then(|opt| opt.as_deref())
+                .unwrap_or_else(|| {
+                    eprintln!("Error: 'timeround' command requires --unit option (e.g., --unit d)");
+                    process::exit(1);
+                });
+
+            let output_colname = cmd.options.get("output").and_then(|opt| opt.as_deref());
+
+            controller.timeround(colname, unit, output_colname);
         }
 
         // Quilters

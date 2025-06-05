@@ -1,5 +1,5 @@
 use crate::controllers::log::LogController;
-use polars::prelude::{col, len, Expr, LazyFrame};
+use polars::prelude::{col, len, Expr, LazyFrame, SortMultipleOptions};
 
 pub fn count(df: &LazyFrame) -> LazyFrame {
     LogController::debug("Applying count");
@@ -18,4 +18,8 @@ pub fn count(df: &LazyFrame) -> LazyFrame {
     df.clone()
         .group_by(all_colnames.iter().map(col).collect::<Vec<Expr>>())
         .agg([len().alias("count")])
+        .sort(
+            ["count"],
+            SortMultipleOptions::default().with_order_descending(true),
+        )
 }

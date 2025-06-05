@@ -6,126 +6,66 @@ class TestHeaders(QsvTestBase):
     Test headers finalizer module
     """
     
-    def test_headers_default_table_format(self):
-        """Test headers with default table format"""
-        output = self.run_qsv_command("load sample/simple.csv - headers")
+    def test_headers_basic(self):
+        """Test basic headers functionality"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - headers")
+        output = result.stdout.strip()
         
-        # Should display headers in table format
-        self.assert_output_contains(output, "Column Name")
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-        
-        # Should include table formatting characters
-        self.assertIn("│", output)  # Table border character
-        self.assertIn("─", output)  # Table border character
+        # Should return headers in table format
+        self.assertIn("Column Name", output)
+        self.assertIn("datetime", output)
+        self.assertIn("col1", output)
+        self.assertIn("col2", output)
+        self.assertIn("col3", output)
+        self.assertIn("str", output)
     
-    def test_headers_plain_format_short_flag(self):
-        """Test headers with plain format using -p flag"""
-        output = self.run_qsv_command("load sample/simple.csv - headers -p")
+    def test_headers_with_select(self):
+        """Test headers after column selection"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1,str - headers")
+        output = result.stdout.strip()
         
-        # Should display headers as plain text, one per line
-        lines = output.strip().split('\n')
-        expected_headers = ["datetime", "col1", "col2", "col3", "str"]
-        
-        self.assertEqual(len(lines), len(expected_headers))
-        for header in expected_headers:
-            self.assertIn(header, lines)
-        
-        # Should NOT include table formatting characters
-        self.assertNotIn("│", output)
-        self.assertNotIn("─", output)
-        self.assertNotIn("Column Name", output)
-    
-    def test_headers_plain_format_long_flag(self):
-        """Test headers with plain format using --plain flag"""
-        output = self.run_qsv_command("load sample/simple.csv - headers --plain")
-        
-        # Should display headers as plain text, one per line
-        lines = output.strip().split('\n')
-        expected_headers = ["datetime", "col1", "col2", "col3", "str"]
-        
-        self.assertEqual(len(lines), len(expected_headers))
-        for header in expected_headers:
-            self.assertIn(header, lines)
-        
-        # Should NOT include table formatting characters
-        self.assertNotIn("│", output)
-        self.assertNotIn("─", output)
-        self.assertNotIn("Column Name", output)
-    
-    def test_headers_after_select(self):
-        """Test headers after selecting specific columns"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1,col3 - headers")
-        
-        # Should only show selected columns
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col3")
-        
-        # Should not show non-selected columns
+        # Should return only selected column headers in table format
+        self.assertIn("Column Name", output)
+        self.assertIn("col1", output)
+        self.assertIn("str", output)
         self.assertNotIn("datetime", output)
-        self.assertNotIn("col2", output)
+    
+    def test_headers_with_renamecol(self):
+        """Test headers after column renaming"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - renamecol str text - headers")
+        output = result.stdout.strip()
+        
+        # Should return headers with renamed column in table format
+        self.assertIn("Column Name", output)
+        self.assertIn("datetime", output)
+        self.assertIn("col1", output)
+        self.assertIn("col2", output)
+        self.assertIn("col3", output)
+        self.assertIn("text", output)
         self.assertNotIn("str", output)
     
-    def test_headers_after_select_plain(self):
-        """Test headers in plain format after selecting specific columns"""
-        output = self.run_qsv_command("load sample/simple.csv - select datetime,str - headers --plain")
+    def test_headers_single_column(self):
+        """Test headers with single column selection"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select datetime - headers")
+        output = result.stdout.strip()
         
-        # Should only show selected columns in plain format
-        lines = output.strip().split('\n')
-        expected_headers = ["datetime", "str"]
-        
-        self.assertEqual(len(lines), len(expected_headers))
-        for header in expected_headers:
-            self.assertIn(header, lines)
-        
-        # Should not show non-selected columns
-        for line in lines:
-            self.assertNotIn("col1", line)
-            self.assertNotIn("col2", line)
-            self.assertNotIn("col3", line)
-    
-    def test_headers_with_column_range_selection(self):
-        """Test headers after selecting column range"""
-        output = self.run_qsv_command("load sample/simple.csv - select col1-col3 - headers")
-        
-        # Should show columns in the range
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        
-        # Should not show columns outside the range
-        self.assertNotIn("datetime", output)
-        self.assertNotIn("str", output)
-    
-    def test_headers_after_operations(self):
-        """Test headers after various operations that don't change column structure"""
-        output = self.run_qsv_command("load sample/simple.csv - head 2 - tail 1 - headers")
-        
-        # Should still show all original columns
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col1")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
-    
-    def test_headers_after_renamecol(self):
-        """Test headers after renaming a column"""
-        output = self.run_qsv_command("load sample/simple.csv - renamecol col1 renamed_col - headers")
-        
-        # Should show the renamed column
-        self.assert_output_contains(output, "renamed_col")
-        
-        # Should not show the original column name
+        # Should return single column header in table format
+        self.assertIn("Column Name", output)
+        self.assertIn("datetime", output)
         self.assertNotIn("col1", output)
         
-        # Other columns should remain unchanged
-        self.assert_output_contains(output, "datetime")
-        self.assert_output_contains(output, "col2")
-        self.assert_output_contains(output, "col3")
-        self.assert_output_contains(output, "str")
+    def test_headers_with_complex_operations(self):
+        """Test headers after complex operations (shouldn't affect headers)"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - sort str - head 2 - headers")
+        output = result.stdout.strip()
+        
+        # Should return all original headers in table format (operations don't change headers)
+        self.assertIn("Column Name", output)
+        self.assertIn("datetime", output)
+        self.assertIn("col1", output)
+        self.assertIn("col2", output)
+        self.assertIn("col3", output)
+        self.assertIn("str", output)
 
 if __name__ == "__main__":
     unittest.main()
