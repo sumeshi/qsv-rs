@@ -166,6 +166,12 @@ fn parse_column_names(input: &str) -> Vec<String> {
 
 // Process a single command
 fn process_command(controller: &mut DataFrameController, cmd: &Command) {
+    // Validate command options
+    if let Err(error_msg) = controllers::command::validate_command_options(cmd) {
+        eprintln!("{}", error_msg);
+        process::exit(1);
+    }
+
     match cmd.name.as_str() {
         // Initializers
         "load" => {

@@ -1,8 +1,8 @@
 [package]
 name = "qsv"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
-description = "A tool for elastic and rapid filtering of huge CSV files"
+description = "A fast, flexible, and memory-efficient command-line tool written in Rust for processing large CSV files."
 authors = ["sumeshi <sum3sh1@protonmail.com>"]
 license = "MIT"
 
