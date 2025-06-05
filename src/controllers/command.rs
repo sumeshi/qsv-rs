@@ -1,5 +1,6 @@
 // filepath: /workspaces/qsv-rs/src/controllers/command.rs
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct Command {
@@ -16,6 +17,72 @@ impl Command {
             options: HashMap::new(),
         }
     }
+}
+
+// Define valid options for each command
+fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
+    match command_name {
+        "load" => ["separator", "low-memory", "no-headers"]
+            .iter()
+            .cloned()
+            .collect(),
+        "select" => HashSet::new(), // select has no options
+        "isin" => HashSet::new(),   // isin has no options
+        "contains" => ["ignorecase"].iter().cloned().collect(),
+        "sed" => ["ignorecase", "column"].iter().cloned().collect(),
+        "grep" => ["ignorecase", "invert-match"].iter().cloned().collect(),
+        "head" => ["number"].iter().cloned().collect(),
+        "tail" => ["number"].iter().cloned().collect(),
+        "sort" => ["desc"].iter().cloned().collect(),
+        "count" => HashSet::new(), // count has no options
+        "uniq" => HashSet::new(),  // uniq has no options
+        "changetz" => [
+            "from-tz",
+            "to-tz",
+            "input-format",
+            "input_format",
+            "output-format",
+            "output_format",
+            "ambiguous",
+        ]
+        .iter()
+        .cloned()
+        .collect(),
+        "renamecol" => HashSet::new(), // renamecol has no options
+        "convert" => ["from", "to"].iter().cloned().collect(),
+        "timeline" => ["interval", "sum", "avg", "min", "max", "std"]
+            .iter()
+            .cloned()
+            .collect(),
+        "timeslice" => ["start", "end"].iter().cloned().collect(),
+        "pivot" => ["rows", "cols", "values", "agg"].iter().cloned().collect(),
+        "timeround" => ["unit", "output"].iter().cloned().collect(),
+        "partition" => HashSet::new(), // partition has no options
+        "show" => HashSet::new(),      // show has no options
+        "showtable" => HashSet::new(), // showtable has no options
+        "headers" => ["plain"].iter().cloned().collect(),
+        "stats" => HashSet::new(),     // stats has no options
+        "showquery" => HashSet::new(), // showquery has no options
+        "dump" => ["separator", "output"].iter().cloned().collect(),
+        "quilt" => ["output"].iter().cloned().collect(),
+        _ => HashSet::new(), // unknown command, no validation
+    }
+}
+
+// Validate that all options for a command are valid
+pub fn validate_command_options(cmd: &Command) -> Result<(), String> {
+    let valid_options = get_valid_options(&cmd.name);
+
+    for option_key in cmd.options.keys() {
+        if !valid_options.contains(option_key.as_str()) {
+            return Err(format!(
+                "Error: Unknown option '--{}' for command '{}'. Run 'qsv {} --help' for available options.",
+                option_key, cmd.name, cmd.name
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 pub fn parse_commands(args: &[String]) -> Vec<Command> {
