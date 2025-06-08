@@ -2,12 +2,9 @@
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 [![CI/CD Pipeline](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml)
 
-![Quilter-CSV](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/00d774e6814a462eb48e68f29fc6226976238777/quilter-csv.svg)
+![qsv-rs](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/8484142e88948ecc0c8887db8f3bbb5be0dbe51e/qsv-rs.svg)
 
 A fast, flexible, and memory-efficient command-line tool written in Rust for processing large CSV files. Inspired by [xsv](https://github.com/BurntSushi/xsv) and built on [Polars](https://www.pola.rs/), it's designed for handling tens or hundreds of gigabytes of CSV data efficiently in workflows like log analysis and digital forensics.
-
-> [!IMPORTANT]  
-> This project is in the early stages of development. Please be aware that frequent changes and updates are likely to occur.
 
 > [!NOTE]
 > The original version of this project was implemented in Python and can be found at [sumeshi/quilter-csv](https://github.com/sumeshi/quilter-csv). This Rust version is a complete rewrite.
