@@ -2,12 +2,9 @@
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 [![CI/CD Pipeline](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml)
 
-![Quilter-CSV](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/00d774e6814a462eb48e68f29fc6226976238777/quilter-csv.svg)
+![qsv-rs](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/8484142e88948ecc0c8887db8f3bbb5be0dbe51e/qsv-rs.svg)
 
 A fast, flexible, and memory-efficient command-line tool written in Rust for processing large CSV files. Inspired by [xsv](https://github.com/BurntSushi/xsv) and built on [Polars](https://www.pola.rs/), it's designed for handling tens or hundreds of gigabytes of CSV data efficiently in workflows like log analysis and digital forensics.
-
-> [!IMPORTANT]  
-> This project is in the early stages of development. Please be aware that frequent changes and updates are likely to occur.
 
 > [!NOTE]
 > The original version of this project was implemented in Python and can be found at [sumeshi/quilter-csv](https://github.com/sumeshi/quilter-csv). This Rust version is a complete rewrite.
@@ -249,7 +246,7 @@ Changes the timezone of a datetime column.
 | colname | str |         | Name of the datetime column. Required. |
 | --from-tz | str |         | Source timezone (e.g., `UTC`, `America/New_York`, `local`). Required. |
 | --to-tz | str |         | Target timezone (e.g., `Asia/Tokyo`). Required. |
-| --input-format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` attempts to parse common formats. |
+| --input-format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` uses intelligent parsing similar to Python's dateutil.parser, supporting fuzzy parsing and automatic format detection. |
 | --output-format | str | `auto` | Output datetime format string (e.g., `%Y/%m/%d %H:%M:%S`). `auto` uses ISO8601 format `%Y-%m-%dT%H:%M:%S%.7f%:z` (100-nanosecond precision for Windows forensics). |
 | --ambiguous | str | `earliest` | Strategy for ambiguous times during DST transitions: `earliest` (first occurrence) or `latest` (second occurrence). |
 
@@ -273,6 +270,14 @@ $ qsv load data.csv - changetz datetime --from-tz UTC --to-tz America/New_York -
 
 $ qsv load data.csv - changetz datetime --from-tz America/New_York --to-tz UTC --ambiguous latest
 # Handle ambiguous DST times
+
+# Automatic format detection (similar to Python dateutil.parser):
+$ qsv load logs.csv - changetz timestamp --from-tz local --to-tz UTC
+# Handles: "Jan 15, 2023 2:30 PM", "2023/01/15 14:30", "15-Jan-2023 14:30:00", etc.
+
+# Fuzzy parsing with embedded text:
+$ qsv load events.csv - changetz event_time --from-tz EST --to-tz UTC  
+# Handles: "Meeting on January 15th, 2023 at 2:30 PM", "Call scheduled for Jan 15 2023"
 ```
 
 **TODO:** Upgrade to 7-digit sub-second precision (100-nanosecond precision for Windows FILETIME compatibility) when chrono-tz library supports it.

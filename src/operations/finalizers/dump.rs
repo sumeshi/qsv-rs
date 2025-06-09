@@ -33,10 +33,7 @@ pub fn dump(df: &LazyFrame, output_path_str: &str, separator: char) {
         .with_separator(separator as u8)
         .finish(&mut df_collected)
     {
-        Ok(_) => LogController::info(&format!(
-            "DataFrame successfully dumped to {}",
-            output_path.display()
-        )),
+        Ok(_) => (),
         Err(e) => eprintln!(
             "Error writing CSV to file '{}': {}",
             output_path.display(),

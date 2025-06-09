@@ -30,7 +30,7 @@ class TestSelect(QsvTestBase):
         for col in ["col2", "datetime", "str"]:
             self.assertNotIn(col, result.stdout.strip())
     
-    def test_select_column_range(self):
+    def test_select_column_range_colon(self):
         """Test selecting columns using range notation (col1-col3)"""
         result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1:col3 - show")
         self.assertEqual(result.stdout.strip(), '\n'.join([
@@ -43,6 +43,19 @@ class TestSelect(QsvTestBase):
         for col in ["datetime", "str"]:
             self.assertNotIn(col, result.stdout.strip())
     
+    def test_select_column_range_hyphen(self):
+        """Test selecting columns using range notation (col1-col3)"""
+        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select col1-col3 - show")
+        self.assertEqual(result.stdout.strip(), '\n'.join([
+                "col1,col2,col3",
+                "1,2,3",
+                "4,5,6",
+                "7,8,9",
+            ])
+        )
+        for col in ["datetime", "str"]:
+            self.assertNotIn(col, result.stdout.strip())
+
     def test_select_single_numeric_index(self):
         """Test selecting a single column by numeric index (1-based)"""
         result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - select 1 - show")

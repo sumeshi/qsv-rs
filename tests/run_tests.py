@@ -80,7 +80,7 @@ def run_test_suite():
     
     # Run the tests
     print("\nRunning tests...")
-    runner = unittest.TextTestRunner(verbosity=2)
+    runner = unittest.TextTestRunner()
     result = runner.run(suite)
     
     # Print summary

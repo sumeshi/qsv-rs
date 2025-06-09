@@ -7,6 +7,7 @@ use crate::operations::initializers::load;
 use polars::prelude::*;
 use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct DataFrameController {
     df: Option<LazyFrame>,
 }
@@ -14,6 +15,10 @@ pub struct DataFrameController {
 impl DataFrameController {
     pub fn new() -> Self {
         Self { df: None }
+    }
+
+    pub fn set_df(&mut self, df: LazyFrame) {
+        self.df = Some(df);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -249,12 +254,4 @@ impl DataFrameController {
             dump::dump(df, output_path_str, sep_char);
         }
     }
-
-    pub fn set_df(&mut self, df: LazyFrame) {
-        self.df = Some(df);
-    }
 }
-
-// DataFrame utility functions
-
-// Method to apply a finalizer operation

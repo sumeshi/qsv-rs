@@ -1,4 +1,5 @@
 use std::env;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 
@@ -10,9 +11,19 @@ use controllers::dataframe::DataFrameController;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-// Define the static Regex for column range parsing
-static RE_COL_RANGE: Lazy<Regex> = Lazy::new(|| {
-    // This regex captures:
+// Define static Regex patterns for column range parsing (both colon and hyphen notation)
+static RE_COL_RANGE_COLON: Lazy<Regex> = Lazy::new(|| {
+    // This regex captures colon notation: col1:col3 or col1:3
+    // p1: The prefix of the start of the range (e.g., "col")
+    // n1: The number of the start of the range (e.g., "1")
+    // p2: (Optional) The prefix of the end of the range if specified (e.g., "col" in "col1:col3")
+    // n2: (Conditional) The number of the end of the range if p2 is specified (e.g., "3" in "col1:col3")
+    // n3: (Conditional) The number of the end of the range if p2 is NOT specified (e.g., "3" in "col1:3")
+    Regex::new(r"^(?P<p1>[a-zA-Z_][a-zA-Z_0-9]*)(?P<n1>\d+):(?:(?P<p2>[a-zA-Z_][a-zA-Z_0-9]*)(?P<n2>\d+)|(?P<n3>\d+))$").unwrap()
+});
+
+static RE_COL_RANGE_HYPHEN: Lazy<Regex> = Lazy::new(|| {
+    // This regex captures hyphen notation: col1-col3 or col1-3
     // p1: The prefix of the start of the range (e.g., "col")
     // n1: The number of the start of the range (e.g., "1")
     // p2: (Optional) The prefix of the end of the range if specified (e.g., "col" in "col1-col3")
@@ -22,8 +33,12 @@ static RE_COL_RANGE: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn main() {
-    // Initialize logger to only show errors by default
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error")).init();
+    // Initialize logger without timestamp (LogController provides high-precision timestamps)
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
+        .format(|buf, record| {
+            writeln!(buf, "{}", record.args())
+        })
+        .init();
 
     // Get command line arguments
     let args: Vec<String> = std::env::args().collect();
@@ -119,17 +134,21 @@ fn parse_column_names(input: &str) -> Vec<String> {
             continue;
         }
 
-        if let Some(captures) = RE_COL_RANGE.captures(part) {
+        // Try colon notation first (col1:col3), then hyphen notation (col1-col3)
+        let captures_opt = RE_COL_RANGE_COLON.captures(part)
+            .or_else(|| RE_COL_RANGE_HYPHEN.captures(part));
+            
+        if let Some(captures) = captures_opt {
             let prefix1 = captures.name("p1").unwrap().as_str();
             let num1: usize = captures.name("n1").unwrap().as_str().parse().unwrap();
 
             let (prefix2, num2) = if let Some(p2) = captures.name("p2") {
-                // Format: col1-col3
+                // Format: col1:col3 or col1-col3
                 let prefix2 = p2.as_str();
                 let num2: usize = captures.name("n2").unwrap().as_str().parse().unwrap();
                 (prefix2, num2)
             } else {
-                // Format: col1-3
+                // Format: col1:3 or col1-3
                 let num2: usize = captures.name("n3").unwrap().as_str().parse().unwrap();
                 (prefix1, num2)
             };
