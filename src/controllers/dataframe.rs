@@ -255,7 +255,3 @@ impl DataFrameController {
         }
     }
 }
-
-// DataFrame utility functions
-
-// Method to apply a finalizer operation

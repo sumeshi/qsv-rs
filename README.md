@@ -246,7 +246,7 @@ Changes the timezone of a datetime column.
 | colname | str |         | Name of the datetime column. Required. |
 | --from-tz | str |         | Source timezone (e.g., `UTC`, `America/New_York`, `local`). Required. |
 | --to-tz | str |         | Target timezone (e.g., `Asia/Tokyo`). Required. |
-| --input-format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` attempts to parse common formats. |
+| --input-format | str | `auto` | Input datetime format string (e.g., `%Y-%m-%d %H:%M:%S%.f`). `auto` uses intelligent parsing similar to Python's dateutil.parser, supporting fuzzy parsing and automatic format detection. |
 | --output-format | str | `auto` | Output datetime format string (e.g., `%Y/%m/%d %H:%M:%S`). `auto` uses ISO8601 format `%Y-%m-%dT%H:%M:%S%.7f%:z` (100-nanosecond precision for Windows forensics). |
 | --ambiguous | str | `earliest` | Strategy for ambiguous times during DST transitions: `earliest` (first occurrence) or `latest` (second occurrence). |
 
@@ -270,6 +270,14 @@ $ qsv load data.csv - changetz datetime --from-tz UTC --to-tz America/New_York -
 
 $ qsv load data.csv - changetz datetime --from-tz America/New_York --to-tz UTC --ambiguous latest
 # Handle ambiguous DST times
+
+# Automatic format detection (similar to Python dateutil.parser):
+$ qsv load logs.csv - changetz timestamp --from-tz local --to-tz UTC
+# Handles: "Jan 15, 2023 2:30 PM", "2023/01/15 14:30", "15-Jan-2023 14:30:00", etc.
+
+# Fuzzy parsing with embedded text:
+$ qsv load events.csv - changetz event_time --from-tz EST --to-tz UTC  
+# Handles: "Meeting on January 15th, 2023 at 2:30 PM", "Call scheduled for Jan 15 2023"
 ```
 
 **TODO:** Upgrade to 7-digit sub-second precision (100-nanosecond precision for Windows FILETIME compatibility) when chrono-tz library supports it.

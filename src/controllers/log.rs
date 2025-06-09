@@ -1,21 +1,31 @@
+use chrono::{DateTime, Local};
 use log::{debug, error, info, warn};
 
 pub struct LogController;
 
 impl LogController {
     pub fn debug(msg: &str) {
-        debug!("{}", msg);
+        let timestamp = Self::get_timestamp();
+        debug!("[{}] {}", timestamp, msg);
     }
 
     pub fn info(msg: &str) {
-        info!("{}", msg);
+        let timestamp = Self::get_timestamp();
+        info!("[{}] {}", timestamp, msg);
     }
 
     pub fn warn(msg: &str) {
-        warn!("{}", msg);
+        let timestamp = Self::get_timestamp();
+        warn!("[{}] {}", timestamp, msg);
     }
 
     pub fn error(msg: &str) {
-        error!("{}", msg);
+        let timestamp = Self::get_timestamp();
+        error!("[{}] {}", timestamp, msg);
+    }
+
+    fn get_timestamp() -> String {
+        let now: DateTime<Local> = Local::now();
+        now.format("%Y-%m-%dT%H:%M:%S%.6f%:z").to_string()
     }
 }
