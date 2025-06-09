@@ -35,9 +35,7 @@ static RE_COL_RANGE_HYPHEN: Lazy<Regex> = Lazy::new(|| {
 fn main() {
     // Initialize logger without timestamp (LogController provides high-precision timestamps)
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
-        .format(|buf, record| {
-            writeln!(buf, "{}", record.args())
-        })
+        .format(|buf, record| writeln!(buf, "{}", record.args()))
         .init();
 
     // Get command line arguments
@@ -135,9 +133,10 @@ fn parse_column_names(input: &str) -> Vec<String> {
         }
 
         // Try colon notation first (col1:col3), then hyphen notation (col1-col3)
-        let captures_opt = RE_COL_RANGE_COLON.captures(part)
+        let captures_opt = RE_COL_RANGE_COLON
+            .captures(part)
             .or_else(|| RE_COL_RANGE_HYPHEN.captures(part));
-            
+
         if let Some(captures) = captures_opt {
             let prefix1 = captures.name("p1").unwrap().as_str();
             let num1: usize = captures.name("n1").unwrap().as_str().parse().unwrap();
