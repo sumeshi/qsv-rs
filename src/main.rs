@@ -210,11 +210,17 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let no_headers =
                 cmd.options.contains_key("no-headers") || cmd.options.contains_key("no_headers");
 
+            let chunk_size = cmd
+                .options
+                .get("chunk-size")
+                .and_then(|opt| opt.as_ref())
+                .and_then(|size_str| size_str.parse::<usize>().ok());
+
             for path_str in &cmd.args {
                 paths.push(PathBuf::from(path_str));
             }
 
-            controller.load(&paths, &separator, low_memory, no_headers);
+            controller.load(&paths, &separator, low_memory, no_headers, chunk_size);
         }
 
         // Chainables
@@ -680,20 +686,21 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
         "dump" => {
             check_data_loaded(controller, "dump");
-            let output_path = if !cmd.args.is_empty() {
-                Some(cmd.args[0].as_str())
-            } else {
-                cmd.options
-                    .get("output")
-                    .and_then(|opt_val| opt_val.as_deref())
-            };
+            let output_path = cmd
+                .options
+                .get("output")
+                .and_then(|opt_val| opt_val.as_deref())
+                .unwrap_or_else(|| {
+                    eprintln!("Error: 'dump' command requires -o/--output option");
+                    process::exit(1);
+                });
 
             let separator = cmd
                 .options
                 .get("separator")
                 .and_then(|opt_val| opt_val.as_ref().and_then(|s| s.chars().next()));
 
-            controller.dump(output_path, separator);
+            controller.dump(Some(output_path), separator);
         }
 
         // Unsupported commands

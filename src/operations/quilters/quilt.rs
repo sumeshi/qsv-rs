@@ -392,12 +392,15 @@ pub fn quilt(
                                     get_bool_from_value(command_args_val, "low_memory");
                                 let no_headers =
                                     get_bool_from_value(command_args_val, "no_headers");
+                                let chunk_size =
+                                    get_usize_from_value(command_args_val, "chunk_size");
 
                                 loaded_df = Some(load_op::load(
                                     &[path_to_load],
                                     &separator,
                                     low_memory,
                                     no_headers,
+                                    chunk_size,
                                 ));
                             } else if let Some(ref cli_files) = cli_input_files {
                                 if stage_output_df.is_none() && !cli_files.is_empty() {
@@ -405,7 +408,8 @@ pub fn quilt(
                                         "Loading data from CLI for stage '{}': {:?}",
                                         stage_name, cli_files
                                     ));
-                                    loaded_df = Some(load_op::load(cli_files, ",", false, false));
+                                    loaded_df =
+                                        Some(load_op::load(cli_files, ",", false, false, None));
                                 } else if stage_output_df.is_some() {
                                     LogController::debug(&format!("Stage '{}' already has data from source, 'load' step without path will not use CLI files.", stage_name));
                                 } else {
@@ -423,6 +427,7 @@ pub fn quilt(
                                         ",",
                                         false,
                                         false,
+                                        None,
                                     ));
                                 }
                             }

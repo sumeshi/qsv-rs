@@ -75,6 +75,7 @@ Load one or more CSV files.
 | -s, --separator | str       | `,`     | Field separator character.                       |
 | --low-memory  | flag    | `false` | Enable low-memory mode for very large files.     |
 | --no-headers  | flag    | `false` | Treat the first row as data, not headers. When enabled, columns will be named automatically (column_0, column_1, etc.). |
+| --chunk-size  | int     | (auto)  | Number of rows to read per chunk. Controls memory usage during file processing. Smaller values use less memory but increase I/O operations. |
 
 Example:
 ```bash
@@ -85,6 +86,7 @@ $ qsv load "logs/*.tsv" -s \t
 $ qsv load logs/*.tsv --separator=\t
 $ qsv load data.csv --low-memory
 $ qsv load data.csv --no-headers
+$ qsv load data.csv --chunk-size 50000
 ```
 
 ### Chainable Functions
@@ -525,14 +527,14 @@ Outputs the processing results to a CSV file.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| output_path | str | | File path to save the CSV data. Optional positional argument. |
-| --separator | char | `,` | Field separator character for the output CSV file. |
+| -o, --output | str | | File path to save the CSV data. Required. |
+| -s, --separator | char | `,` | Field separator character for the output CSV file. |
 
 Example:
 ```bash
-$ qsv load data.csv - head 100 - dump results.csv
-$ qsv load data.csv - head 100 - dump --separator ';' results.csv
-$ qsv load data.csv - head 100 - dump  # May use default filename
+$ qsv load data.csv - head 100 - dump -o results.csv
+$ qsv load data.csv - head 100 - dump --output results.csv
+$ qsv load data.csv - head 100 - dump -o results.csv -s ';'
 ```
 
 ### Quilt (YAML Workflows)

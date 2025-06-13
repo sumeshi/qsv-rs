@@ -32,8 +32,11 @@ impl DataFrameController {
         separator: &str,
         low_memory: bool,
         no_headers: bool,
+        chunk_size: Option<usize>,
     ) -> &mut Self {
-        self.df = Some(load::load(paths, separator, low_memory, no_headers));
+        self.df = Some(load::load(
+            paths, separator, low_memory, no_headers, chunk_size,
+        ));
         self
     }
 
