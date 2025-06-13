@@ -12,7 +12,7 @@ class TestDump(QsvTestBase):
         if output_file.exists():
             output_file.unlink()
         
-        self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - dump {output_file}")
+        self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - dump -o {output_file}")
         self.assertTrue(output_file.exists())
 
         self.assertEqual(
@@ -25,8 +25,8 @@ class TestDump(QsvTestBase):
             ])
         )
         output_file.unlink()
-
     
+
     def test_dump_to_tsv(self):
         """Test dump to TSV"""
 
@@ -35,9 +35,32 @@ class TestDump(QsvTestBase):
         if output_file.exists():
             output_file.unlink()
         
-        self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - dump --separator '\t' {output_file}")
+        self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - dump -s'\t' -o {output_file}")
         self.assertTrue(output_file.exists())
         
+        self.assertEqual(
+            output_file.read_text().strip(), 
+            '\n'.join([
+                "datetime\tcol1\tcol2\tcol3\tstr",
+                "2023-01-01 12:00:00\t1\t2\t3\tfoo",
+                "2023-01-01 13:00:00\t4\t5\t6\tbar",
+                "2023-01-01 14:00:00\t7\t8\t9\tbaz",
+            ])
+        )
+        output_file.unlink()
+
+
+    def test_dump_to_csv_with_long_options(self):
+        """Test dump to CSV with long options"""
+
+        output_file = Path("/tmp/test_output.csv")
+
+        if output_file.exists():
+            output_file.unlink()
+        
+        self.run_qsv_command(f"load {self.get_fixture_path('simple.csv')} - dump --separator '\t' --output {output_file}")
+        self.assertTrue(output_file.exists())
+
         self.assertEqual(
             output_file.read_text().strip(), 
             '\n'.join([

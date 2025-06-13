@@ -22,7 +22,7 @@ impl Command {
 // Define valid options for each command
 fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
     match command_name {
-        "load" => ["separator", "low-memory", "no-headers"]
+        "load" => ["separator", "low-memory", "no-headers", "chunk-size"]
             .iter()
             .cloned()
             .collect(),
@@ -352,17 +352,19 @@ pub fn print_chainable_help(cmd: &str) {
 
 fn print_load_help() {
     println!("load: Load one or more CSV files\n");
-    println!("Usage: load <file1.csv> [file2.csv ...] [-s|--separator <char>] [--low-memory] [--no-headers]\n");
+    println!("Usage: load <file1.csv> [file2.csv ...] [-s|--separator <char>] [--low-memory] [--no-headers] [--chunk-size <size>]\n");
     println!("Options:");
     println!("  -s, --separator <char>  Field separator character (default: ',')");
     println!("  --low-memory            Enable low-memory mode for very large files");
     println!("  --no-headers            Treat first row as data, not headers");
+    println!("  --chunk-size <size>     Chunk size for reading large files (e.g., 10000)");
     println!("\nExamples:");
     println!("  qsv load data.csv - show");
     println!("  qsv load data1.csv data2.csv data3.csv - show");
     println!("  qsv load logs/*.tsv -s '\\t' - show");
     println!("  qsv load data.csv --low-memory - show");
     println!("  qsv load data.csv --no-headers - show");
+    println!("  qsv load data.csv --chunk-size 50000 - show");
     println!("  qsv load data.csv.gz - show  # Automatically detects gzip files");
 }
 
@@ -631,10 +633,14 @@ fn print_showquery_help() {
 
 fn print_dump_help() {
     println!("dump: Save DataFrame as CSV\n");
-    println!("Usage: dump [output_path] [--separator <char>]\n");
-    println!("Examples:");
-    println!("  qsv load data.csv - dump results.csv");
-    println!("  qsv load data.csv - dump --separator ';' results.csv");
+    println!("Usage: dump -o|--output <file> [-s|--separator <char>]\n");
+    println!("Options:");
+    println!("  -o, --output <file>     Output file path (required)");
+    println!("  -s, --separator <char>  Field separator character (default: ',')");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - dump -o results.csv");
+    println!("  qsv load data.csv - dump --output results.csv");
+    println!("  qsv load data.csv - dump -o results.csv -s ';'");
 }
 
 fn print_quilt_help() {

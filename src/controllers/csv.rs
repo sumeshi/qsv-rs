@@ -25,18 +25,24 @@ impl CsvController {
         }
     }
 
-    pub fn get_dataframe(&self, separator: &str, low_memory: bool, no_headers: bool) -> LazyFrame {
+    pub fn get_dataframe(
+        &self,
+        separator: &str,
+        low_memory: bool,
+        no_headers: bool,
+        chunk_size: Option<usize>,
+    ) -> LazyFrame {
         if self.paths.len() == 1 {
             let path = &self.paths[0];
             let path_str = path.to_string_lossy();
 
             if path_str.contains('*') || path_str.contains('?') || path_str.contains('[') {
-                self.handle_glob_pattern(path, separator, low_memory, no_headers)
+                self.handle_glob_pattern(path, separator, low_memory, no_headers, chunk_size)
             } else {
-                self.read_csv_file(path, separator, low_memory, no_headers)
+                self.read_csv_file(path, separator, low_memory, no_headers, chunk_size)
             }
         } else {
-            self.concat_csv_files(separator, low_memory, no_headers)
+            self.concat_csv_files(separator, low_memory, no_headers, chunk_size)
         }
     }
 
@@ -46,6 +52,7 @@ impl CsvController {
         separator: &str,
         low_memory: bool,
         no_headers: bool,
+        chunk_size: Option<usize>,
     ) -> LazyFrame {
         LogController::debug(&format!("Reading CSV file: {}", path.display()));
 
@@ -95,10 +102,14 @@ impl CsvController {
                 }
 
                 let cursor = std::io::Cursor::new(decompressed_content);
-                let csv_options = polars::prelude::CsvReadOptions::default()
+                let mut csv_options = polars::prelude::CsvReadOptions::default()
                     .with_has_header(has_header)
                     .with_low_memory(low_memory)
                     .map_parse_options(|opts| opts.with_separator(sep_byte));
+
+                if let Some(chunk_size) = chunk_size {
+                    csv_options = csv_options.with_chunk_size(chunk_size);
+                }
 
                 let reader = csv_options.into_reader_with_file_handle(cursor);
                 match reader.finish() {
@@ -137,8 +148,8 @@ impl CsvController {
                 };
 
                 // Copy in chunks to avoid loading everything into memory
-                const CHUNK_SIZE: usize = 8 * 1024 * 1024; // 8MB chunks
-                let mut buffer = vec![0u8; CHUNK_SIZE];
+                const GZIP_BUFFER_SIZE: usize = 8 * 1024 * 1024; // 8MB buffer for gzip decompression
+                let mut buffer = vec![0u8; GZIP_BUFFER_SIZE];
 
                 loop {
                     match gz_decoder.read(&mut buffer) {
@@ -167,11 +178,16 @@ impl CsvController {
                 drop(temp_file); // Close the file
 
                 // Read from temporary file using LazyCsvReader
-                let reader = LazyCsvReader::new(&temp_path)
+                let mut reader = LazyCsvReader::new(&temp_path)
                     .with_separator(sep_byte)
                     .with_has_header(has_header)
-                    .with_low_memory(low_memory)
-                    .finish();
+                    .with_low_memory(low_memory);
+
+                if let Some(chunk_size) = chunk_size {
+                    reader = reader.with_chunk_size(chunk_size);
+                }
+
+                let reader = reader.finish();
 
                 // Schedule cleanup of temporary file
                 let temp_path_for_cleanup = temp_path.clone();
@@ -190,11 +206,16 @@ impl CsvController {
                 }
             }
         } else {
-            let reader = LazyCsvReader::new(path)
+            let mut reader = LazyCsvReader::new(path)
                 .with_separator(sep_byte)
                 .with_has_header(has_header)
-                .with_low_memory(low_memory)
-                .finish();
+                .with_low_memory(low_memory);
+
+            if let Some(chunk_size) = chunk_size {
+                reader = reader.with_chunk_size(chunk_size);
+            }
+
+            let reader = reader.finish();
 
             match reader {
                 Ok(df) => df,
@@ -206,11 +227,18 @@ impl CsvController {
         }
     }
 
-    fn concat_csv_files(&self, separator: &str, low_memory: bool, no_headers: bool) -> LazyFrame {
+    fn concat_csv_files(
+        &self,
+        separator: &str,
+        low_memory: bool,
+        no_headers: bool,
+        chunk_size: Option<usize>,
+    ) -> LazyFrame {
         let mut dataframes = Vec::new();
 
         for path in &self.paths {
-            dataframes.push(self.read_csv_file(path, separator, low_memory, no_headers));
+            dataframes
+                .push(self.read_csv_file(path, separator, low_memory, no_headers, chunk_size));
         }
 
         concat(
@@ -233,6 +261,7 @@ impl CsvController {
         separator: &str,
         low_memory: bool,
         no_headers: bool,
+        chunk_size: Option<usize>,
     ) -> LazyFrame {
         let pattern_str = pattern.to_string_lossy();
         let mut paths = Vec::new();
@@ -264,6 +293,6 @@ impl CsvController {
         ));
 
         let controller = CsvController::new(&paths);
-        controller.get_dataframe(separator, low_memory, no_headers)
+        controller.get_dataframe(separator, low_memory, no_headers, chunk_size)
     }
 }
