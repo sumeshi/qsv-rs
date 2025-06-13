@@ -565,15 +565,28 @@ The YAML configuration file (e.g., `rules/my_workflow.yaml`) defines the stages 
 #### Pipeline Operations in YAML
 Within a Quilt YAML file, stages can be of different types to orchestrate the flow.
 
-| Operation Type | Description                                                | Key Parameters (within `params` or stage-specific)                                                                                                                                    |
+| Operation Type | Description                                                | Key Parameters                                                                                                                                    |
 | -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `process`      | Executes a series of qsv operations on a dataset.          | `steps`: A dictionary of operations (e.g., `load`, `select`, `head`, `showtable`). Each key is a qsv command, and its value contains its arguments/options. <br> `source` (optional): Specifies the output of a previous stage as input. |
-| `concat`       | Concatenates multiple datasets (stages).                   | `sources`: List of stage names whose outputs to concatenate. <br>`params.how` (optional): Method for concatenation, e.g., `vertical` (default), `horizontal`. Polars `UnionArgs` can be used. |
-| `join`         | Joins datasets from multiple stages based on keys.         | `sources`: List of two stage names whose outputs to join. <br>`params.left_on`/`params.right_on` or `params.on`: Column(s) for joining. <br>`
+| `process`      | Executes a series of qsv operations on a dataset.          | `steps`: Dictionary of operations (e.g., `load`, `select`, `head`, `showtable`). Each key is a qsv command, and its value contains arguments/options. <br> `source` (optional): Specifies the output of a previous stage as input. |
+| `concat`       | Concatenates multiple datasets (stages).                   | `sources`: List of stage names whose outputs to concatenate. <br>`params.how` (optional): Method for concatenation, e.g., `vertical` (default), `horizontal`. |
+| `join`         | Joins datasets from multiple stages based on keys.         | `sources`: List of two stage names whose outputs to join. <br>`params.left_on`/`params.right_on` or `params.on`: Column(s) for joining. <br>`params.how` (optional): Join type (`inner`, `left`, `outer`, `cross`). |
+
+## Installation
+
+### Pre-built Binaries
+Download the latest release from [GitHub Releases](https://github.com/sumeshi/qsv-rs/releases).
+
+### Build from Source
+```bash
+git clone https://github.com/sumeshi/qsv-rs.git
+cd qsv-rs
+cargo build --release
+```
 
 ## Contributing
-The source code for qsv-rs is hosted at GitHub, and you may download, fork, and review it from this repository(https://github.com/sumeshi/qsv-rs). Please report issues and feature requests. :sushi: :sushi: :sushi:
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
-qsv-rs is released under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 Inspired by [xsv](https://github.com/BurntSushi/xsv).
