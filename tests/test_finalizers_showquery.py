@@ -2,9 +2,6 @@ import unittest
 from test_base import QsvTestBase
 
 class TestShowquery(QsvTestBase):
-    """
-    Test showquery finalizer module
-    """
     
     def test_showquery_basic(self):
         """Test basic showquery functionality"""
