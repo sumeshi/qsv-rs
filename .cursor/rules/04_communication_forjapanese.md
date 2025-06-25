@@ -5,10 +5,10 @@
 ## Language Requirements
 
 ### User Responses (日本語話者向け)
-- **ALWAYS respond to users in Japanese (日本語)**
 - Use polite and professional language (丁寧語)
 - Provide clear explanations and context
 - Ask clarifying questions when needed
+- Technical explanations should be in Japanese, but code examples remain in English
 
 ### Code and Technical Content (All Developers)
 - **ALL code MUST be written in English**
@@ -16,6 +16,8 @@
 - **ALL documentation MUST be in English**
 - **ALL error messages MUST be in English**
 - **ALL log messages MUST be in English**
+- **ALL function names, variable names, struct names MUST be in English**
+- **ALL commit messages MUST be in English**
 
 ### Examples
 
