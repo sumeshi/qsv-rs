@@ -25,24 +25,58 @@ tests/              # Python test suite
 
 ## Testing
 
-```bash
-# Run all tests
-python3 tests/run_tests.py
+### Running Tests
 
-# Run specific test
-python3 -m pytest tests/test_chainables_select.py -v
+```bash
+# Run all tests (132 tests covering all features)
+$ python3 tests/run_tests.py
+
+# Run individual test modules
+$ python3 tests/test_chainables_select.py
+$ python3 tests/test_finalizers_show.py
+$ python3 tests/test_quilters_quilt.py
+
+# Run using unittest module
+$ python3 -m unittest tests.test_chainables_select
 ```
+
+### Test Requirements
+
+- **100% Feature Coverage**: All new features must include comprehensive tests
+- **Test Categories**: Initializers, Chainables, Finalizers, Quilters
+- **Naming Convention**: `test_{category}_{feature}.py`
+- **Base Class**: Inherit from `QsvTestBase` for consistent infrastructure
+- **Manual Registration**: Add new test classes to `tests/run_tests.py`
+
+### Adding Tests for New Features
+
+1. **Create Test File**: Follow naming pattern `test_{category}_{feature}.py`
+2. **Implement Tests**: Use `QsvTestBase` and cover all functionality
+3. **Register in run_tests.py**:
+   ```python
+   # Add import
+   from test_chainables_newfeature import TestNewFeature
+   
+   # Add to appropriate list
+   chainables = [
+       TestSelect,
+       # ... existing tests ...
+       TestNewFeature,  # Add here
+   ]
+   ```
+4. **Use Fixtures**: Leverage existing test data in `tests/fixtures/`
+5. **Verify Coverage**: Ensure all commands, options, and edge cases are tested
 
 ## Code Standards
 
 ```bash
 # Format and lint
-cargo fmt --all
-cargo clippy --all-targets --all-features
+$ cargo fmt --all
+$ cargo clippy --all-targets --all-features
 
 # Check before submitting
-cargo build --release
-python3 tests/run_tests.py
+$ cargo build --release
+$ python3 tests/run_tests.py
 ```
 
 ## Submitting Changes
@@ -55,11 +89,13 @@ python3 tests/run_tests.py
 
 ## Adding New Operations
 
-1. Create operation in `src/operations/chainables/yourfeature.rs`
-2. Add to module exports in `mod.rs`
-3. Add to dataframe controller
-4. Add command parsing in `main.rs`
-5. Write tests in `tests/test_chainables_yourfeature.py`
+1. **Create Operation**: Implement in `src/operations/chainables/yourfeature.rs`
+2. **Module Export**: Add to `src/operations/chainables/mod.rs`
+3. **Controller Integration**: Add to dataframe controller
+4. **Command Parsing**: Add command parsing in `main.rs`
+5. **Write Tests**: Create `tests/test_chainables_yourfeature.py`
+6. **Register Tests**: Manually add test class to `tests/run_tests.py`
+7. **Verify**: Run `python3 tests/run_tests.py` to ensure all tests pass
 
 ## Getting Help
 

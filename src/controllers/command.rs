@@ -308,11 +308,11 @@ pub fn print_help() {
     println!();
     println!("Examples:");
     println!("  qsv load data.csv - select col1,col2 - head 10 - show");
-    println!("  qsv load data.csv - select 1:3 - show");
+    println!("  qsv load data.csv - select 2:4 - show");
     println!("  qsv load data.csv - grep pattern - showtable");
     println!("  qsv load data.csv - sort col1 -d - show");
     println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
-    println!("  qsv load data.csv - changetz datetime --from_tz UTC --to_tz Asia/Tokyo - show");
+    println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo - show");
     println!("  qsv load data.csv - partition category ./partitions/");
     println!();
     println!("For more details, see README.md or --help");
@@ -376,13 +376,13 @@ fn print_select_help() {
     println!("  - Range notation: col1-col3 (hyphen-separated)");
     println!("  - Colon notation: col1:col3 (colon-separated)");
     println!("  - Quoted colon notation: \"col:1\":\"col:3\" (for columns with colons)");
-    println!("  - Numeric colon notation: 1:3 (selects col1, col2, col3)");
+    println!("  - Numeric colon notation: 2:4 (selects 2nd-4th columns)");
     println!("\nExamples:");
     println!("  qsv load data.csv - select col1 - show");
     println!("  qsv load data.csv - select col1,col2 - show");
     println!("  qsv load data.csv - select col1-col3 - show");
     println!("  qsv load data.csv - select col1:col3 - show");
-    println!("  qsv load data.csv - select 1:3 - show  # Select col1, col2, col3");
+    println!("  qsv load data.csv - select 2:4 - show  # Select 2nd-4th columns");
     println!("  qsv load data.csv - select \"col:1\":\"col:3\" - show  # Quoted for colons");
 }
 
@@ -417,10 +417,14 @@ fn print_sed_help() {
 
 fn print_grep_help() {
     println!("grep: Filter rows by regex pattern (any column)\n");
-    println!("Usage: grep <pattern> [-i]\n");
+    println!("Usage: grep <pattern> [-i|--ignorecase] [-v|--invert-match]\n");
+    println!("Options:");
+    println!("  -i, --ignorecase     Case-insensitive matching");
+    println!("  -v, --invert-match   Invert match (select non-matching lines)\n");
     println!("Examples:");
     println!("  qsv load data.csv - grep foo - show");
     println!("  qsv load data.csv - grep bar -i - show");
+    println!("  qsv load data.csv - grep pattern --ignorecase --invert-match - show");
 }
 
 fn print_head_help() {

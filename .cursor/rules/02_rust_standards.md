@@ -93,3 +93,47 @@ cargo fmt --all
 # Run clippy with all targets and features
 cargo clippy --all-targets --all-features
 ```
+
+### Testing
+```bash
+# Run all tests (132 tests covering all features)
+python3 tests/run_tests.py
+
+# Run individual test modules
+python3 tests/test_chainables_select.py
+python3 tests/test_finalizers_show.py
+python3 tests/test_quilters_quilt.py
+
+# Run tests using unittest module
+python3 -m unittest tests.test_chainables_select
+```
+
+### Test Development Guidelines
+- **100% Feature Coverage**: All commands, options, and edge cases must be tested
+- **Naming Convention**: `test_{category}_{feature}.py` (e.g., `test_chainables_select.py`)
+- **Base Class**: Inherit from `QsvTestBase` for consistent test infrastructure
+- **Manual Registration**: New test classes must be manually added to `tests/run_tests.py`
+- **Fixture Management**: Use existing fixtures in `tests/fixtures/` or create consolidated ones
+- **Self-Contained**: Tests should clean up temporary files and not depend on external state
+
+### Adding New Tests
+When implementing new features, follow this process:
+
+1. **Create Test File**: Follow naming convention `test_{category}_{feature}.py`
+2. **Implement Tests**: Use `QsvTestBase` and cover all functionality
+3. **Update run_tests.py**: Manually add import and test class to appropriate list
+4. **Verify Coverage**: Ensure all commands, options, and edge cases are tested
+
+Example test registration in `run_tests.py`:
+```python
+# Add import at top
+from test_chainables_newfeature import TestNewFeature
+
+# Add to appropriate category list
+chainables = [
+    TestSelect,
+    TestHead,
+    # ... existing tests ...
+    TestNewFeature,  # <- Add here
+]
+```

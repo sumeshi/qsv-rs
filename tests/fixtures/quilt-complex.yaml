@@ -43,4 +43,5 @@ stages:
     source: sort_data
     steps:
       head:
-        number: 2 
+        number: 2
+      showtable: 

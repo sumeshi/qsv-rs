@@ -103,19 +103,20 @@ Select columns by name, numeric index, or range notation.
 - **Numeric indices**: `1,3` - Select columns by position (1-based indexing)  
 - **Range notation (hyphen)**: `col1-col3` - Select range using hyphen
 - **Range notation (colon)**: `col1:col3` - Select range using colon
-- **Numeric range**: `1:3` - Select columns col1, col2, col3 (1-based column names)
+- **Numeric range**: `2:4` - Select 2nd through 4th columns (e.g., col1, col2, col3)
 - **Quoted colon notation**: `"col:1":"col:3"` - For column names containing colons
 - **Mixed formats**: `1,col2,4:6` - Combine different selection methods
 
 ```bash
-$ qsv load data.csv - select datetime
-$ qsv load data.csv - select col1,col3
-$ qsv load data.csv - select col1-col3
-$ qsv load data.csv - select col1:col3  
-$ qsv load data.csv - select 1:3        # Select col1, col2, col3
-$ qsv load data.csv - select 2,4        # Select 2nd and 4th columns
-$ qsv load data.csv - select "col:1":"col:3"  # For columns with colons in names
-$ qsv load data.csv - select 1,datetime,3:5   # Mixed selection methods
+$ qsv load data.csv - select datetime                       # Select single column by name
+$ qsv load data.csv - select col1,col3                      # Select specific columns by name
+$ qsv load data.csv - select col1-col3                      # Select range using hyphen
+$ qsv load data.csv - select col1:col3                      # Select range using colon
+$ qsv load data.csv - select 1                              # Select 1st column (datetime)
+$ qsv load data.csv - select 2:4                            # Select 2nd-4th columns (col1, col2, col3)
+$ qsv load data.csv - select 2,4                            # Select 2nd and 4th columns (col1, col3)
+$ qsv load data.csv - select "col:1":"col:3"                # For columns with colons in names
+$ qsv load data.csv - select 1,datetime,3:5                 # Mixed selection methods
 ```
 
 #### `isin`
@@ -147,19 +148,20 @@ $ qsv load data.csv - contains str BA --ignorecase
 ```
 
 #### `sed`
-Replace values in a column using a Regex pattern.
+Replace values in column(s) using a Regex pattern.
 
 | Parameter   | Type   | Default | Description                                 |
 |-------------|--------|---------|---------------------------------------------|
-| colname     | str    |         | Column name to modify. Required.            |
 | pattern     | str    |         | Regex pattern to search for. Required.      |
 | replacement | str    |         | Replacement string. Required.               |
+| --column    | str    | (all)   | Apply replacement to specific column only. If not specified, applies to all columns. |
 | -i, --ignorecase | flag | `false` | Perform case-insensitive matching.          |
 
 ```bash
-$ qsv load data.csv - sed str foo foooooo
-$ qsv load data.csv - sed str FOO foooooo -i
-$ qsv load data.csv - sed str ".*o.*" foooooo
+$ qsv load data.csv - sed foo foooooo                       # Replace 'foo' with 'foooooo' in all columns
+$ qsv load data.csv - sed foo foooooo --column str          # Replace 'foo' with 'foooooo' in 'str' column only
+$ qsv load data.csv - sed FOO foooooo -i                    # Case-insensitive replacement in all columns
+$ qsv load data.csv - sed ".*o.*" foooooo --column str      # Regex replacement in specific column
 ```
 
 #### `grep`
@@ -174,8 +176,10 @@ Filter rows where any column matches a regex pattern.
 Example:
 ```bash
 $ qsv load data.csv - grep foo 
-$ qsv load data.csv - grep "^FOO" -i
-$ qsv load data.csv - grep "^FOO" -i -v
+$ qsv load data.csv - grep "^FOO" -i                        # Case-insensitive search
+$ qsv load data.csv - grep "^FOO" --ignorecase              # Long form case-insensitive
+$ qsv load data.csv - grep "^FOO" -i -v                     # Case-insensitive inverted match
+$ qsv load data.csv - grep "^FOO" --ignorecase --invert-match  # Long form inverted match
 ```
 
 #### `head`
@@ -583,6 +587,72 @@ Download the latest release from [GitHub Releases](https://github.com/sumeshi/qs
 git clone https://github.com/sumeshi/qsv-rs.git
 cd qsv-rs
 cargo build --release
+```
+
+## Testing
+
+This project includes a comprehensive test suite to ensure all functionality works correctly.
+
+### Running All Tests
+
+To run the complete test suite (132 tests covering all features):
+
+```bash
+$ python3 tests/run_tests.py
+```
+
+This will execute all tests for:
+- **Initializers** (1 test module): `load`
+- **Chainables** (17 test modules): `select`, `isin`, `contains`, `sed`, `grep`, `head`, `tail`, `sort`, `count`, `uniq`, `changetz`, `renamecol`, `convert`, `timeline`, `timeslice`, `pivot`, `timeround`
+- **Finalizers** (7 test modules): `show`, `showtable`, `headers`, `stats`, `showquery`, `dump`, `partition`
+- **Quilters** (1 test module): `quilt`
+
+### Running Individual Tests
+
+You can also run individual test modules:
+
+```bash
+# Test a specific feature
+$ python3 tests/test_chainables_select.py
+$ python3 tests/test_finalizers_show.py
+$ python3 tests/test_quilters_quilt.py
+
+# Test using unittest module
+$ python3 -m unittest tests.test_chainables_select
+```
+
+### Test Coverage
+
+The test suite provides 100% feature coverage:
+- All commands and options are tested
+- Various data formats and edge cases are covered
+- Error handling and validation are verified
+- Integration between different operations is tested
+
+### Adding New Tests
+
+When adding new features or test cases:
+
+1. Create test files following the naming convention: `test_{category}_{feature}.py`
+2. Inherit from `QsvTestBase` class for consistent test infrastructure
+3. **Manually add the new test class to `tests/run_tests.py`** in the appropriate section:
+   - Add import statement at the top
+   - Add test class to the corresponding list (`initializers`, `chainables`, `finalizers`, or `quilters`)
+4. Use existing fixture files in `tests/fixtures/` or create new ones as needed
+5. Ensure tests are self-contained and clean up any temporary files
+
+Example of adding a new test to `run_tests.py`:
+```python
+# Add import
+from test_chainables_newfeature import TestNewFeature
+
+# Add to chainables list
+chainables = [
+    TestSelect,
+    TestHead,
+    # ... existing tests ...
+    TestNewFeature,  # Add your new test here
+]
 ```
 
 ## Contributing
