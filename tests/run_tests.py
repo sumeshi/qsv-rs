@@ -38,6 +38,7 @@ from test_finalizers_show import TestShow
 from test_quilters_quilt import TestQuilt
 
 def run_test_suite():
+    loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     
     # Initializers
@@ -45,7 +46,7 @@ def run_test_suite():
         TestLoad,
     ]
     for initializer in initializers:
-        suite.addTest(unittest.makeSuite(initializer))
+        suite.addTest(loader.loadTestsFromTestCase(initializer))
     
     # Chainables
     chainables = [
@@ -68,7 +69,7 @@ def run_test_suite():
         TestTimeround,
     ]
     for chainable in chainables:
-        suite.addTest(unittest.makeSuite(chainable))
+        suite.addTest(loader.loadTestsFromTestCase(chainable))
     
     # Finalizers
     finalizers = [
@@ -81,14 +82,14 @@ def run_test_suite():
         TestShow,
     ]
     for finalizer in finalizers:
-        suite.addTest(unittest.makeSuite(finalizer))
+        suite.addTest(loader.loadTestsFromTestCase(finalizer))
     
     # Quilters
     quilters = [
         TestQuilt,
     ]
     for quilter in quilters:
-        suite.addTest(unittest.makeSuite(quilter))
+        suite.addTest(loader.loadTestsFromTestCase(quilter))
     
     # Run the tests
     print("\nRunning tests...")
