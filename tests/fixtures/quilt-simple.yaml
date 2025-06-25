@@ -1,0 +1,30 @@
+title: 'Simple Test Quilt'
+description: 'Basic quilt test for unit testing'
+version: '1.0.0'
+author: 'Test Suite'
+stages:
+  load_data:
+    type: process
+    steps:
+      load:
+        path: "simple.csv"
+  
+  select_columns:
+    type: process
+    source: load_data
+    steps:
+      select:
+        colnames: 
+          - col1
+          - str
+  
+  filter_data:
+    type: process
+    source: select_columns
+    steps:
+      isin:
+        colname: str
+        values:
+          - foo
+          - bar
+      show:

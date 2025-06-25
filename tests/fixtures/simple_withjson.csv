@@ -1,4 +1,0 @@
-datetime,col1,col2,col3,str,json
-2023-01-01 12:00:00,1,2,3,foo,"{""name"":""Alice"",""age"":25,""city"":""Tokyo""}"
-2023-01-01 13:00:00,4,5,6,bar,"{""product"":""laptop"",""price"":89999,""in_stock"":true}"
-2023-01-01 14:00:00,7,8,9,baz,"{""event"":""conference"",""attendees"":[""John"",""Jane"",""Bob""],""location"":""Osaka""}"

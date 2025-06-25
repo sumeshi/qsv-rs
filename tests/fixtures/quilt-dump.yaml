@@ -1,0 +1,18 @@
+title: 'Dump Test Quilt'
+description: 'Test quilt with dump output'
+version: '1.0.0'
+author: 'Test Suite'
+stages:
+  load_and_process:
+    type: process
+    steps:
+      load:
+        path: "simple.csv"
+      select:
+        colnames:
+          - datetime
+          - col1
+      head:
+        number: 2
+      dump:
+        output: "test_output.csv"

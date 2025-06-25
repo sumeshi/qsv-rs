@@ -17,7 +17,7 @@ class TestLoad(QsvTestBase):
 
     def test_load_gzip_file(self):
         """Test loading gzip compressed CSV file"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.csv.gz')} - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive.csv.gz')} - show")
         self.assertEqual(result.stdout.strip(), '\n'.join([
                 "datetime,col1,col2,col3,str",
                 "2023-01-01 12:00:00,1,2,3,foo",
@@ -42,7 +42,7 @@ class TestLoad(QsvTestBase):
     
     def test_load_with_custom_separator(self):
         """Test loading with custom separator using -s option"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.tsv')} -s '\t' - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive.tsv')} -s '\t' - select datetime,col1,col2,col3,str - head 3 - show")
         self.assertEqual(result.stdout.strip(), '\n'.join([
                 "datetime,col1,col2,col3,str",
                 "2023-01-01 12:00:00,1,2,3,foo",
@@ -53,7 +53,7 @@ class TestLoad(QsvTestBase):
     
     def test_load_with_separator_long_option(self):
         """Test loading with custom separator using --separator option"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple.tsv')} --separator '\t' - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive.tsv')} --separator '\t' - select datetime,col1,col2,col3,str - head 3 - show")
         self.assertEqual(result.stdout.strip(), '\n'.join([
                 "datetime,col1,col2,col3,str",
                 "2023-01-01 12:00:00,1,2,3,foo",
@@ -75,7 +75,7 @@ class TestLoad(QsvTestBase):
     
     def test_load_with_no_headers_flag(self):
         """Test loading with --no-headers flag"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_noheader.csv')} --no-headers - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive_noheader.csv')} --no-headers - select column_1,column_2,column_3,column_4,column_5 - show")
         self.assertEqual(result.stdout.strip(), '\n'.join([
                 "column_1,column_2,column_3,column_4,column_5",
                 "2023-01-01 12:00:00,1,2,3,foo",

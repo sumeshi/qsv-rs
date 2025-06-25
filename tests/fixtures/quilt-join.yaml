@@ -1,0 +1,44 @@
+title: 'Join Test Quilt'
+description: 'Test quilt with join operation'
+version: '1.0.0'
+author: 'Test Suite'
+stages:
+  load_stage:
+    type: process
+    steps:
+      load:
+        path: "simple.csv"
+
+  stage_1:
+    type: process
+    source: load_stage
+    steps:
+      select:
+        colnames: 
+          - datetime
+          - col1
+
+  stage_2:
+    type: process
+    source: load_stage
+    steps:
+      select:
+        colnames: 
+          - datetime
+          - str
+
+  merge_stage:
+    type: join
+    sources:
+      - stage_1
+      - stage_2
+    params:
+      how: inner
+      key: datetime
+      coalesce: true
+  
+  final_stage:
+    type: process
+    source: merge_stage
+    steps:
+      show:

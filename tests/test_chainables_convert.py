@@ -7,7 +7,7 @@ class TestConvert(QsvTestBase):
 
     def test_convert_json_to_json(self):
         """Test converting JSON to JSON format"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_withjson.csv')} - convert json --from json --to json - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive.csv')} - convert json --from json --to json - show")
         self.assertEqual(result.stdout.strip(), "\n".join([
             "datetime,col1,col2,col3,str,json",
             "2023-01-01 12:00:00,1,2,3,foo,\"{",
@@ -33,7 +33,7 @@ class TestConvert(QsvTestBase):
     
     def test_convert_json_to_yaml(self):
         """Test converting JSON to YAML format"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_withjson.csv')} - convert json --from json --to yaml - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive.csv')} - convert json --from json --to yaml - show")
         self.assertEqual(result.stdout.strip(), "\n".join([
             "datetime,col1,col2,col3,str,json",
             "2023-01-01 12:00:00,1,2,3,foo,\"age: 25",
@@ -52,7 +52,7 @@ class TestConvert(QsvTestBase):
     
     def test_convert_json_to_xml(self):
         """Test converting JSON to XML format"""
-        result = self.run_qsv_command(f"load {self.get_fixture_path('simple_withjson.csv')} - convert json --from json --to xml - show")
+        result = self.run_qsv_command(f"load {self.get_fixture_path('comprehensive.csv')} - convert json --from json --to xml - show")
         self.assertEqual(result.stdout.strip(), "\n".join([
             "datetime,col1,col2,col3,str,json",
             "2023-01-01 12:00:00,1,2,3,foo,<age>25</age><city>Tokyo</city><name>Alice</name>",
