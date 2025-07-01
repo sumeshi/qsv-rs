@@ -5,7 +5,7 @@ pub fn sort(df: &LazyFrame, colnames: &[String], desc: bool) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in sort: {}", e);
+            eprintln!("Error collecting DataFrame for schema check in sort: {e}");
             std::process::exit(1);
         }
     };
@@ -13,17 +13,13 @@ pub fn sort(df: &LazyFrame, colnames: &[String], desc: bool) -> LazyFrame {
 
     for colname in colnames {
         if !schema.iter_names().any(|s| s == colname) {
-            eprintln!(
-                "Error: Column '{}' not found in DataFrame for sort operation",
-                colname
-            );
+            eprintln!("Error: Column '{colname}' not found in DataFrame for sort operation");
             std::process::exit(1);
         }
     }
 
     LogController::debug(&format!(
-        "Sorting by columns: {:?}, descending: {}",
-        colnames, desc
+        "Sorting by columns: {colnames:?}, descending: {desc}"
     ));
 
     let sort_exprs: Vec<Expr> = colnames.iter().map(col).collect();

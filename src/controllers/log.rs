@@ -6,22 +6,22 @@ pub struct LogController;
 impl LogController {
     pub fn debug(msg: &str) {
         let timestamp = Self::get_timestamp();
-        debug!("[{}] {}", timestamp, msg);
+        debug!("[{timestamp}] {msg}");
     }
 
     pub fn info(msg: &str) {
         let timestamp = Self::get_timestamp();
-        info!("[{}] {}", timestamp, msg);
+        info!("[{timestamp}] {msg}");
     }
 
     pub fn warn(msg: &str) {
         let timestamp = Self::get_timestamp();
-        warn!("[{}] {}", timestamp, msg);
+        warn!("[{timestamp}] {msg}");
     }
 
     pub fn error(msg: &str) {
         let timestamp = Self::get_timestamp();
-        error!("[{}] {}", timestamp, msg);
+        error!("[{timestamp}] {msg}");
     }
 
     fn get_timestamp() -> String {

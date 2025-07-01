@@ -8,29 +8,25 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for partition: {}", e);
+            eprintln!("Error collecting DataFrame for partition: {e}");
             std::process::exit(1);
         }
     };
 
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == colname) {
-        eprintln!(
-            "Error: Column '{}' not found in DataFrame for partition operation",
-            colname
-        );
+        eprintln!("Error: Column '{colname}' not found in DataFrame for partition operation");
         std::process::exit(1);
     }
 
     LogController::debug(&format!(
-        "Partitioning data by column '{}' into directory '{}'",
-        colname, output_dir
+        "Partitioning data by column '{colname}' into directory '{output_dir}'"
     ));
 
     // Create output directory if it doesn't exist
     let output_path = Path::new(output_dir);
     if let Err(e) = fs::create_dir_all(output_path) {
-        eprintln!("Error creating output directory '{}': {}", output_dir, e);
+        eprintln!("Error creating output directory '{output_dir}': {e}");
         std::process::exit(1);
     }
 
@@ -44,7 +40,7 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
     {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error getting unique values for partition: {}", e);
+            eprintln!("Error getting unique values for partition: {e}");
             std::process::exit(1);
         }
     };
@@ -52,7 +48,7 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
     let partition_column = match unique_values.column(colname) {
         Ok(col) => col,
         Err(e) => {
-            eprintln!("Error accessing partition column: {}", e);
+            eprintln!("Error accessing partition column: {e}");
             std::process::exit(1);
         }
     };
@@ -73,11 +69,11 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
                     AnyValue::Date(d) => d.to_string(),
                     AnyValue::Datetime(dt, _, _) => dt.to_string(),
                     AnyValue::Null => "null".to_string(),
-                    _ => format!("{:?}", any_value),
+                    _ => format!("{any_value:?}"),
                 }
             }
             Err(e) => {
-                LogController::warn(&format!("Error getting value at index {}: {}", i, e));
+                LogController::warn(&format!("Error getting value at index {i}: {e}"));
                 continue;
             }
         };
@@ -96,7 +92,7 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
     for value in partition_values {
         // Sanitize filename (remove/replace invalid characters)
         let safe_filename = sanitize_filename(&value);
-        let output_file = output_path.join(format!("{}.csv", safe_filename));
+        let output_file = output_path.join(format!("{safe_filename}.csv"));
 
         // Filter data for this partition value
         let filtered_df = match collected_df
@@ -108,8 +104,7 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
             Ok(df) => df,
             Err(e) => {
                 LogController::error(&format!(
-                    "Error filtering data for partition value '{}': {}",
-                    value, e
+                    "Error filtering data for partition value '{value}': {e}"
                 ));
                 continue;
             }
@@ -136,8 +131,7 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
     }
 
     LogController::info(&format!(
-        "Partition complete: {} files created in '{}'",
-        files_created, output_dir
+        "Partition complete: {files_created} files created in '{output_dir}'"
     ));
 }
 

@@ -15,7 +15,7 @@ pub fn timeround(
         "m" | "minute" => ("1m", "%Y-%m-%d %H:%M"),
         "s" | "second" => ("1s", "%Y-%m-%d %H:%M:%S"),
         _ => {
-            eprintln!("Error: Invalid time unit '{}'. Use: y/year, M/month, d/day, h/hour, m/minute, s/second", unit);
+            eprintln!("Error: Invalid time unit '{unit}'. Use: y/year, M/month, d/day, h/hour, m/minute, s/second");
             std::process::exit(1);
         }
     };

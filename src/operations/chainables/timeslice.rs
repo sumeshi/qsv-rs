@@ -11,7 +11,7 @@ pub fn timeslice(
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for timeslice: {}", e);
+            eprintln!("Error collecting DataFrame for timeslice: {e}");
             std::process::exit(1);
         }
     };
@@ -19,15 +19,13 @@ pub fn timeslice(
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == time_column) {
         eprintln!(
-            "Error: Time column '{}' not found in DataFrame for timeslice operation",
-            time_column
+            "Error: Time column '{time_column}' not found in DataFrame for timeslice operation"
         );
         std::process::exit(1);
     }
 
     LogController::debug(&format!(
-        "Creating timeslice: column={}, start={:?}, end={:?}",
-        time_column, start_time, end_time
+        "Creating timeslice: column={time_column}, start={start_time:?}, end={end_time:?}"
     ));
 
     let mut filter_expr: Option<Expr> = None;

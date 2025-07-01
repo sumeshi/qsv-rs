@@ -15,19 +15,18 @@ fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
     // First try dtparse for maximum flexibility (similar to Python dateutil.parser)
     match dtparse_parse(s) {
         Ok((dt, _)) => {
-            LogController::debug(&format!("Successfully parsed '{}' using dtparse", s));
+            LogController::debug(&format!("Successfully parsed '{s}' using dtparse"));
             return Some(dt);
         }
         Err(e) => {
-            LogController::debug(&format!("dtparse failed for '{}': {}", s, e));
+            LogController::debug(&format!("dtparse failed for '{s}': {e}"));
         }
     }
 
     // Try fuzzy parsing with regex extraction
     if let Some(extracted) = extract_datetime_fuzzy(s) {
         LogController::debug(&format!(
-            "Extracted datetime '{}' from fuzzy text '{}'",
-            extracted, s
+            "Extracted datetime '{extracted}' from fuzzy text '{s}'"
         ));
         if let Some(dt) = parse_extracted_datetime(&extracted) {
             return Some(dt);
@@ -75,12 +74,12 @@ fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
 
     for fmt in &formats {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s, fmt) {
-            LogController::debug(&format!("Parsed '{}' with format '{}'", s, fmt));
+            LogController::debug(&format!("Parsed '{s}' with format '{fmt}'"));
             return Some(dt);
         }
     }
 
-    LogController::warn(&format!("Failed to parse datetime: '{}'", s));
+    LogController::warn(&format!("Failed to parse datetime: '{s}'"));
     None
 }
 
@@ -127,7 +126,7 @@ fn parse_extracted_datetime(extracted: &str) -> Option<NaiveDateTime> {
 
     // Try dtparse again on the cleaned extracted text
     if let Ok((dt, _)) = dtparse_parse(&cleaned) {
-        LogController::debug(&format!("Parsed extracted '{}' using dtparse", cleaned));
+        LogController::debug(&format!("Parsed extracted '{cleaned}' using dtparse"));
         return Some(dt);
     }
 
@@ -147,10 +146,7 @@ fn parse_extracted_datetime(extracted: &str) -> Option<NaiveDateTime> {
 
     for fmt in &formats {
         if let Ok(dt) = NaiveDateTime::parse_from_str(&cleaned, fmt) {
-            LogController::debug(&format!(
-                "Parsed extracted '{}' with format '{}'",
-                cleaned, fmt
-            ));
+            LogController::debug(&format!("Parsed extracted '{cleaned}' with format '{fmt}'"));
             return Some(dt);
         }
     }
@@ -225,33 +221,29 @@ pub fn changetz(
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame in changetz: {}", e);
+            eprintln!("Error collecting DataFrame in changetz: {e}");
             std::process::exit(1);
         }
     };
 
     if !collected_df.schema().iter_names().any(|s| s == colname) {
-        eprintln!(
-            "Error: Column '{}' not found for changetz operation",
-            colname
-        );
+        eprintln!("Error: Column '{colname}' not found for changetz operation");
         std::process::exit(1);
     }
 
     // Validate timezones
     if from_tz.to_lowercase() != "local" && from_tz.parse::<Tz>().is_err() {
-        eprintln!("Error: Invalid source timezone '{}'", from_tz);
+        eprintln!("Error: Invalid source timezone '{from_tz}'");
         std::process::exit(1);
     }
 
     if to_tz.parse::<Tz>().is_err() {
-        eprintln!("Error: Invalid target timezone '{}'", to_tz);
+        eprintln!("Error: Invalid target timezone '{to_tz}'");
         std::process::exit(1);
     }
 
     LogController::debug(&format!(
-        "Converting timezone for column '{}': {} → {} (format: {} → {}, ambiguous: {})",
-        colname, from_tz, to_tz, input_format, output_format, ambiguous_time
+        "Converting timezone for column '{colname}': {from_tz} → {to_tz} (format: {input_format} → {output_format}, ambiguous: {ambiguous_time})"
     ));
 
     // Clone parameters for closure

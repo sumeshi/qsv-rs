@@ -7,7 +7,7 @@ pub fn headers(df: &LazyFrame, plain: bool) {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame: {}", e);
+            eprintln!("Error collecting DataFrame: {e}");
             return;
         }
     };
@@ -19,7 +19,7 @@ pub fn headers(df: &LazyFrame, plain: bool) {
 
     if plain {
         for name in column_names.iter() {
-            println!("{}", name);
+            println!("{name}");
         }
     } else {
         let mut table = Table::new();
@@ -27,9 +27,9 @@ pub fn headers(df: &LazyFrame, plain: bool) {
         table.set_header(vec!["#", "Column Name"]);
 
         for (i, name) in column_names.iter().enumerate() {
-            table.add_row(vec![Cell::new(format!("{:02}", i)), Cell::new(name)]);
+            table.add_row(vec![Cell::new(format!("{i:02}")), Cell::new(name)]);
         }
 
-        println!("{}", table);
+        println!("{table}");
     }
 }

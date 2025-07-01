@@ -7,7 +7,7 @@ pub fn show(df: &LazyFrame) {
     let mut df_collected = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error: Failed to collect DataFrame: {}", e);
+            eprintln!("Error: Failed to collect DataFrame: {e}");
             return;
         }
     };
@@ -17,6 +17,6 @@ pub fn show(df: &LazyFrame) {
         .with_separator(b',')
         .finish(&mut df_collected)
     {
-        eprintln!("Error writing CSV to stdout: {}", e);
+        eprintln!("Error writing CSV to stdout: {e}");
     }
 }

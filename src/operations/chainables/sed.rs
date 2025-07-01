@@ -11,14 +11,14 @@ pub fn sed(
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in sed: {}", e);
+            eprintln!("Error collecting DataFrame for schema check in sed: {e}");
             std::process::exit(1);
         }
     };
     let schema = collected_df.schema();
 
     let final_pattern = if ignorecase {
-        format!("(?i){}", pattern) // Prepend (?i) flag for case-insensitivity
+        format!("(?i){pattern}") // Prepend (?i) flag for case-insensitivity
     } else {
         pattern.to_string()
     };
@@ -27,16 +27,12 @@ pub fn sed(
         Some(col) => {
             // Apply sed to specific column
             if !schema.iter_names().any(|s| s == col) {
-                eprintln!(
-                    "Error: Column '{}' not found in DataFrame for sed operation",
-                    col
-                );
+                eprintln!("Error: Column '{col}' not found in DataFrame for sed operation");
                 std::process::exit(1);
             }
 
             LogController::debug(&format!(
-                "Replacing values in '{}' column using regex pattern '{}' -> '{}' (case-insensitive: {})",
-                col, pattern, replacement, ignorecase
+                "Replacing values in '{col}' column using regex pattern '{pattern}' -> '{replacement}' (case-insensitive: {ignorecase})"
             ));
 
             let replace_expr = polars::prelude::col(col)
@@ -50,8 +46,7 @@ pub fn sed(
         None => {
             // Apply sed to all columns
             LogController::debug(&format!(
-                "Replacing values in all columns using regex pattern '{}' -> '{}' (case-insensitive: {})",
-                pattern, replacement, ignorecase
+                "Replacing values in all columns using regex pattern '{pattern}' -> '{replacement}' (case-insensitive: {ignorecase})"
             ));
 
             let mut result_df = df.clone();

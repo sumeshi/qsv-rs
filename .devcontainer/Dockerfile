@@ -1,4 +1,4 @@
-FROM rust:1.87-bookworm
+FROM rust:1.88-bookworm
 
 RUN apt -y update && apt upgrade -qqy && apt -y install \
     curl \
@@ -7,6 +7,8 @@ RUN apt -y update && apt upgrade -qqy && apt -y install \
     fish \
     sudo \
     musl-tools
+
+RUN rustup component add rustfmt clippy
 
 ARG USERNAME=dev
 ARG USER_UID=1000

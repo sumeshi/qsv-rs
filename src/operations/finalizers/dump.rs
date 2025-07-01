@@ -4,14 +4,14 @@ use std::fs::File;
 use std::path::PathBuf;
 
 pub fn dump(df: &LazyFrame, output_path_str: &str, separator: char) {
-    LogController::debug(&format!("Dumping DataFrame to CSV: {}", output_path_str));
+    LogController::debug(&format!("Dumping DataFrame to CSV: {output_path_str}"));
 
     let output_path = PathBuf::from(output_path_str);
 
     let mut df_collected = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error: Failed to collect DataFrame for dumping: {}", e);
+            eprintln!("Error: Failed to collect DataFrame for dumping: {e}");
             return;
         }
     };

@@ -7,7 +7,7 @@ pub fn count(df: &LazyFrame) -> LazyFrame {
     let collected_df_for_schema = match df.clone().collect() {
         Ok(d) => d,
         Err(e) => {
-            LogController::error(&format!("Failed to collect DataFrame for schema in count: {}. Returning original LazyFrame.", e));
+            LogController::error(&format!("Failed to collect DataFrame for schema in count: {e}. Returning original LazyFrame."));
             return df.clone();
         }
     };

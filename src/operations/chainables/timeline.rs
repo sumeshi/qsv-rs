@@ -12,7 +12,7 @@ pub fn timeline(
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for timeline: {}", e);
+            eprintln!("Error collecting DataFrame for timeline: {e}");
             std::process::exit(1);
         }
     };
@@ -20,8 +20,7 @@ pub fn timeline(
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == time_column) {
         eprintln!(
-            "Error: Time column '{}' not found in DataFrame for timeline operation",
-            time_column
+            "Error: Time column '{time_column}' not found in DataFrame for timeline operation"
         );
         std::process::exit(1);
     }
@@ -29,21 +28,17 @@ pub fn timeline(
     // Parse interval (e.g., "1h", "5m", "30s")
     let interval_duration = parse_interval(interval);
     if interval_duration.is_none() {
-        eprintln!(
-            "Error: Invalid interval format '{}'. Use format like '1h', '5m', '30s'",
-            interval
-        );
+        eprintln!("Error: Invalid interval format '{interval}'. Use format like '1h', '5m', '30s'");
         std::process::exit(1);
     }
     let interval_duration = interval_duration.unwrap();
 
     LogController::debug(&format!(
-        "Creating timeline: column={}, interval={}, aggregation={}",
-        time_column, interval, agg_type
+        "Creating timeline: column={time_column}, interval={interval}, aggregation={agg_type}"
     ));
 
     // Convert to LazyFrame and perform timeline aggregation
-    let bucket_column_name = format!("timeline_{}", interval);
+    let bucket_column_name = format!("timeline_{interval}");
     let timeline_expr = col(time_column)
         .cast(DataType::String)
         .map(
@@ -76,10 +71,7 @@ pub fn timeline(
     // Add aggregation column if specified
     if let Some(agg_col) = agg_column {
         if !schema.iter_names().any(|s| s == agg_col) {
-            eprintln!(
-                "Error: Aggregation column '{}' not found in DataFrame",
-                agg_col
-            );
+            eprintln!("Error: Aggregation column '{agg_col}' not found in DataFrame");
             std::process::exit(1);
         }
 
@@ -87,27 +79,26 @@ pub fn timeline(
             "sum" => col(agg_col)
                 .cast(DataType::Float64)
                 .sum()
-                .alias(format!("sum_{}", agg_col)),
+                .alias(format!("sum_{agg_col}")),
             "avg" => col(agg_col)
                 .cast(DataType::Float64)
                 .mean()
-                .alias(format!("avg_{}", agg_col)),
+                .alias(format!("avg_{agg_col}")),
             "min" => col(agg_col)
                 .cast(DataType::Float64)
                 .min()
-                .alias(format!("min_{}", agg_col)),
+                .alias(format!("min_{agg_col}")),
             "max" => col(agg_col)
                 .cast(DataType::Float64)
                 .max()
-                .alias(format!("max_{}", agg_col)),
+                .alias(format!("max_{agg_col}")),
             "std" => col(agg_col)
                 .cast(DataType::Float64)
                 .std(1)
-                .alias(format!("std_{}", agg_col)),
+                .alias(format!("std_{agg_col}")),
             _ => {
                 eprintln!(
-                    "Error: Unsupported aggregation type '{}'. Use: sum, avg, min, max, std",
-                    agg_type
+                    "Error: Unsupported aggregation type '{agg_type}'. Use: sum, avg, min, max, std"
                 );
                 std::process::exit(1);
             }

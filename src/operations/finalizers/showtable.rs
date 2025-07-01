@@ -9,7 +9,7 @@ pub fn showtable(df: &LazyFrame) {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error: Failed to collect DataFrame: {}", e);
+            eprintln!("Error: Failed to collect DataFrame: {e}");
             return;
         }
     };
@@ -66,7 +66,7 @@ pub fn showtable(df: &LazyFrame) {
                     AnyValue::Datetime(dt, _, _) => dt.to_string(),
                     AnyValue::Time(t) => t.to_string(),
                     AnyValue::Duration(d, _) => d.to_string(),
-                    _ => format!("{}", val),
+                    _ => format!("{val}"),
                 },
                 Err(_) => "Error".to_string(),
             };
@@ -109,7 +109,7 @@ pub fn showtable(df: &LazyFrame) {
                         AnyValue::Datetime(dt, _, _) => dt.to_string(),
                         AnyValue::Time(t) => t.to_string(),
                         AnyValue::Duration(d, _) => d.to_string(),
-                        _ => format!("{}", val),
+                        _ => format!("{val}"),
                     },
                     Err(_) => "Error".to_string(),
                 };
@@ -119,5 +119,5 @@ pub fn showtable(df: &LazyFrame) {
         }
     }
 
-    println!("{}", table);
+    println!("{table}");
 }

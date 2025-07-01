@@ -8,7 +8,7 @@ pub fn stats(df: &LazyFrame) {
     let df_collected = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error: Failed to collect DataFrame: {}", e);
+            eprintln!("Error: Failed to collect DataFrame: {e}");
             return;
         }
     };
@@ -63,15 +63,14 @@ pub fn stats(df: &LazyFrame) {
                 if let Ok(ca) = s_f64.f64() {
                     mean_row.push(Cell::new(
                         ca.mean()
-                            .map_or_else(|| "-".to_string(), |v| format!("{:.4}", v)),
+                            .map_or_else(|| "-".to_string(), |v| format!("{v:.4}")),
                     ));
                     std_row.push(Cell::new(
                         ca.std(1)
-                            .map_or_else(|| "-".to_string(), |v| format!("{:.4}", v)),
+                            .map_or_else(|| "-".to_string(), |v| format!("{v:.4}")),
                     ));
                     min_row.push(Cell::new(
-                        ca.min()
-                            .map_or_else(|| "-".to_string(), |v| format!("{}", v)),
+                        ca.min().map_or_else(|| "-".to_string(), |v| format!("{v}")),
                     ));
 
                     let quantiles = [0.25, 0.50, 0.75];
@@ -83,7 +82,7 @@ pub fn stats(df: &LazyFrame) {
                             scalar_25
                                 .value()
                                 .extract::<f64>()
-                                .map_or_else(|| "-".to_string(), |v| format!("{:.4}", v)),
+                                .map_or_else(|| "-".to_string(), |v| format!("{v:.4}")),
                         ));
                     } else {
                         p25_row.push(Cell::new("-"));
@@ -93,7 +92,7 @@ pub fn stats(df: &LazyFrame) {
                             scalar_50
                                 .value()
                                 .extract::<f64>()
-                                .map_or_else(|| "-".to_string(), |v| format!("{:.4}", v)),
+                                .map_or_else(|| "-".to_string(), |v| format!("{v:.4}")),
                         ));
                     } else {
                         p50_row.push(Cell::new("-"));
@@ -103,15 +102,14 @@ pub fn stats(df: &LazyFrame) {
                             scalar_75
                                 .value()
                                 .extract::<f64>()
-                                .map_or_else(|| "-".to_string(), |v| format!("{:.4}", v)),
+                                .map_or_else(|| "-".to_string(), |v| format!("{v:.4}")),
                         ));
                     } else {
                         p75_row.push(Cell::new("-"));
                     }
 
                     max_row.push(Cell::new(
-                        ca.max()
-                            .map_or_else(|| "-".to_string(), |v| format!("{}", v)),
+                        ca.max().map_or_else(|| "-".to_string(), |v| format!("{v}")),
                     ));
                 } else {
                     mean_row.push(Cell::new("-"));
@@ -176,5 +174,5 @@ pub fn stats(df: &LazyFrame) {
     table.add_row(p75_row);
     table.add_row(max_row);
 
-    println!("{}", table);
+    println!("{table}");
 }

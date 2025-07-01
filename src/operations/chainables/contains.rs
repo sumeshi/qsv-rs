@@ -5,26 +5,19 @@ pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) 
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!(
-                "Error collecting DataFrame for schema check in contains: {}",
-                e
-            );
+            eprintln!("Error collecting DataFrame for schema check in contains: {e}");
             std::process::exit(1);
         }
     };
     let schema = collected_df.schema();
 
     if !schema.iter_names().any(|s| s == colname) {
-        eprintln!(
-            "Error: Column '{}' not found in DataFrame for contains operation",
-            colname
-        );
+        eprintln!("Error: Column '{colname}' not found in DataFrame for contains operation");
         std::process::exit(1);
     }
 
     LogController::debug(&format!(
-        "Applying contains: column={} pattern='{}' ignorecase={}",
-        colname, pattern, ignorecase
+        "Applying contains: column={colname} pattern='{pattern}' ignorecase={ignorecase}"
     ));
 
     // Consider case-insensitive option

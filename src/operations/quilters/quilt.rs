@@ -288,7 +288,7 @@ pub fn quilt(
     let quilt_config: QuiltConfig = match serde_yaml::from_str(&config_content) {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("Error parsing YAML config: {}", e);
+            eprintln!("Error parsing YAML config: {e}");
             std::process::exit(1);
         }
     };
@@ -311,8 +311,7 @@ pub fn quilt(
             Ok(sc) => sc,
             Err(e) => {
                 LogController::error(&format!(
-                    "Error parsing config for stage '{}': {}. Skipping.",
-                    stage_name, e
+                    "Error parsing config for stage '{stage_name}': {e}. Skipping."
                 ));
                 continue;
             }
@@ -329,13 +328,11 @@ pub fn quilt(
             if let Some(df) = stage_results.get(source_name) {
                 current_stage_input_df = Some(df.clone());
                 LogController::debug(&format!(
-                    "Stage '{}' is using data from source stage '{}'",
-                    stage_name, source_name
+                    "Stage '{stage_name}' is using data from source stage '{source_name}'"
                 ));
             } else {
                 LogController::error(&format!(
-                    "Source stage '{}' not found for stage '{}'. Skipping stage.",
-                    source_name, stage_name
+                    "Source stage '{source_name}' not found for stage '{stage_name}'. Skipping stage."
                 ));
                 continue;
             }
@@ -359,12 +356,11 @@ pub fn quilt(
                     };
 
                     LogController::debug(&format!(
-                        "Applying step: {} to stage '{}'",
-                        command_name, stage_name
+                        "Applying step: {command_name} to stage '{stage_name}'"
                     ));
 
                     if command_name != "load" && stage_output_df.is_none() {
-                        LogController::error(&format!("No DataFrame available for step '{}' in stage '{}'. Load data first or specify a valid source. Skipping step.", command_name, stage_name));
+                        LogController::error(&format!("No DataFrame available for step '{command_name}' in stage '{stage_name}'. Load data first or specify a valid source. Skipping step."));
                         continue;
                     }
 
@@ -405,18 +401,17 @@ pub fn quilt(
                             } else if let Some(ref cli_files) = cli_input_files {
                                 if stage_output_df.is_none() && !cli_files.is_empty() {
                                     LogController::debug(&format!(
-                                        "Loading data from CLI for stage '{}': {:?}",
-                                        stage_name, cli_files
+                                        "Loading data from CLI for stage '{stage_name}': {cli_files:?}"
                                     ));
                                     loaded_df =
                                         Some(load_op::load(cli_files, ",", false, false, None));
                                 } else if stage_output_df.is_some() {
-                                    LogController::debug(&format!("Stage '{}' already has data from source, 'load' step without path will not use CLI files.", stage_name));
+                                    LogController::debug(&format!("Stage '{stage_name}' already has data from source, 'load' step without path will not use CLI files."));
                                 } else {
-                                    LogController::warn(&format!("Load step in YAML for stage '{}' has no path, and no files provided via CLI for this quilt command, or stage already sourced.", stage_name));
+                                    LogController::warn(&format!("Load step in YAML for stage '{stage_name}' has no path, and no files provided via CLI for this quilt command, or stage already sourced."));
                                 }
                             } else {
-                                LogController::warn(&format!("No data source specified for load in stage '{}'. Trying default test data.", stage_name));
+                                LogController::warn(&format!("No data source specified for load in stage '{stage_name}'. Trying default test data."));
                                 let default_data_path = config_path
                                     .parent()
                                     .unwrap_or_else(|| Path::new("."))
@@ -434,7 +429,7 @@ pub fn quilt(
                             if let Some(ref new_lf) = loaded_df {
                                 stage_output_df = Some(new_lf.clone());
                             } else if stage_output_df.is_none() {
-                                LogController::error(&format!("Failed to load any data for stage '{}' via 'load' step and no prior data for stage.", stage_name));
+                                LogController::error(&format!("Failed to load any data for stage '{stage_name}' via 'load' step and no prior data for stage."));
                                 continue;
                             }
                         }
@@ -444,7 +439,7 @@ pub fn quilt(
                                 if let Some(ref df) = stage_output_df {
                                     stage_output_df = Some(operation(df, command_args_val));
                                 } else {
-                                    LogController::error(&format!("No DataFrame available for chainable operation '{}' in stage '{}'", command_name, stage_name));
+                                    LogController::error(&format!("No DataFrame available for chainable operation '{command_name}' in stage '{stage_name}'"));
                                 }
                             }
                             // Try finalizer operations
@@ -452,13 +447,13 @@ pub fn quilt(
                                 if let Some(ref df) = stage_output_df {
                                     operation(df, command_args_val);
                                 } else {
-                                    LogController::warn(&format!("No DataFrame available for finalizer operation '{}' in stage '{}'", command_name, stage_name));
+                                    LogController::warn(&format!("No DataFrame available for finalizer operation '{command_name}' in stage '{stage_name}'"));
                                 }
                             }
                             // Unknown operation
                             else {
-                                LogController::error(&format!("Error: Unknown or unsupported step '{}' in 'process' stage '{}'. Halting quilt execution.", command_name, stage_name));
-                                eprintln!("Error: Unknown or unsupported step '{}' in 'process' stage '{}'. See qsv logs for more details.", command_name, stage_name);
+                                LogController::error(&format!("Error: Unknown or unsupported step '{command_name}' in 'process' stage '{stage_name}'. Halting quilt execution."));
+                                eprintln!("Error: Unknown or unsupported step '{command_name}' in 'process' stage '{stage_name}'. See qsv logs for more details.");
                                 std::process::exit(1);
                             }
                         }
@@ -466,14 +461,12 @@ pub fn quilt(
                 }
             } else {
                 LogController::warn(&format!(
-                    "Stage '{}' is of type 'process' but has no steps defined.",
-                    stage_name
+                    "Stage '{stage_name}' is of type 'process' but has no steps defined."
                 ));
             }
         } else if stage_config.stage_type == "concat" {
             LogController::warn(&format!(
-                "Stage type 'concat' for stage '{}' is not yet implemented.",
-                stage_name
+                "Stage type 'concat' for stage '{stage_name}' is not yet implemented."
             ));
         } else if stage_config.stage_type == "join" {
             if let Some(sources_string_vec) = &stage_config.sources {
@@ -483,8 +476,7 @@ pub fn quilt(
 
                     if left_name.is_empty() || right_name.is_empty() {
                         LogController::error(&format!(
-                            "Join stage '{}' has empty source names. Skipping.",
-                            stage_name
+                            "Join stage '{stage_name}' has empty source names. Skipping."
                         ));
                         continue;
                     }
@@ -502,8 +494,7 @@ pub fn quilt(
 
                         if key_col_name.is_none() {
                             LogController::error(&format!(
-                                "Join stage '{}' missing 'key' (or 'on') parameter. Skipping.",
-                                stage_name
+                                "Join stage '{stage_name}' missing 'key' (or 'on') parameter. Skipping."
                             ));
                             continue;
                         }
@@ -514,7 +505,7 @@ pub fn quilt(
                             "left" => JoinType::Left,
                             "outer" | "full" => JoinType::Full,
                             _ => {
-                                LogController::warn(&format!("Unsupported join type '{}' for stage '{}'. Defaulting to inner join.", how_str, stage_name));
+                                LogController::warn(&format!("Unsupported join type '{how_str}' for stage '{stage_name}'. Defaulting to inner join."));
                                 JoinType::Inner
                             }
                         };
@@ -538,8 +529,7 @@ pub fn quilt(
                         );
                         stage_output_df = Some(joined_df_result); // Result is a LazyFrame, not Result<LazyFrame, Error>
                         LogController::debug(&format!(
-                            "Join stage '{}' completed using key '{}', type '{}', coalesce: {}",
-                            stage_name, key, how_str, coalesce
+                            "Join stage '{stage_name}' completed using key '{key}', type '{how_str}', coalesce: {coalesce}"
                         ));
                     } else {
                         let mut missing_sources = Vec::new();
@@ -549,7 +539,7 @@ pub fn quilt(
                         if !stage_results.contains_key(right_name) {
                             missing_sources.push(right_name);
                         }
-                        LogController::error(&format!("Could not find source DataFrame(s): {:?} for join stage '{}'. Skipping.", missing_sources, stage_name));
+                        LogController::error(&format!("Could not find source DataFrame(s): {missing_sources:?} for join stage '{stage_name}'. Skipping."));
                         continue;
                     }
                 } else {
@@ -562,8 +552,7 @@ pub fn quilt(
                 }
             } else {
                 LogController::error(&format!(
-                    "Join stage '{}' is missing 'sources' attribute. Skipping.",
-                    stage_name
+                    "Join stage '{stage_name}' is missing 'sources' attribute. Skipping."
                 ));
                 continue;
             }
@@ -578,13 +567,11 @@ pub fn quilt(
             stage_results.insert(stage_name.clone(), df_to_store.clone());
             last_processed_df = Some(df_to_store.clone());
             LogController::debug(&format!(
-                "Finished processing stage '{}'. Result stored.",
-                stage_name
+                "Finished processing stage '{stage_name}'. Result stored."
             ));
         } else {
             LogController::warn(&format!(
-                "Stage '{}' did not produce a DataFrame.",
-                stage_name
+                "Stage '{stage_name}' did not produce a DataFrame."
             ));
         }
     }
@@ -596,7 +583,7 @@ pub fn quilt(
 
     if let Some(path_str) = output_path_str {
         if let Some(final_df_to_dump) = last_processed_df {
-            LogController::info(&format!("Saving final quilt output to: {}", path_str));
+            LogController::info(&format!("Saving final quilt output to: {path_str}"));
             let final_output_path = Path::new(path_str);
             let absolute_path = if final_output_path.is_absolute() {
                 final_output_path.to_path_buf()

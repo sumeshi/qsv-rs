@@ -5,23 +5,19 @@ pub fn isin(df: &LazyFrame, colname: &str, values: &[String]) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in isin: {}", e);
+            eprintln!("Error collecting DataFrame for schema check in isin: {e}");
             std::process::exit(1);
         }
     };
     let schema = collected_df.schema();
 
     if !schema.iter_names().any(|s| s == colname) {
-        eprintln!(
-            "Error: Column '{}' not found in DataFrame for isin operation",
-            colname
-        );
+        eprintln!("Error: Column '{colname}' not found in DataFrame for isin operation");
         std::process::exit(1);
     }
 
     LogController::debug(&format!(
-        "Applying isin: column={} values={:?}",
-        colname, values
+        "Applying isin: column={colname} values={values:?}"
     ));
 
     // Get the column data type

@@ -142,7 +142,7 @@ impl CsvController {
                 let mut temp_file = match std::fs::File::create(&temp_path) {
                     Ok(f) => f,
                     Err(e) => {
-                        eprintln!("Error creating temporary file for large gzip: {}", e);
+                        eprintln!("Error creating temporary file for large gzip: {e}");
                         std::process::exit(1);
                     }
                 };
@@ -156,7 +156,7 @@ impl CsvController {
                         Ok(0) => break, // EOF
                         Ok(n) => {
                             if let Err(e) = temp_file.write_all(&buffer[..n]) {
-                                eprintln!("Error writing to temporary file: {}", e);
+                                eprintln!("Error writing to temporary file: {e}");
                                 let _ = std::fs::remove_file(&temp_path);
                                 std::process::exit(1);
                             }
@@ -170,7 +170,7 @@ impl CsvController {
                 }
 
                 if let Err(e) = temp_file.flush() {
-                    eprintln!("Error flushing temporary file: {}", e);
+                    eprintln!("Error flushing temporary file: {e}");
                     let _ = std::fs::remove_file(&temp_path);
                     std::process::exit(1);
                 }
@@ -250,7 +250,7 @@ impl CsvController {
             },
         )
         .unwrap_or_else(|e| {
-            eprintln!("Error concatenating CSV files: {}", e);
+            eprintln!("Error concatenating CSV files: {e}");
             std::process::exit(1);
         })
     }
@@ -271,18 +271,18 @@ impl CsvController {
                 for entry in entries {
                     match entry {
                         Ok(path) => paths.push(path),
-                        Err(e) => LogController::warn(&format!("Error with glob pattern: {}", e)),
+                        Err(e) => LogController::warn(&format!("Error with glob pattern: {e}")),
                     }
                 }
             }
             Err(e) => {
-                eprintln!("Invalid glob pattern '{}': {}", pattern_str, e);
+                eprintln!("Invalid glob pattern '{pattern_str}': {e}");
                 std::process::exit(1);
             }
         }
 
         if paths.is_empty() {
-            eprintln!("No files found matching pattern: {}", pattern_str);
+            eprintln!("No files found matching pattern: {pattern_str}");
             std::process::exit(1);
         }
 

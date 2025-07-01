@@ -9,15 +9,14 @@ pub fn pivot(
     agg_func: &str,
 ) -> LazyFrame {
     LogController::debug(&format!(
-        "Creating pivot table with rows: {:?}, columns: {:?}, values: {}, aggregation: {}",
-        rows, columns, values, agg_func
+        "Creating pivot table with rows: {rows:?}, columns: {columns:?}, values: {values}, aggregation: {agg_func}"
     ));
 
     // Collect the DataFrame to work with the data
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for pivot: {}", e);
+            eprintln!("Error collecting DataFrame for pivot: {e}");
             std::process::exit(1);
         }
     };
@@ -30,10 +29,7 @@ pub fn pivot(
         .chain(std::iter::once(&values.to_string()))
     {
         if !schema.iter_names().any(|s| s == col) {
-            eprintln!(
-                "Error: Column '{}' not found in DataFrame for pivot operation",
-                col
-            );
+            eprintln!("Error: Column '{col}' not found in DataFrame for pivot operation");
             std::process::exit(1);
         }
     }
@@ -63,8 +59,7 @@ pub fn pivot(
         "std" => value_col.std(1),
         _ => {
             LogController::warn(&format!(
-                "Unknown aggregation function '{}', using sum",
-                agg_func
+                "Unknown aggregation function '{agg_func}', using sum"
             ));
             value_col.sum()
         }
@@ -74,7 +69,7 @@ pub fn pivot(
     let result = df
         .clone()
         .group_by(group_cols)
-        .agg([agg_expr.alias(format!("{}_{}", values, agg_func))]);
+        .agg([agg_expr.alias(format!("{values}_{agg_func}"))]);
 
     LogController::debug(&format!(
         "Pivot operation completed: {} rows, {} columns, {} values, {} aggregation",

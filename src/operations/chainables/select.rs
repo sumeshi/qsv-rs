@@ -5,10 +5,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!(
-                "Error collecting DataFrame for schema check in select: {}",
-                e
-            );
+            eprintln!("Error collecting DataFrame for schema check in select: {e}");
             std::process::exit(1);
         }
     };
@@ -43,7 +40,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
                 if let Some(col_name) = parse_single_numeric_index(colname, &available_columns) {
                     expanded_colnames.push(col_name);
                 } else {
-                    eprintln!("Error: Invalid column index '{}'", colname);
+                    eprintln!("Error: Invalid column index '{colname}'");
                     std::process::exit(1);
                 }
             } else {
@@ -55,10 +52,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
     // Validate all expanded column names exist
     for colname in &expanded_colnames {
         if !schema.iter_names().any(|s| s == colname) {
-            eprintln!(
-                "Error: Column '{}' not found in DataFrame for select operation",
-                colname
-            );
+            eprintln!("Error: Column '{colname}' not found in DataFrame for select operation");
             std::process::exit(1);
         }
     }
@@ -69,7 +63,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
         if available_columns.contains(name) {
             selected_cols.push(col(name));
         } else {
-            LogController::warn(&format!("Column '{}' not found in DataFrame.", name));
+            LogController::warn(&format!("Column '{name}' not found in DataFrame."));
         }
     }
 
@@ -127,12 +121,11 @@ fn parse_numeric_range(range_str: &str, available_columns: &[String]) -> Vec<Str
                 return available_columns[start_zero_based..=end_zero_based].to_vec();
             } else {
                 LogController::warn(&format!(
-                    "Invalid numeric range: indices out of bounds or invalid order: {}",
-                    range_str
+                    "Invalid numeric range: indices out of bounds or invalid order: {range_str}"
                 ));
             }
         } else {
-            LogController::warn(&format!("Invalid numeric range format: {}", range_str));
+            LogController::warn(&format!("Invalid numeric range format: {range_str}"));
         }
     }
 
@@ -155,14 +148,12 @@ pub fn parse_colon_range(range_str: &str, available_columns: &[String]) -> Vec<S
                 return available_columns[start_idx..=end_idx].to_vec();
             } else {
                 LogController::warn(&format!(
-                    "Invalid range: '{}' comes after '{}' in column order",
-                    start_col, end_col
+                    "Invalid range: '{start_col}' comes after '{end_col}' in column order"
                 ));
             }
         } else {
             LogController::warn(&format!(
-                "Column range '{}' contains invalid column names",
-                range_str
+                "Column range '{range_str}' contains invalid column names"
             ));
         }
     }
@@ -186,14 +177,12 @@ pub fn parse_quoted_colon_range(
             return available_columns[start_idx..=end_idx].to_vec();
         } else {
             LogController::warn(&format!(
-                "Invalid quoted range: '{}' comes after '{}' in column order",
-                start_col, end_col
+                "Invalid quoted range: '{start_col}' comes after '{end_col}' in column order"
             ));
         }
     } else {
         LogController::warn(&format!(
-            "Quoted column range '\"{}\":\"{}\"' contains invalid column names",
-            start_col, end_col
+            "Quoted column range '\"{start_col}\":\"{end_col}\"' contains invalid column names"
         ));
     }
 

@@ -110,10 +110,7 @@ fn process_commands(controller: &mut DataFrameController, commands: &[Command]) 
 // Check if data is loaded
 fn check_data_loaded(controller: &DataFrameController, cmd_name: &str) {
     if controller.is_empty() {
-        eprintln!(
-            "Error: No data loaded. Please load data first before using '{}'.",
-            cmd_name
-        );
+        eprintln!("Error: No data loaded. Please load data first before using '{cmd_name}'.");
         process::exit(1);
     }
 }
@@ -155,8 +152,7 @@ fn parse_column_names(input: &str) -> Vec<String> {
             // Ensure both prefixes are the same
             if prefix1 != prefix2 {
                 eprintln!(
-                    "Error: Mismatched prefixes in range '{}'. Both sides must have the same prefix.",
-                    part
+                    "Error: Mismatched prefixes in range '{part}'. Both sides must have the same prefix."
                 );
                 process::exit(1);
             }
@@ -164,13 +160,10 @@ fn parse_column_names(input: &str) -> Vec<String> {
             // Generate the range
             if num1 <= num2 {
                 for i in num1..=num2 {
-                    result.push(format!("{}{}", prefix1, i));
+                    result.push(format!("{prefix1}{i}"));
                 }
             } else {
-                eprintln!(
-                    "Error: Invalid range '{}'. Start number must be <= end number.",
-                    part
-                );
+                eprintln!("Error: Invalid range '{part}'. Start number must be <= end number.");
                 process::exit(1);
             }
         } else {
@@ -186,7 +179,7 @@ fn parse_column_names(input: &str) -> Vec<String> {
 fn process_command(controller: &mut DataFrameController, cmd: &Command) {
     // Validate command options
     if let Err(error_msg) = controllers::command::validate_command_options(cmd) {
-        eprintln!("{}", error_msg);
+        eprintln!("{error_msg}");
         process::exit(1);
     }
 

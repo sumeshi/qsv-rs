@@ -6,24 +6,20 @@ use serde_yaml;
 
 pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str) -> LazyFrame {
     LogController::debug(&format!(
-        "Converting column '{}' from {} to {}",
-        colname, from_format, to_format
+        "Converting column '{colname}' from {from_format} to {to_format}"
     ));
 
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for convert: {}", e);
+            eprintln!("Error collecting DataFrame for convert: {e}");
             std::process::exit(1);
         }
     };
 
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == colname) {
-        eprintln!(
-            "Error: Column '{}' not found in DataFrame for convert operation",
-            colname
-        );
+        eprintln!("Error: Column '{colname}' not found in DataFrame for convert operation");
         std::process::exit(1);
     }
 
@@ -75,12 +71,10 @@ fn convert_format(input_str: &str, from_format: &str, to_format: &str) -> String
         ("xml", "xml") => format_xml(input_str),
         _ => {
             LogController::debug(&format!(
-                "Unsupported conversion: {} to {}",
-                from_format, to_format
+                "Unsupported conversion: {from_format} to {to_format}"
             ));
             format!(
-                "# Unsupported conversion: {} to {}\n# Original: {}",
-                from_format, to_format, input_str
+                "# Unsupported conversion: {from_format} to {to_format}\n# Original: {input_str}"
             )
         }
     }
@@ -104,14 +98,14 @@ fn convert_json_to_yaml(json_str: &str) -> String {
                         .to_string()
                 }
                 Err(e) => {
-                    LogController::debug(&format!("Failed to convert JSON to YAML: {}", e));
-                    format!("# YAML conversion error: {}\n# Original: {}", e, json_str)
+                    LogController::debug(&format!("Failed to convert JSON to YAML: {e}"));
+                    format!("# YAML conversion error: {e}\n# Original: {json_str}")
                 }
             }
         }
         Err(e) => {
-            LogController::debug(&format!("Failed to parse JSON: {}", e));
-            format!("# JSON parse error: {}\n# Original: {}", e, json_str)
+            LogController::debug(&format!("Failed to parse JSON: {e}"));
+            format!("# JSON parse error: {e}\n# Original: {json_str}")
         }
     }
 }
@@ -124,14 +118,14 @@ fn convert_yaml_to_json(yaml_str: &str) -> String {
             match serde_json::to_string_pretty(&yaml_value) {
                 Ok(json_str) => json_str,
                 Err(e) => {
-                    LogController::debug(&format!("Failed to convert YAML to JSON: {}", e));
-                    format!("# JSON conversion error: {}\n# Original: {}", e, yaml_str)
+                    LogController::debug(&format!("Failed to convert YAML to JSON: {e}"));
+                    format!("# JSON conversion error: {e}\n# Original: {yaml_str}")
                 }
             }
         }
         Err(e) => {
-            LogController::debug(&format!("Failed to parse YAML: {}", e));
-            format!("# YAML parse error: {}\n# Original: {}", e, yaml_str)
+            LogController::debug(&format!("Failed to parse YAML: {e}"));
+            format!("# YAML parse error: {e}\n# Original: {yaml_str}")
         }
     }
 }
@@ -147,11 +141,8 @@ fn convert_json_to_xml(json_str: &str) -> String {
             json_value_to_xml(&json_value, "root")
         }
         Err(e) => {
-            LogController::debug(&format!("Failed to parse JSON: {}", e));
-            format!(
-                "<!-- JSON parse error: {} -->\n<!-- Original: {} -->",
-                e, json_str
-            )
+            LogController::debug(&format!("Failed to parse JSON: {e}"));
+            format!("<!-- JSON parse error: {e} -->\n<!-- Original: {json_str} -->")
         }
     }
 }
@@ -164,14 +155,14 @@ fn convert_xml_to_json(xml_str: &str) -> String {
             match serde_json::to_string_pretty(&xml_value) {
                 Ok(json_str) => json_str,
                 Err(e) => {
-                    LogController::debug(&format!("Failed to convert XML to JSON: {}", e));
-                    format!("# JSON conversion error: {}\n# Original: {}", e, xml_str)
+                    LogController::debug(&format!("Failed to convert XML to JSON: {e}"));
+                    format!("# JSON conversion error: {e}\n# Original: {xml_str}")
                 }
             }
         }
         Err(e) => {
-            LogController::debug(&format!("Failed to parse XML: {}", e));
-            format!("# XML parse error: {}\n# Original: {}", e, xml_str)
+            LogController::debug(&format!("Failed to parse XML: {e}"));
+            format!("# XML parse error: {e}\n# Original: {xml_str}")
         }
     }
 }
@@ -184,11 +175,8 @@ fn convert_yaml_to_xml(yaml_str: &str) -> String {
             json_value_to_xml(&yaml_value, "root")
         }
         Err(e) => {
-            LogController::debug(&format!("Failed to parse YAML: {}", e));
-            format!(
-                "<!-- YAML parse error: {} -->\n<!-- Original: {} -->",
-                e, yaml_str
-            )
+            LogController::debug(&format!("Failed to parse YAML: {e}"));
+            format!("<!-- YAML parse error: {e} -->\n<!-- Original: {yaml_str} -->")
         }
     }
 }
@@ -203,13 +191,13 @@ fn convert_xml_to_yaml(xml_str: &str) -> String {
                 .trim()
                 .to_string(),
             Err(e) => {
-                LogController::debug(&format!("Failed to convert XML to YAML: {}", e));
-                format!("# YAML conversion error: {}\n# Original: {}", e, xml_str)
+                LogController::debug(&format!("Failed to convert XML to YAML: {e}"));
+                format!("# YAML conversion error: {e}\n# Original: {xml_str}")
             }
         },
         Err(e) => {
-            LogController::debug(&format!("Failed to parse XML: {}", e));
-            format!("# XML parse error: {}\n# Original: {}", e, xml_str)
+            LogController::debug(&format!("Failed to parse XML: {e}"));
+            format!("# XML parse error: {e}\n# Original: {xml_str}")
         }
     }
 }
@@ -245,19 +233,19 @@ fn json_value_to_xml(value: &JsonValue, _tag_name: &str) -> String {
         JsonValue::Object(map) => {
             let mut xml = String::new();
             for (key, val) in map {
-                xml.push_str(&format!("<{}>", key));
+                xml.push_str(&format!("<{key}>"));
                 xml.push_str(&json_value_to_xml(val, key));
-                xml.push_str(&format!("</{}>", key));
+                xml.push_str(&format!("</{key}>"));
             }
             xml
         }
         JsonValue::Array(arr) => {
             let mut xml = String::new();
             for (i, val) in arr.iter().enumerate() {
-                let item_tag = format!("item{}", i);
-                xml.push_str(&format!("<{}>", item_tag));
+                let item_tag = format!("item{i}");
+                xml.push_str(&format!("<{item_tag}>"));
                 xml.push_str(&json_value_to_xml(val, &item_tag));
-                xml.push_str(&format!("</{}>", item_tag));
+                xml.push_str(&format!("</{item_tag}>"));
             }
             xml
         }
@@ -284,13 +272,13 @@ fn format_json(json_str: &str) -> String {
         Ok(json_value) => match serde_json::to_string_pretty(&json_value) {
             Ok(formatted) => formatted,
             Err(e) => {
-                LogController::debug(&format!("Failed to format JSON: {}", e));
-                format!("# JSON format error: {}\n# Original: {}", e, json_str)
+                LogController::debug(&format!("Failed to format JSON: {e}"));
+                format!("# JSON format error: {e}\n# Original: {json_str}")
             }
         },
         Err(e) => {
-            LogController::debug(&format!("Failed to parse JSON for formatting: {}", e));
-            format!("# JSON parse error: {}\n# Original: {}", e, json_str)
+            LogController::debug(&format!("Failed to parse JSON for formatting: {e}"));
+            format!("# JSON parse error: {e}\n# Original: {json_str}")
         }
     }
 }
@@ -305,13 +293,13 @@ fn format_yaml(yaml_str: &str) -> String {
                 .trim()
                 .to_string(),
             Err(e) => {
-                LogController::debug(&format!("Failed to format YAML: {}", e));
-                format!("# YAML format error: {}\n# Original: {}", e, yaml_str)
+                LogController::debug(&format!("Failed to format YAML: {e}"));
+                format!("# YAML format error: {e}\n# Original: {yaml_str}")
             }
         },
         Err(e) => {
-            LogController::debug(&format!("Failed to parse YAML for formatting: {}", e));
-            format!("# YAML parse error: {}\n# Original: {}", e, yaml_str)
+            LogController::debug(&format!("Failed to parse YAML for formatting: {e}"));
+            format!("# YAML parse error: {e}\n# Original: {yaml_str}")
         }
     }
 }
@@ -324,11 +312,8 @@ fn format_xml(xml_str: &str) -> String {
             json_value_to_xml(&xml_value, "root")
         }
         Err(e) => {
-            LogController::debug(&format!("Failed to parse XML for formatting: {}", e));
-            format!(
-                "<!-- XML parse error: {} -->\n<!-- Original: {} -->",
-                e, xml_str
-            )
+            LogController::debug(&format!("Failed to parse XML for formatting: {e}"));
+            format!("<!-- XML parse error: {e} -->\n<!-- Original: {xml_str} -->")
         }
     }
 }

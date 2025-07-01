@@ -6,7 +6,7 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for grep: {}", e);
+            eprintln!("Error collecting DataFrame for grep: {e}");
             return df.clone(); // Return original LazyFrame on error
         }
     };
@@ -28,7 +28,7 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
     ));
 
     let re_pattern = if ignorecase {
-        format!("(?i){}", pattern)
+        format!("(?i){pattern}")
     } else {
         pattern.to_string()
     };
@@ -36,7 +36,7 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
     let re = match Regex::new(&re_pattern) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Error: Invalid regex pattern '{}': {}", pattern, e);
+            eprintln!("Error: Invalid regex pattern '{pattern}': {e}");
             std::process::exit(1);
         }
     };
@@ -60,7 +60,7 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
                 },
                 GetOutput::from_type(DataType::Boolean),
             )
-            .alias(format!("{}_matches_pattern", colname));
+            .alias(format!("{colname}_matches_pattern"));
         expr_list.push(expr);
     }
 
