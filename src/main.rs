@@ -54,7 +54,7 @@ fn main() {
     }
     // -v, --version
     if args.len() == 2 && (args[1] == "-v" || args[1] == "--version") {
-        println!("qsv version {}", env!("CARGO_PKG_VERSION"));
+        println!("{}", env!("CARGO_PKG_VERSION"));
         return;
     }
 

@@ -1,11 +1,12 @@
-FROM rust:1.87-slim-bullseye
+FROM rust:1.87-bookworm
 
 RUN apt -y update && apt upgrade -qqy && apt -y install \
     curl \
     gcc \
     git \
     fish \
-    sudo
+    sudo \
+    musl-tools
 
 ARG USERNAME=dev
 ARG USER_UID=1000

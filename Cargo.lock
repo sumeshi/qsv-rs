@@ -1529,7 +1529,6 @@ dependencies = [
  "bytemuck",
  "chrono",
  "chrono-tz 0.10.3",
- "comfy-table",
  "either",
  "hashbrown 0.14.5",
  "hashbrown 0.15.3",
@@ -1977,7 +1976,7 @@ dependencies = [
 
 [[package]]
 name = "qsv"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "chrono",
  "chrono-tz 0.8.6",

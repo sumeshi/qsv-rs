@@ -61,7 +61,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             name: qsv-rs-linux-x64
           - target: x86_64-pc-windows-msvc
@@ -80,6 +80,10 @@ jobs:
         echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       shell: bash
       
+    - name: Install musl tools (Linux)
+      if: matrix.target == 'x86_64-unknown-linux-musl'
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
+        
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
@@ -163,25 +167,7 @@ jobs:
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       
-    - name: Create checksums
-      run: |
-        cd artifacts
-        echo "Creating checksums for all artifacts..."
-        for dir in */; do
-          echo "Processing directory: $dir"
-          cd "$dir"
-          if [ -n "$(ls -A .)" ]; then
-            sha256sum * > ../checksums-$(basename "$dir").txt
-            echo "Created checksum file: checksums-$(basename "$dir").txt"
-            cat ../checksums-$(basename "$dir").txt
-          else
-            echo "Directory $dir is empty"
-          fi
-          cd ..
-        done
-        echo "All checksum files:"
-        ls -la checksums-*.txt
-        
+
     - name: Generate release notes
       id: release_notes
       run: |
@@ -202,9 +188,6 @@ jobs:
         2. Make it executable (Unix systems): `chmod +x qsv-rs-*`
         3. Move to a directory in your PATH: `sudo mv qsv-rs-* /usr/local/bin/qsv`
         4. Verify installation: `qsv --help`
-        
-        ### Checksums
-        SHA256 checksums are provided for verification.
         EOF
         
     - name: Create Release
@@ -217,7 +200,6 @@ jobs:
         prerelease: false
         files: |
           artifacts/*/*
-          artifacts/checksums-*.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -231,15 +213,20 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install musl tools
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
+      
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-musl
       
     - name: Build development binary
-      run: cargo build --release
+      run: cargo build --release --target x86_64-unknown-linux-musl
       
     - name: Upload development artifact
       uses: actions/upload-artifact@v4
       with:
         name: qsv-rs-dev-linux
-        path: target/release/qsv
+        path: target/x86_64-unknown-linux-musl/release/qsv
         retention-days: 7 
