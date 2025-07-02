@@ -1,14 +1,11 @@
-// filepath: /workspaces/qsv-rs/src/controllers/command.rs
 use std::collections::HashMap;
 use std::collections::HashSet;
-
 #[derive(Debug, Clone)]
 pub struct Command {
     pub name: String,
     pub args: Vec<String>,
     pub options: HashMap<String, Option<String>>,
 }
-
 impl Command {
     pub fn new(name: String) -> Self {
         Command {
@@ -18,7 +15,6 @@ impl Command {
         }
     }
 }
-
 // Define valid options for each command
 fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
     match command_name {
@@ -64,15 +60,14 @@ fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
         "stats" => HashSet::new(),     // stats has no options
         "showquery" => HashSet::new(), // showquery has no options
         "dump" => ["separator", "output"].iter().cloned().collect(),
+        "dumpcache" => ["output"].iter().cloned().collect(),
         "quilt" => ["output"].iter().cloned().collect(),
         _ => HashSet::new(), // unknown command, no validation
     }
 }
-
 // Validate that all options for a command are valid
 pub fn validate_command_options(cmd: &Command) -> Result<(), String> {
     let valid_options = get_valid_options(&cmd.name);
-
     for option_key in cmd.options.keys() {
         if !valid_options.contains(option_key.as_str()) {
             return Err(format!(
@@ -81,19 +76,15 @@ pub fn validate_command_options(cmd: &Command) -> Result<(), String> {
             ));
         }
     }
-
     Ok(())
 }
-
 pub fn parse_commands(args: &[String]) -> Vec<Command> {
     let mut commands = Vec::new();
     let mut current_command = Command::new(String::new());
     let mut is_first_arg = true;
     let mut i = 0; // Index for iterating through args
-
     while i < args.len() {
         let arg = &args[i];
-
         if arg == "-" {
             if !current_command.name.is_empty() {
                 commands.push(current_command);
@@ -103,17 +94,14 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             i += 1;
             continue;
         }
-
         if is_first_arg {
             current_command.name = arg.clone();
             is_first_arg = false;
             i += 1;
             continue;
         }
-
         if let Some(option_str) = arg.strip_prefix("--") {
             // Long option format: --option[=value] or --option value
-
             // Check if it's --option=value format
             if option_str.contains('=') {
                 parse_option(&mut current_command, option_str);
@@ -149,7 +137,6 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "column"
                         | "unit"
                 );
-
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
                     // --option value format
                     let value = args[i + 1].clone();
@@ -165,8 +152,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             }
         } else if let Some(stripped) = arg.strip_prefix('-') {
             let opt_key_to_parse = stripped.to_string(); // Make it mutable
-
-            // Handle cases like -sValue or -s=Value directly attached
+                                                         // Handle cases like -sValue or -s=Value directly attached
             if opt_key_to_parse.len() > 1
                 && (opt_key_to_parse.starts_with('s')
                     || opt_key_to_parse.starts_with('n')
@@ -183,7 +169,6 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         Some(opt_key_to_parse[1..].to_string()),
                     )
                 };
-
                 if (actual_key == "s" || actual_key == "n" || actual_key == "o")
                     && actual_value.is_some()
                 {
@@ -199,10 +184,8 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                 }
                 // If not s or n, or no value, fall through to general short opt parsing
             }
-
             // Standard short option handling (e.g. -s value, or -f flag)
             let opt_char_str = if arg.len() >= 2 { &arg[1..2] } else { "" }; // Get the char e.g. "s"
-
             if (opt_char_str == "s" || opt_char_str == "n" || opt_char_str == "o") && // It's -s, -n, or -o
                i + 1 < args.len() && // Next argument exists
                !args[i+1].starts_with('-')
@@ -229,14 +212,11 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
             i += 1;
         }
     }
-
     if !current_command.name.is_empty() {
         commands.push(current_command);
     }
-
     commands
 }
-
 fn parse_option(cmd: &mut Command, option_str: &str) {
     if let Some((key, value)) = option_str.split_once('=') {
         // For short options like -s=val, key would be "s"
@@ -267,7 +247,6 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
         cmd.options.insert(final_key, None);
     }
 }
-
 // Help functions for CLI
 pub fn print_help() {
     println!("Quilter-CSV: A fast, flexible, and memory-efficient command-line tool written in Rust for processing large CSV files.\n");
@@ -301,6 +280,7 @@ pub fn print_help() {
     println!("  stats        Show statistics");
     println!("  showquery    Show query plan");
     println!("  dump         Save as CSV");
+    println!("  dumpcache    Save as parquet cache file");
     println!("  partition    Split data into separate files by column values");
     println!();
     println!("Quilters:");
@@ -317,7 +297,6 @@ pub fn print_help() {
     println!();
     println!("For more details, see README.md or --help");
 }
-
 pub fn print_chainable_help(cmd: &str) {
     match cmd {
         "load" => print_load_help(),
@@ -345,29 +324,34 @@ pub fn print_chainable_help(cmd: &str) {
         "stats" => print_stats_help(),
         "showquery" => print_showquery_help(),
         "dump" => print_dump_help(),
+        "dumpcache" => print_dumpcache_help(),
         "quilt" => print_quilt_help(),
         _ => println!("No detailed help available for this command."),
     }
 }
-
 fn print_load_help() {
-    println!("load: Load one or more CSV files\n");
-    println!("Usage: load <file1.csv> [file2.csv ...] [-s|--separator <char>] [--low-memory] [--no-headers] [--chunk-size <size>]\n");
-    println!("Options:");
+    println!("load: Load one or more CSV or parquet files\n");
+    println!("Usage: load <file1.csv|file1.parquet> [file2.csv ...] [-s|--separator <char>] [--low-memory] [--no-headers] [--chunk-size <size>]\n");
+    println!("Options (CSV only):");
     println!("  -s, --separator <char>  Field separator character (default: ',')");
     println!("  --low-memory            Enable low-memory mode for very large files");
     println!("  --no-headers            Treat first row as data, not headers");
     println!("  --chunk-size <size>     Chunk size for reading large files (e.g., 10000)");
+    println!("\nSupported formats:");
+    println!("  - CSV files (.csv, .tsv, .txt)");
+    println!("  - Gzipped CSV files (.csv.gz)");
+    println!("  - Parquet files (.parquet) - high performance, preserves types");
     println!("\nExamples:");
     println!("  qsv load data.csv - show");
+    println!("  qsv load cache.parquet - show  # Load from parquet cache");
     println!("  qsv load data1.csv data2.csv data3.csv - show");
     println!("  qsv load logs/*.tsv -s '\\t' - show");
     println!("  qsv load data.csv --low-memory - show");
     println!("  qsv load data.csv --no-headers - show");
     println!("  qsv load data.csv --chunk-size 50000 - show");
     println!("  qsv load data.csv.gz - show  # Automatically detects gzip files");
+    println!("\nNote: Cannot mix CSV and parquet files in the same load command");
 }
-
 fn print_select_help() {
     println!("select: Select columns from the DataFrame\n");
     println!("Usage: select <col1>[,<col2>,...]\n");
@@ -385,14 +369,12 @@ fn print_select_help() {
     println!("  qsv load data.csv - select 2:4 - show  # Select 2nd-4th columns");
     println!("  qsv load data.csv - select \"col:1\":\"col:3\" - show  # Quoted for colons");
 }
-
 fn print_isin_help() {
     println!("isin: Filter rows by values in a column\n");
     println!("Usage: isin <colname> <value1>[,<value2>,...]\n");
     println!("Examples:");
     println!("  qsv load data.csv - isin col1 1,2,3 - show");
 }
-
 fn print_contains_help() {
     println!("contains: Filter rows by substring or pattern in a column\n");
     println!("Usage: contains <colname> <pattern> [-i]\n");
@@ -400,7 +382,6 @@ fn print_contains_help() {
     println!("  qsv load data.csv - contains col1 foo - show");
     println!("  qsv load data.csv - contains col1 bar -i - show");
 }
-
 fn print_sed_help() {
     println!("sed: Replace values in column(s) using a pattern\n");
     println!("Usage:");
@@ -414,7 +395,6 @@ fn print_sed_help() {
     println!("  qsv load data.csv - sed foo bar --column str - show          # Replace 'foo' with 'bar' in 'str' column only");
     println!("  qsv load data.csv - sed john JOHN -i - show                  # Case-insensitive replacement");
 }
-
 fn print_grep_help() {
     println!("grep: Filter rows by regex pattern (any column)\n");
     println!("Usage: grep <pattern> [-i|--ignorecase] [-v|--invert-match]\n");
@@ -426,21 +406,18 @@ fn print_grep_help() {
     println!("  qsv load data.csv - grep bar -i - show");
     println!("  qsv load data.csv - grep pattern --ignorecase --invert-match - show");
 }
-
 fn print_head_help() {
     println!("head: Show first N rows\n");
     println!("Usage: head <number>\n");
     println!("Examples:");
     println!("  qsv load data.csv - head 10 - show");
 }
-
 fn print_tail_help() {
     println!("tail: Show last N rows\n");
     println!("Usage: tail <number>\n");
     println!("Examples:");
     println!("  qsv load data.csv - tail 10 - show");
 }
-
 fn print_sort_help() {
     println!("sort: Sort rows by column(s)\n");
     println!("Usage: sort <col1>[,<col2>,...] [-d|--desc]\n");
@@ -450,21 +427,18 @@ fn print_sort_help() {
     println!("  qsv load data.csv - sort col1,col2 -d - show");
     println!("  qsv load data.csv - sort col1,col2 --desc - show");
 }
-
 fn print_count_help() {
     println!("count: Count duplicate rows, grouping by all columns\n");
     println!("Usage: count\n");
     println!("Examples:");
     println!("  qsv load data.csv - count - show");
 }
-
 fn print_uniq_help() {
     println!("uniq: Remove duplicate rows based on column(s)\n");
     println!("Usage: uniq <col1>[,<col2>,...]\n");
     println!("Examples:");
     println!("  qsv load data.csv - uniq col1 - show");
 }
-
 fn print_changetz_help() {
     println!("changetz: Change timezone of a datetime column\n");
     println!("Usage: changetz <colname> --from-tz <from_tz> --to-tz <to_tz> [--input-format <format>] [--output-format <format>] [--ambiguous <strategy>]\n");
@@ -481,14 +455,12 @@ fn print_changetz_help() {
     println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo --input-format '%Y/%m/%d %H:%M' - show");
     println!("  qsv load data.csv - changetz datetime --from-tz America/New_York --to-tz UTC --ambiguous latest - show");
 }
-
 fn print_renamecol_help() {
     println!("renamecol: Rename a column\n");
     println!("Usage: renamecol <old_colname> <new_colname>\n");
     println!("Examples:");
     println!("  qsv load data.csv - renamecol col1 new_col - show");
 }
-
 fn print_convert_help() {
     println!("convert: Convert data formats (JSON, YAML, XML, etc.)\n");
     println!("Usage: convert <colname> --from <format> --to <format>\n");
@@ -514,7 +486,6 @@ fn print_convert_help() {
     println!("  qsv load data.csv - convert json_data --from json --to json - show  # Format JSON");
     println!("\nNote: Handles malformed JSON with extra quotes automatically.");
 }
-
 fn print_timeline_help() {
     println!("timeline: Aggregate data by time intervals\n");
     println!("Usage: timeline <time_column> --interval <interval> [--sum|--avg|--min|--max|--std <column>]\n");
@@ -530,7 +501,6 @@ fn print_timeline_help() {
     println!("  qsv load metrics.csv - timeline time --interval 5m --avg cpu_usage - show");
     println!("  qsv load sales.csv - timeline date --interval 1d --sum amount - show");
 }
-
 fn print_timeslice_help() {
     println!("timeslice: Filter data by time range\n");
     println!("Usage: timeslice <time_column> [--start <start_time>] [--end <end_time>]\n");
@@ -544,7 +514,6 @@ fn print_timeslice_help() {
         "  qsv load data.csv - timeslice timestamp --start '2023-06-01' --end '2023-06-30' - show"
     );
 }
-
 fn print_partition_help() {
     println!("partition: Split data into separate files by column values\n");
     println!("Usage: partition <colname> <output_directory>\n");
@@ -557,7 +526,6 @@ fn print_partition_help() {
     println!("  qsv load logs.csv - partition date ./daily_logs/ - show");
     println!("\nNote: Creates one CSV file per unique value in the specified column.");
 }
-
 fn print_pivot_help() {
     println!("pivot: Create pivot tables with cross-tabulation\n");
     println!(
@@ -576,7 +544,6 @@ fn print_pivot_help() {
     println!("  qsv load logs.csv - pivot --rows date --cols error_type --values count --agg count - show");
     println!("\nNote: Creates a cross-tabulation table with specified rows and columns.");
 }
-
 fn print_timeround_help() {
     println!("timeround: Round datetime to specified time unit\n");
     println!("Usage: timeround <colname> --unit <unit> [--output <colname>]\n");
@@ -596,21 +563,18 @@ fn print_timeround_help() {
     println!("  qsv load data.csv - timeround timestamp --unit m");
     println!("  qsv load logs.csv - timeround created_at --unit day --output created_day");
 }
-
 fn print_show_help() {
     println!("show: Print result as CSV\n");
     println!("Usage: show\n");
     println!("Examples:");
     println!("  qsv load data.csv - show");
 }
-
 fn print_showtable_help() {
     println!("showtable: Print result as a table\n");
     println!("Usage: showtable\n");
     println!("Examples:");
     println!("  qsv load data.csv - showtable");
 }
-
 fn print_headers_help() {
     println!("headers: Show column names\n");
     println!("Usage: headers [-p|--plain]\n");
@@ -620,21 +584,18 @@ fn print_headers_help() {
     println!("  qsv load data.csv - headers -p");
     println!("  qsv load data.csv - headers --plain");
 }
-
 fn print_stats_help() {
     println!("stats: Show statistics of the data\n");
     println!("Usage: stats\n");
     println!("Examples:");
     println!("  qsv load data.csv - stats");
 }
-
 fn print_showquery_help() {
     println!("showquery: Show query plan\n");
     println!("Usage: showquery\n");
     println!("Examples:");
     println!("  qsv load data.csv - showquery");
 }
-
 fn print_dump_help() {
     println!("dump: Save DataFrame as CSV\n");
     println!("Usage: dump -o|--output <file> [-s|--separator <char>]\n");
@@ -646,7 +607,22 @@ fn print_dump_help() {
     println!("  qsv load data.csv - dump --output results.csv");
     println!("  qsv load data.csv - dump -o results.csv -s ';'");
 }
-
+fn print_dumpcache_help() {
+    println!("dumpcache: Save DataFrame as parquet cache file\n");
+    println!("Usage: dumpcache [-o|--output <file>]\n");
+    println!("Options:");
+    println!(
+        "  -o, --output <file>  Output file path (optional, default: cache_<timestamp>.parquet)"
+    );
+    println!("                       File extension will be changed to .parquet if not specified");
+    println!("\nExamples:");
+    println!("  qsv load data.csv - dumpcache");
+    println!("  qsv load data.csv - dumpcache -o mycache.parquet");
+    println!("  qsv load data.csv - dumpcache --output processed_data");
+    println!("\nNote:");
+    println!("  - Parquet format is highly compressed and preserves data types");
+    println!("  - Cache files can be loaded back using: qsv load cache.parquet - show");
+}
 fn print_quilt_help() {
     println!("quilt: Execute a quilt (data processing pipeline from YAML)\n");
     println!("Usage: quilt <config_path> [csv_file_paths...] [-o <output_file>]\n");

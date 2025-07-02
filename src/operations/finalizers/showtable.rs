@@ -2,10 +2,8 @@ use crate::controllers::log::LogController;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, ContentArrangement, Table};
 use polars::prelude::*;
-
 pub fn showtable(df: &LazyFrame) {
     LogController::debug("Applying showtable (display DataFrame as a formatted table)");
-
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
@@ -13,24 +11,19 @@ pub fn showtable(df: &LazyFrame) {
             return;
         }
     };
-
     let shape = collected_df.shape();
     let colnames: Vec<String> = collected_df
         .get_column_names_owned()
         .into_iter()
         .map(|s| s.to_string())
         .collect();
-
     // Display table size information like Python polars
     println!("shape: ({}, {})", shape.0, shape.1);
-
     let mut table = Table::new();
     table.load_preset(UTF8_FULL);
     table.set_content_arrangement(ContentArrangement::Dynamic);
-
     let header_cells: Vec<Cell> = colnames.iter().map(Cell::new).collect();
     table.set_header(header_cells);
-
     let max_display_rows = 8;
     let total_rows = shape.0;
     let show_truncation = total_rows >= max_display_rows;
@@ -40,7 +33,6 @@ pub fn showtable(df: &LazyFrame) {
     } else {
         total_rows
     };
-
     // Add first rows
     for row_idx in 0..rows_to_show {
         let mut row_cells = Vec::new();
@@ -74,7 +66,6 @@ pub fn showtable(df: &LazyFrame) {
         }
         table.add_row(row_cells);
     }
-
     // Add truncation indicator if needed
     if show_truncation {
         let mut truncation_row = Vec::new();
@@ -82,7 +73,6 @@ pub fn showtable(df: &LazyFrame) {
             truncation_row.push(Cell::new("…"));
         }
         table.add_row(truncation_row);
-
         // Add last rows
         let last_rows_start = total_rows - std::cmp::min(3, total_rows - rows_to_show);
         for row_idx in last_rows_start..total_rows {
@@ -118,6 +108,5 @@ pub fn showtable(df: &LazyFrame) {
             table.add_row(row_cells);
         }
     }
-
     println!("{table}");
 }

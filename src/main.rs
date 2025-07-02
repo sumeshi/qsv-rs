@@ -94,6 +94,7 @@ fn process_commands(controller: &mut DataFrameController, commands: &[Command]) 
             "stats",
             "showquery",
             "dump",
+            "dumpcache",
             "partition",
             "quilt",
         ];
@@ -695,7 +696,14 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
             controller.dump(Some(output_path), separator);
         }
-
+        "dumpcache" => {
+            check_data_loaded(controller, "dumpcache");
+            let output_path = cmd
+                .options
+                .get("output")
+                .and_then(|opt_val| opt_val.as_deref());
+            controller.dumpcache(output_path);
+        }
         // Unsupported commands
         _ => {
             eprintln!("Error: Unknown command '{}'", cmd.name);

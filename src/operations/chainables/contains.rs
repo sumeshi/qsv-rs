@@ -1,6 +1,5 @@
 use crate::controllers::log::LogController;
 use polars::prelude::*;
-
 pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
@@ -10,23 +9,19 @@ pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) 
         }
     };
     let schema = collected_df.schema();
-
     if !schema.iter_names().any(|s| s == colname) {
         eprintln!("Error: Column '{colname}' not found in DataFrame for contains operation");
         std::process::exit(1);
     }
-
     LogController::debug(&format!(
         "Applying contains: column={colname} pattern='{pattern}' ignorecase={ignorecase}"
     ));
-
     // Consider case-insensitive option
     let pattern_to_use = if ignorecase {
         pattern.to_lowercase()
     } else {
         pattern.to_string()
     };
-
     let expr = col(colname)
         .cast(DataType::String)
         .map(
@@ -49,6 +44,5 @@ pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) 
             GetOutput::from_type(DataType::Boolean),
         )
         .alias("contains_result");
-
     df.clone().filter(expr)
 }

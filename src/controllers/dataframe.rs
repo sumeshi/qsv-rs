@@ -2,29 +2,26 @@ use crate::operations::chainables::{
     changetz, contains, convert, count, grep, head, isin, pivot, renamecol, sed, select, sort,
     tail, timeline, timeround, timeslice, uniq,
 };
-use crate::operations::finalizers::{dump, headers, partition, show, showquery, showtable, stats};
+use crate::operations::finalizers::{
+    dump, dumpcache, headers, partition, show, showquery, showtable, stats,
+};
 use crate::operations::initializers::load;
 use polars::prelude::*;
 use std::path::PathBuf;
-
 #[derive(Clone)]
 pub struct DataFrameController {
     df: Option<LazyFrame>,
 }
-
 impl DataFrameController {
     pub fn new() -> Self {
         Self { df: None }
     }
-
     pub fn set_df(&mut self, df: LazyFrame) {
         self.df = Some(df);
     }
-
     pub fn is_empty(&self) -> bool {
         self.df.is_none()
     }
-
     // -- initializers --
     pub fn load(
         &mut self,
@@ -39,7 +36,6 @@ impl DataFrameController {
         ));
         self
     }
-
     // -- chainables --
     pub fn select(&mut self, colnames: &[String]) -> &mut Self {
         if let Some(df) = &self.df {
@@ -47,21 +43,18 @@ impl DataFrameController {
         }
         self
     }
-
     pub fn isin(&mut self, colname: &str, values: &[String]) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(isin::isin(df, colname, values));
         }
         self
     }
-
     pub fn contains(&mut self, colname: &str, pattern: &str, ignorecase: bool) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(contains::contains(df, colname, pattern, ignorecase));
         }
         self
     }
-
     pub fn sed(
         &mut self,
         colname: Option<&str>,
@@ -74,49 +67,42 @@ impl DataFrameController {
         }
         self
     }
-
     pub fn grep(&mut self, pattern: &str, ignorecase: bool, is_inverted: bool) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(grep::grep(df, pattern, ignorecase, is_inverted));
         }
         self
     }
-
     pub fn head(&mut self, number: usize) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(head::head(df, number));
         }
         self
     }
-
     pub fn tail(&mut self, number: usize) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(tail::tail(df, number));
         }
         self
     }
-
     pub fn sort(&mut self, colnames: &[String], desc: bool) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(sort::sort(df, colnames, desc));
         }
         self
     }
-
     pub fn count(&mut self) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(count::count(df));
         }
         self
     }
-
     pub fn uniq(&mut self) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(uniq::uniq(df));
         }
         self
     }
-
     pub fn changetz(
         &mut self,
         colname: &str,
@@ -142,21 +128,18 @@ impl DataFrameController {
         }
         self
     }
-
     pub fn renamecol(&mut self, old_name: &str, new_name: &str) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(renamecol::renamecol(df, old_name, new_name));
         }
         self
     }
-
     pub fn convert(&mut self, colname: &str, from_format: &str, to_format: &str) -> &mut Self {
         if let Some(df) = &self.df {
             self.df = Some(convert::convert(df, colname, from_format, to_format));
         }
         self
     }
-
     pub fn timeline(
         &mut self,
         time_column: &str,
@@ -175,7 +158,6 @@ impl DataFrameController {
         }
         self
     }
-
     pub fn timeslice(
         &mut self,
         time_column: &str,
@@ -187,7 +169,6 @@ impl DataFrameController {
         }
         self
     }
-
     pub fn pivot(
         &mut self,
         rows: &[String],
@@ -200,7 +181,6 @@ impl DataFrameController {
         }
         self
     }
-
     pub fn timeround(
         &mut self,
         colname: &str,
@@ -212,49 +192,47 @@ impl DataFrameController {
         }
         self
     }
-
     // -- finalizers --
     pub fn headers(&self, plain: bool) {
         if let Some(df) = &self.df {
             headers::headers(df, plain);
         }
     }
-
     pub fn stats(&self) {
         if let Some(df) = &self.df {
             stats::stats(df);
         }
     }
-
     pub fn showquery(&self) {
         if let Some(df) = &self.df {
             showquery::showquery(df);
         }
     }
-
     pub fn show(&self) {
         if let Some(df) = &self.df {
             show::show(df);
         }
     }
-
     pub fn showtable(&self) {
         if let Some(df) = &self.df {
             showtable::showtable(df);
         }
     }
-
     pub fn partition(&self, colname: &str, output_dir: &str) {
         if let Some(df) = &self.df {
             partition::partition(df, colname, output_dir);
         }
     }
-
     pub fn dump(&self, path: Option<&str>, separator: Option<char>) {
         if let Some(df) = &self.df {
             let output_path_str = path.unwrap_or("output.csv");
             let sep_char = separator.unwrap_or(',');
             dump::dump(df, output_path_str, sep_char);
+        }
+    }
+    pub fn dumpcache(&self, output_path: Option<&str>) {
+        if let Some(df) = &self.df {
+            dumpcache::dumpcache(df, output_path);
         }
     }
 }

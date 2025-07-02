@@ -4,14 +4,12 @@ use chrono_tz::Tz;
 use dtparse::parse as dtparse_parse;
 use polars::prelude::*;
 use regex::Regex;
-
 /// Parse datetime string with comprehensive format support including fuzzy parsing
 fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
     let s = s.trim();
     if s.is_empty() {
         return None;
     }
-
     // First try dtparse for maximum flexibility (similar to Python dateutil.parser)
     match dtparse_parse(s) {
         Ok((dt, _)) => {
@@ -22,7 +20,6 @@ fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
             LogController::debug(&format!("dtparse failed for '{s}': {e}"));
         }
     }
-
     // Try fuzzy parsing with regex extraction
     if let Some(extracted) = extract_datetime_fuzzy(s) {
         LogController::debug(&format!(
@@ -32,7 +29,6 @@ fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
             return Some(dt);
         }
     }
-
     // Fallback to manual format detection for edge cases
     let formats = [
         // ISO 8601 formats
@@ -71,18 +67,15 @@ fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
         "%m/%d/%Y %I:%M:%S %p", // 1/15/2023 2:30:25 PM
         "%Y-%m-%d %I:%M:%S %p", // 2023-01-15 2:30:25 PM
     ];
-
     for fmt in &formats {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s, fmt) {
             LogController::debug(&format!("Parsed '{s}' with format '{fmt}'"));
             return Some(dt);
         }
     }
-
     LogController::warn(&format!("Failed to parse datetime: '{s}'"));
     None
 }
-
 /// Extract datetime patterns from fuzzy text using regex
 fn extract_datetime_fuzzy(text: &str) -> Option<String> {
     // Common datetime patterns to extract from text
@@ -98,7 +91,6 @@ fn extract_datetime_fuzzy(text: &str) -> Option<String> {
         // Day month year: "Friday Jan 13 2023 9:00 AM"
         r"(?i)(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
     ];
-
     for pattern in &patterns {
         if let Ok(re) = Regex::new(pattern) {
             if let Some(captures) = re.find(text) {
@@ -106,10 +98,8 @@ fn extract_datetime_fuzzy(text: &str) -> Option<String> {
             }
         }
     }
-
     None
 }
-
 /// Parse extracted datetime string using multiple formats
 fn parse_extracted_datetime(extracted: &str) -> Option<NaiveDateTime> {
     // Clean up the extracted string
@@ -123,13 +113,11 @@ fn parse_extracted_datetime(extracted: &str) -> Option<NaiveDateTime> {
         .replace("nd ", " ")
         .replace("rd ", " ")
         .replace("th ", " ");
-
     // Try dtparse again on the cleaned extracted text
     if let Ok((dt, _)) = dtparse_parse(&cleaned) {
         LogController::debug(&format!("Parsed extracted '{cleaned}' using dtparse"));
         return Some(dt);
     }
-
     // Formats specifically for extracted patterns
     let formats = [
         "%B %d, %Y %I:%M:%S %p",   // January 15, 2023 2:30:00 PM
@@ -143,17 +131,14 @@ fn parse_extracted_datetime(extracted: &str) -> Option<NaiveDateTime> {
         "%A %b %d %Y %I:%M:%S %p", // Friday Jan 13 2023 9:00:00 AM
         "%A %b %d %Y %I:%M %p",    // Friday Jan 13 2023 9:00 AM
     ];
-
     for fmt in &formats {
         if let Ok(dt) = NaiveDateTime::parse_from_str(&cleaned, fmt) {
             LogController::debug(&format!("Parsed extracted '{cleaned}' with format '{fmt}'"));
             return Some(dt);
         }
     }
-
     None
 }
-
 /// Convert timezone with proper error handling
 fn convert_timezone(
     datetime_str: &str,
@@ -166,14 +151,12 @@ fn convert_timezone(
     if datetime_str.trim().is_empty() {
         return Some(String::new());
     }
-
     // Parse datetime
     let naive_dt = if input_format == "auto" {
         parse_datetime_auto(datetime_str)?
     } else {
         NaiveDateTime::parse_from_str(datetime_str, input_format).ok()?
     };
-
     // Handle source timezone
     let utc_dt = if from_tz.to_lowercase() == "local" {
         match Local.from_local_datetime(&naive_dt) {
@@ -193,21 +176,17 @@ fn convert_timezone(
             chrono::LocalResult::None => return None,
         }
     };
-
     // Convert to target timezone
     let to_tz_parsed: Tz = to_tz.parse().ok()?;
     let target_dt = utc_dt.with_timezone(&to_tz_parsed);
-
     // Format output
     let format = if output_format == "auto" {
         "%Y-%m-%dT%H:%M:%S%.6f%:z" // ISO8601 with microsecond precision
     } else {
         output_format
     };
-
     Some(target_dt.format(format).to_string())
 }
-
 pub fn changetz(
     df: &LazyFrame,
     colname: &str,
@@ -225,34 +204,28 @@ pub fn changetz(
             std::process::exit(1);
         }
     };
-
     if !collected_df.schema().iter_names().any(|s| s == colname) {
         eprintln!("Error: Column '{colname}' not found for changetz operation");
         std::process::exit(1);
     }
-
     // Validate timezones
     if from_tz.to_lowercase() != "local" && from_tz.parse::<Tz>().is_err() {
         eprintln!("Error: Invalid source timezone '{from_tz}'");
         std::process::exit(1);
     }
-
     if to_tz.parse::<Tz>().is_err() {
         eprintln!("Error: Invalid target timezone '{to_tz}'");
         std::process::exit(1);
     }
-
     LogController::debug(&format!(
         "Converting timezone for column '{colname}': {from_tz} → {to_tz} (format: {input_format} → {output_format}, ambiguous: {ambiguous_time})"
     ));
-
     // Clone parameters for closure
     let from_tz = from_tz.to_string();
     let to_tz = to_tz.to_string();
     let input_format = input_format.to_string();
     let output_format = output_format.to_string();
     let ambiguous_time = ambiguous_time.to_string();
-
     // Apply timezone conversion
     df.clone().with_column(
         col(colname)

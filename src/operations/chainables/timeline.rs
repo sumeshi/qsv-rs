@@ -1,7 +1,6 @@
 use crate::controllers::log::LogController;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use polars::prelude::*;
-
 pub fn timeline(
     df: &LazyFrame,
     time_column: &str,
@@ -16,7 +15,6 @@ pub fn timeline(
             std::process::exit(1);
         }
     };
-
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == time_column) {
         eprintln!(
@@ -24,7 +22,6 @@ pub fn timeline(
         );
         std::process::exit(1);
     }
-
     // Parse interval (e.g., "1h", "5m", "30s")
     let interval_duration = parse_interval(interval);
     if interval_duration.is_none() {
@@ -32,11 +29,9 @@ pub fn timeline(
         std::process::exit(1);
     }
     let interval_duration = interval_duration.unwrap();
-
     LogController::debug(&format!(
         "Creating timeline: column={time_column}, interval={interval}, aggregation={agg_type}"
     ));
-
     // Convert to LazyFrame and perform timeline aggregation
     let bucket_column_name = format!("timeline_{interval}");
     let timeline_expr = col(time_column)
@@ -45,7 +40,6 @@ pub fn timeline(
             move |s_col: Column| {
                 let ca = s_col.str()?;
                 let mut timeline_buckets: Vec<Option<String>> = Vec::new();
-
                 for opt_time_str in ca.into_iter() {
                     if let Some(time_str) = opt_time_str {
                         if let Some(bucket) = time_to_bucket(time_str, interval_duration) {
@@ -57,7 +51,6 @@ pub fn timeline(
                         timeline_buckets.push(None);
                     }
                 }
-
                 Ok(Some(
                     Series::new("timeline_bucket".into(), timeline_buckets).into(),
                 ))
@@ -65,16 +58,13 @@ pub fn timeline(
             GetOutput::from_type(DataType::String),
         )
         .alias(&bucket_column_name);
-
     let mut agg_exprs = vec![len().alias("count")];
-
     // Add aggregation column if specified
     if let Some(agg_col) = agg_column {
         if !schema.iter_names().any(|s| s == agg_col) {
             eprintln!("Error: Aggregation column '{agg_col}' not found in DataFrame");
             std::process::exit(1);
         }
-
         let agg_expr = match agg_type {
             "sum" => col(agg_col)
                 .cast(DataType::Float64)
@@ -105,19 +95,16 @@ pub fn timeline(
         };
         agg_exprs.push(agg_expr);
     }
-
     df.clone()
         .with_column(timeline_expr)
         .group_by([col(&bucket_column_name)])
         .agg(agg_exprs)
         .sort([&bucket_column_name], SortMultipleOptions::default())
 }
-
 fn parse_interval(interval: &str) -> Option<Duration> {
     if interval.is_empty() {
         return None;
     }
-
     let (num_str, unit) = if let Some(stripped) = interval.strip_suffix("ms") {
         (stripped, "ms")
     } else {
@@ -126,9 +113,7 @@ fn parse_interval(interval: &str) -> Option<Duration> {
             &interval[interval.len() - 1..],
         )
     };
-
     let num: i64 = num_str.parse().ok()?;
-
     match unit {
         "s" => Some(Duration::seconds(num)),
         "m" => Some(Duration::minutes(num)),
@@ -138,7 +123,6 @@ fn parse_interval(interval: &str) -> Option<Duration> {
         _ => None,
     }
 }
-
 fn time_to_bucket(time_str: &str, interval: Duration) -> Option<String> {
     // Try multiple datetime formats
     let formats = [
@@ -151,35 +135,28 @@ fn time_to_bucket(time_str: &str, interval: Duration) -> Option<String> {
         "%Y-%m-%d",
         "%H:%M:%S",
     ];
-
     let mut parsed_time: Option<NaiveDateTime> = None;
-
     for format in &formats {
         if let Ok(dt) = NaiveDateTime::parse_from_str(time_str, format) {
             parsed_time = Some(dt);
             break;
         }
     }
-
     if parsed_time.is_none() {
         // Try parsing as timestamp
         if let Ok(timestamp) = time_str.parse::<i64>() {
             parsed_time = DateTime::from_timestamp(timestamp, 0).map(|dt| dt.naive_utc());
         }
     }
-
     let dt = parsed_time?;
     let dt_utc = DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc);
-
     // Round down to interval boundary
     let interval_seconds = interval.num_seconds();
     if interval_seconds <= 0 {
         return None;
     }
-
     let timestamp = dt_utc.timestamp();
     let bucket_timestamp = (timestamp / interval_seconds) * interval_seconds;
     let bucket_dt = DateTime::from_timestamp(bucket_timestamp, 0)?;
-
     Some(bucket_dt.format("%Y-%m-%d %H:%M:%S").to_string())
 }

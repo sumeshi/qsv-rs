@@ -1,7 +1,6 @@
 use crate::controllers::log::LogController;
 use polars::prelude::*;
 use regex::Regex;
-
 pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
@@ -15,7 +14,6 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
         .iter_names()
         .map(|s| s.to_string())
         .collect();
-
     LogController::debug(&format!(
         "Filtering rows where any column {} pattern '{}' (case-insensitive: {})",
         if is_inverted {
@@ -26,13 +24,11 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
         pattern,
         ignorecase
     ));
-
     let re_pattern = if ignorecase {
         format!("(?i){pattern}")
     } else {
         pattern.to_string()
     };
-
     let re = match Regex::new(&re_pattern) {
         Ok(r) => r,
         Err(e) => {
@@ -40,9 +36,7 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
             std::process::exit(1);
         }
     };
-
     let mut expr_list: Vec<Expr> = Vec::new();
-
     for colname in all_column_names.iter() {
         let re_clone = re.clone();
         let expr = col(colname)
@@ -63,18 +57,15 @@ pub fn grep(df: &LazyFrame, pattern: &str, ignorecase: bool, is_inverted: bool) 
             .alias(format!("{colname}_matches_pattern"));
         expr_list.push(expr);
     }
-
     if expr_list.is_empty() {
         return df.clone(); // No columns to filter on, return original
     }
-
     // Combine filter expressions using OR logic
     // any_horizontal is replaced by folding with OR
     let combined_filter_expr = expr_list
         .into_iter()
         .reduce(|acc, expr| acc.or(expr))
         .unwrap();
-
     if is_inverted {
         df.clone().filter(combined_filter_expr.not())
     } else {

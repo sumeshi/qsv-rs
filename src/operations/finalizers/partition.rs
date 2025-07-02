@@ -2,7 +2,6 @@ use crate::controllers::log::LogController;
 use polars::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
-
 pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
     // Collect the DataFrame to access the data
     let collected_df = match df.clone().collect() {
@@ -12,24 +11,20 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
             std::process::exit(1);
         }
     };
-
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == colname) {
         eprintln!("Error: Column '{colname}' not found in DataFrame for partition operation");
         std::process::exit(1);
     }
-
     LogController::debug(&format!(
         "Partitioning data by column '{colname}' into directory '{output_dir}'"
     ));
-
     // Create output directory if it doesn't exist
     let output_path = Path::new(output_dir);
     if let Err(e) = fs::create_dir_all(output_path) {
         eprintln!("Error creating output directory '{output_dir}': {e}");
         std::process::exit(1);
     }
-
     // Get unique values in the partition column
     let unique_values = match collected_df
         .clone()
@@ -44,7 +39,6 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
             std::process::exit(1);
         }
     };
-
     let partition_column = match unique_values.column(colname) {
         Ok(col) => col,
         Err(e) => {
@@ -52,7 +46,6 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
             std::process::exit(1);
         }
     };
-
     // Convert column values to strings for file naming
     let mut partition_values = Vec::new();
     for i in 0..partition_column.len() {
@@ -79,21 +72,18 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
         };
         partition_values.push(value);
     }
-
     LogController::info(&format!(
         "Found {} unique values in column '{}': {:?}",
         partition_values.len(),
         colname,
         partition_values
     ));
-
     // Create a file for each unique value
     let mut files_created = 0;
     for value in partition_values {
         // Sanitize filename (remove/replace invalid characters)
         let safe_filename = sanitize_filename(&value);
         let output_file = output_path.join(format!("{safe_filename}.csv"));
-
         // Filter data for this partition value
         let filtered_df = match collected_df
             .clone()
@@ -109,7 +99,6 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
                 continue;
             }
         };
-
         // Write to CSV file
         match write_csv_file(&filtered_df, &output_file) {
             Ok(_) => {
@@ -129,12 +118,10 @@ pub fn partition(df: &LazyFrame, colname: &str, output_dir: &str) {
             }
         }
     }
-
     LogController::info(&format!(
         "Partition complete: {files_created} files created in '{output_dir}'"
     ));
 }
-
 fn sanitize_filename(filename: &str) -> String {
     // Replace invalid filename characters with underscores
     filename
@@ -148,19 +135,15 @@ fn sanitize_filename(filename: &str) -> String {
         .trim()
         .to_string()
 }
-
 fn write_csv_file(df: &DataFrame, output_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     use polars::prelude::CsvWriter;
     use polars::prelude::SerWriter;
     use std::fs::File;
-
     let file = File::create(output_path)?;
     let mut df_clone = df.clone();
-
     CsvWriter::new(file)
         .include_header(true)
         .finish(&mut df_clone)
         .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
-
     Ok(())
 }

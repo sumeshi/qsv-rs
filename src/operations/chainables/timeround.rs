@@ -1,5 +1,4 @@
 use polars::prelude::*;
-
 pub fn timeround(
     df: &LazyFrame,
     colname: &str,
@@ -19,9 +18,7 @@ pub fn timeround(
             std::process::exit(1);
         }
     };
-
     let output_col = output_colname.unwrap_or(colname);
-
     df.clone().with_columns([col(colname)
         .str()
         .to_datetime(

@@ -67,15 +67,20 @@ $ qsv load data.csv - select col1,col2 - head 5 - showtable
 ### Initializers
 
 #### `load`
-Load one or more CSV files.
+Load one or more CSV or Parquet files.
+
+**Supported formats:**
+- CSV files (.csv, .tsv, .txt)
+- Gzipped CSV files (.csv.gz)
+- Parquet files (.parquet) - high performance, preserves data types
 
 | Parameter     | Type        | Default | Description                                      |
 |---------------|-------------|---------|--------------------------------------------------|
-| path          | list[str] |         | One or more paths to CSV files. Glob patterns are supported. Gzip files (.gz) are automatically detected and decompressed. |
-| -s, --separator | str       | `,`     | Field separator character.                       |
-| --low-memory  | flag    | `false` | Enable low-memory mode for very large files.     |
-| --no-headers  | flag    | `false` | Treat the first row as data, not headers. When enabled, columns will be named automatically (column_0, column_1, etc.). |
-| --chunk-size  | int     | (auto)  | Number of rows to read per chunk. Controls memory usage during file processing. Smaller values use less memory but increase I/O operations. |
+| path          | list[str] |         | One or more paths to CSV or Parquet files. Glob patterns are supported. Cannot mix CSV and Parquet files in the same command. |
+| -s, --separator | str       | `,`     | Field separator character (CSV files only).     |
+| --low-memory  | flag    | `false` | Enable low-memory mode for very large files (CSV files only). |
+| --no-headers  | flag    | `false` | Treat the first row as data, not headers (CSV files only). When enabled, columns will be named automatically (column_0, column_1, etc.). |
+| --chunk-size  | int     | (auto)  | Number of rows to read per chunk (CSV files only). Controls memory usage during file processing. |
 
 Example:
 ```bash
@@ -87,6 +92,8 @@ $ qsv load logs/*.tsv --separator=\t
 $ qsv load data.csv --low-memory
 $ qsv load data.csv --no-headers
 $ qsv load data.csv --chunk-size 50000
+$ qsv load cache.parquet                              # Load from parquet cache
+$ qsv load cache1.parquet cache2.parquet              # Load multiple parquet files
 ```
 
 ### Chainable Functions
@@ -539,6 +546,29 @@ Example:
 $ qsv load data.csv - head 100 - dump -o results.csv
 $ qsv load data.csv - head 100 - dump --output results.csv
 $ qsv load data.csv - head 100 - dump -o results.csv -s ';'
+```
+
+#### `dumpcache`
+Saves the processing results as a Parquet cache file for fast reloading.
+
+**Features:**
+- Saves DataFrame as compressed Parquet format
+- Preserves data types (unlike CSV)
+- High-performance for large datasets
+- Can be loaded back using the `load` command
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| -o, --output | str | `cache_<timestamp>.parquet` | Output file path (optional). Extension will be changed to .parquet if not specified. |
+
+Example:
+```bash
+$ qsv load data.csv - head 100 - dumpcache                 # Auto-named cache file
+$ qsv load data.csv - select col1,col2 - dumpcache -o cache.parquet
+$ qsv load data.csv - sort col1 - dumpcache --output processed_data
+
+# Load from cache for fast access
+$ qsv load cache.parquet - show
 ```
 
 ### Quilt (YAML Workflows)

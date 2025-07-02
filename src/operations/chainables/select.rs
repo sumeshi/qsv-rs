@@ -1,6 +1,5 @@
 use crate::controllers::log::LogController;
 use polars::prelude::*;
-
 pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
@@ -11,7 +10,6 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
     };
     let schema = collected_df.schema();
     let available_columns: Vec<String> = schema.iter_names().map(|s| s.to_string()).collect();
-
     // Expand column names to handle colon notation, quoted colon notation, and numeric indices
     let mut expanded_colnames = Vec::new();
     for colname in colnames {
@@ -48,7 +46,6 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
             }
         }
     }
-
     // Validate all expanded column names exist
     for colname in &expanded_colnames {
         if !schema.iter_names().any(|s| s == colname) {
@@ -56,9 +53,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
             std::process::exit(1);
         }
     }
-
     let mut selected_cols: Vec<Expr> = Vec::new();
-
     for name in &expanded_colnames {
         if available_columns.contains(name) {
             selected_cols.push(col(name));
@@ -66,20 +61,16 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
             LogController::warn(&format!("Column '{name}' not found in DataFrame."));
         }
     }
-
     if selected_cols.is_empty() {
         LogController::warn("No valid columns selected. Returning original DataFrame.");
         return df.clone();
     }
-
     df.clone().select(&selected_cols)
 }
-
 // Helper function to check if a string is a numeric index
 fn is_numeric_index(s: &str) -> bool {
     s.parse::<usize>().is_ok()
 }
-
 // Helper function to check if a string is a numeric range (e.g., "1:3")
 fn is_numeric_range(s: &str) -> bool {
     if let Some((start, end)) = s.split_once(':') {
@@ -88,7 +79,6 @@ fn is_numeric_range(s: &str) -> bool {
         false
     }
 }
-
 // Helper function to parse a single numeric index to column name
 fn parse_single_numeric_index(index_str: &str, available_columns: &[String]) -> Option<String> {
     if let Ok(index) = index_str.parse::<usize>() {
@@ -101,19 +91,16 @@ fn parse_single_numeric_index(index_str: &str, available_columns: &[String]) -> 
         None
     }
 }
-
 // Helper function to parse numeric ranges (1:3)
 fn parse_numeric_range(range_str: &str, available_columns: &[String]) -> Vec<String> {
     if let Some((start_str, end_str)) = range_str.split_once(':') {
         let start_str = start_str.trim();
         let end_str = end_str.trim();
-
         if let (Ok(start_idx), Ok(end_idx)) = (start_str.parse::<usize>(), end_str.parse::<usize>())
         {
             // Convert 1-based indices to 0-based
             let start_zero_based = if start_idx > 0 { start_idx - 1 } else { 0 };
             let end_zero_based = if end_idx > 0 { end_idx - 1 } else { 0 };
-
             if start_zero_based < available_columns.len()
                 && end_zero_based < available_columns.len()
                 && start_zero_based <= end_zero_based
@@ -128,17 +115,14 @@ fn parse_numeric_range(range_str: &str, available_columns: &[String]) -> Vec<Str
             LogController::warn(&format!("Invalid numeric range format: {range_str}"));
         }
     }
-
     // If parsing fails, return empty vector
     vec![]
 }
-
 // Helper function to parse colon-separated ranges (col1:col3)
 pub fn parse_colon_range(range_str: &str, available_columns: &[String]) -> Vec<String> {
     if let Some((start_col, end_col)) = range_str.split_once(':') {
         let start_col = start_col.trim();
         let end_col = end_col.trim();
-
         // Find indices of start and end columns
         if let (Some(start_idx), Some(end_idx)) = (
             available_columns.iter().position(|c| c == start_col),
@@ -157,11 +141,9 @@ pub fn parse_colon_range(range_str: &str, available_columns: &[String]) -> Vec<S
             ));
         }
     }
-
     // If parsing fails, return the original string as a single column
     vec![range_str.to_string()]
 }
-
 // Helper function to parse quoted colon-separated ranges ("col1":"col3")
 pub fn parse_quoted_colon_range(
     start_col: &str,
@@ -185,7 +167,6 @@ pub fn parse_quoted_colon_range(
             "Quoted column range '\"{start_col}\":\"{end_col}\"' contains invalid column names"
         ));
     }
-
     // If parsing fails, return the original column names
     vec![start_col.to_string(), end_col.to_string()]
 }

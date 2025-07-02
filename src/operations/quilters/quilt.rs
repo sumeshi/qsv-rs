@@ -6,7 +6,6 @@ use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-
 // Re-import operations to call them directly with LazyFrame
 use crate::operations::chainables::{
     changetz, contains, count, grep, head, isin, pivot, renamecol, sed, select, sort, tail,
@@ -17,15 +16,12 @@ use crate::operations::finalizers::{
     showquery as showquery_op, showtable as showtable_op, stats as stats_op,
 };
 use crate::operations::initializers::load as load_op;
-
 // Type alias for chainable operation functions
 type ChainableOperation = fn(&LazyFrame, &Value) -> LazyFrame;
 type FinalizerOperation = fn(&LazyFrame, &Value);
-
 // Create a dispatch table for chainable operations
 fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation> {
     let mut table: HashMap<&'static str, ChainableOperation> = HashMap::new();
-
     table.insert("select", |df, args| {
         let colnames = if let Some(colnames_str) = get_string_from_value(args, "colnames") {
             colnames_str
@@ -39,20 +35,17 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
         };
         select::select(df, &colnames)
     });
-
     table.insert("isin", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
         let values = get_string_vec_from_value(args, "values").unwrap_or_default();
         isin::isin(df, &colname, &values)
     });
-
     table.insert("contains", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
         let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
         let ignorecase = get_bool_from_value(args, "ignorecase");
         contains::contains(df, &colname, &pattern, ignorecase)
     });
-
     table.insert("sed", |df, args| {
         let colname = get_string_from_value(args, "colname");
         let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
@@ -60,28 +53,24 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
         let ignorecase = get_bool_from_value(args, "ignorecase");
         sed::sed(df, colname.as_deref(), &pattern, &replacement, ignorecase)
     });
-
     table.insert("grep", |df, args| {
         let pattern = get_string_from_value(args, "pattern").unwrap_or_default();
         let ignorecase = get_bool_from_value(args, "ignorecase");
         let is_inverted = get_bool_from_value(args, "invert_match");
         grep::grep(df, &pattern, ignorecase, is_inverted)
     });
-
     table.insert("head", |df, args| {
         let n = get_usize_from_value(args, "number")
             .or_else(|| args.as_u64().and_then(|u| usize::try_from(u).ok()))
             .unwrap_or(5);
         head::head(df, n)
     });
-
     table.insert("tail", |df, args| {
         let n = get_usize_from_value(args, "number")
             .or_else(|| args.as_u64().and_then(|u| usize::try_from(u).ok()))
             .unwrap_or(5);
         tail::tail(df, n)
     });
-
     table.insert("sort", |df, args| {
         let colnames = if let Some(colnames_str) = get_string_from_value(args, "colnames") {
             colnames_str
@@ -96,11 +85,8 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
         let desc = get_bool_from_value(args, "desc");
         sort::sort(df, &colnames, desc)
     });
-
     table.insert("count", |df, _args| count::count(df));
-
     table.insert("uniq", |df, _args| uniq::uniq(df));
-
     table.insert("changetz", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
         let from_tz = get_string_from_value(args, "from-tz").unwrap_or_default();
@@ -121,7 +107,6 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
             ambiguous.as_deref().unwrap_or("earliest"),
         )
     });
-
     table.insert("renamecol", |df, args| {
         let old_name = get_string_from_value(args, "old_name")
             .or_else(|| get_string_from_value(args, "from"))
@@ -131,7 +116,6 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
             .unwrap_or_default();
         renamecol::renamecol(df, &old_name, &new_name)
     });
-
     table.insert("timeline", |df, args| {
         let time_column = get_string_from_value(args, "time_column").unwrap_or_default();
         let interval = get_string_from_value(args, "interval").unwrap_or_default();
@@ -146,14 +130,12 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
             agg_column.as_deref(),
         )
     });
-
     table.insert("timeslice", |df, args| {
         let time_column = get_string_from_value(args, "time_column").unwrap_or_default();
         let start_time = get_string_from_value(args, "start");
         let end_time = get_string_from_value(args, "end");
         timeslice::timeslice(df, &time_column, start_time.as_deref(), end_time.as_deref())
     });
-
     table.insert("pivot", |df, args| {
         let rows_str = get_string_from_value(args, "rows").unwrap_or_default();
         let cols_str = get_string_from_value(args, "cols")
@@ -165,50 +147,39 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
         let agg_func = get_string_from_value(args, "agg")
             .or_else(|| get_string_from_value(args, "aggregation"))
             .unwrap_or_else(|| "sum".to_string());
-
         let rows: Vec<String> = if rows_str.is_empty() {
             Vec::new()
         } else {
             rows_str.split(',').map(|s| s.trim().to_string()).collect()
         };
-
         let columns: Vec<String> = if cols_str.is_empty() {
             Vec::new()
         } else {
             cols_str.split(',').map(|s| s.trim().to_string()).collect()
         };
-
         pivot::pivot(df, &rows, &columns, &values, &agg_func)
     });
-
     table
 }
-
 // Create a dispatch table for finalizer operations
 fn create_finalizer_dispatch_table() -> HashMap<&'static str, FinalizerOperation> {
     let mut table: HashMap<&'static str, FinalizerOperation> = HashMap::new();
-
     table.insert("show", |df, _args| {
         show_op::show(df);
     });
-
     table.insert("showtable", |df, _args| {
         showtable_op::showtable(df);
     });
-
     table.insert("headers", |df, args| {
         let plain = get_bool_from_value(args, "plain");
         headers_op::headers(df, plain);
     });
-
     table.insert("stats", |df, _args| {
         stats_op::stats(df);
     });
-
     table.insert("showquery", |df, _args| {
         showquery_op::showquery(df);
     });
-
     table.insert("dump", |df, args| {
         let path_from_yaml = get_string_from_value(args, "path")
             .or_else(|| get_string_from_value(args, "output"))
@@ -218,7 +189,6 @@ fn create_finalizer_dispatch_table() -> HashMap<&'static str, FinalizerOperation
             .unwrap_or(',');
         dump_op::dump(df, &path_from_yaml, separator);
     });
-
     table.insert("partition", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
         let output_dir = get_string_from_value(args, "output_dir")
@@ -226,10 +196,8 @@ fn create_finalizer_dispatch_table() -> HashMap<&'static str, FinalizerOperation
             .unwrap_or_else(|| "./partitions".to_string());
         partition_op::partition(df, &colname, &output_dir);
     });
-
     table
 }
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QuiltConfig {
     pub title: String,
@@ -238,7 +206,6 @@ pub struct QuiltConfig {
     pub author: Option<String>,
     pub stages: serde_yaml::Mapping,
 }
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StageConfig {
     #[serde(rename = "type")]
@@ -248,11 +215,9 @@ pub struct StageConfig {
     pub params: Option<Value>,
     pub steps: Option<serde_yaml::Mapping>,
 }
-
 fn get_string_from_value(val: &Value, key: &str) -> Option<String> {
     val.get(key).and_then(|v| v.as_str().map(String::from))
 }
-
 fn get_string_vec_from_value(val: &Value, key: &str) -> Option<Vec<String>> {
     val.get(key).and_then(|v| v.as_sequence()).map(|seq| {
         seq.iter()
@@ -260,16 +225,13 @@ fn get_string_vec_from_value(val: &Value, key: &str) -> Option<Vec<String>> {
             .collect()
     })
 }
-
 fn get_bool_from_value(val: &Value, key: &str) -> bool {
     val.get(key).and_then(|v| v.as_bool()).unwrap_or(false)
 }
-
 fn get_usize_from_value(val: &Value, key: &str) -> Option<usize> {
     val.get(key)
         .and_then(|v| v.as_u64().and_then(|u| usize::try_from(u).ok()))
 }
-
 pub fn quilt(
     controller: &mut DataFrameController,
     config_path_str: &str,
@@ -284,7 +246,6 @@ pub fn quilt(
             std::process::exit(1);
         }
     };
-
     let quilt_config: QuiltConfig = match serde_yaml::from_str(&config_content) {
         Ok(config) => config,
         Err(e) => {
@@ -292,16 +253,13 @@ pub fn quilt(
             std::process::exit(1);
         }
     };
-
     LogController::info(&format!(
         "Executing quilt '{}' with {} stage entries in YAML",
         quilt_config.title,
         quilt_config.stages.len()
     ));
-
     let mut stage_results: HashMap<String, LazyFrame> = HashMap::new();
     let mut last_processed_df: Option<LazyFrame> = None;
-
     for (stage_name_val, stage_config_val) in &quilt_config.stages {
         let stage_name = stage_name_val
             .as_str()
@@ -316,14 +274,11 @@ pub fn quilt(
                 continue;
             }
         };
-
         LogController::debug(&format!(
             "Processing stage: {} (type: {})",
             stage_name, stage_config.stage_type
         ));
-
         let mut current_stage_input_df: Option<LazyFrame> = None;
-
         if let Some(source_name) = &stage_config.source {
             if let Some(df) = stage_results.get(source_name) {
                 current_stage_input_df = Some(df.clone());
@@ -337,14 +292,11 @@ pub fn quilt(
                 continue;
             }
         }
-
         let mut stage_output_df: Option<LazyFrame> = current_stage_input_df.clone();
-
         if stage_config.stage_type == "process" {
             // Create dispatch tables
             let chainable_ops = create_chainable_dispatch_table();
             let finalizer_ops = create_finalizer_dispatch_table();
-
             if let Some(steps) = &stage_config.steps {
                 for (command_name_val, command_args_val) in steps {
                     // Handle command name with trailing underscores (for duplicates)
@@ -354,21 +306,17 @@ pub fn quilt(
                     } else {
                         raw_command_name
                     };
-
                     LogController::debug(&format!(
                         "Applying step: {command_name} to stage '{stage_name}'"
                     ));
-
                     if command_name != "load" && stage_output_df.is_none() {
                         LogController::error(&format!("No DataFrame available for step '{command_name}' in stage '{stage_name}'. Load data first or specify a valid source. Skipping step."));
                         continue;
                     }
-
                     match command_name {
                         "load" => {
                             let file_to_load_str = get_string_from_value(command_args_val, "path");
                             let mut loaded_df: Option<LazyFrame> = None;
-
                             if let Some(file_str) = file_to_load_str {
                                 let source_path = Path::new(&file_str);
                                 let path_to_load = if source_path.is_absolute() {
@@ -380,7 +328,6 @@ pub fn quilt(
                                         .join(source_path)
                                 };
                                 LogController::debug(&format!("Loading data from: {} (specified in quilt YAML for stage '{}')", path_to_load.display(), stage_name));
-
                                 let separator =
                                     get_string_from_value(command_args_val, "separator")
                                         .unwrap_or_else(|| ",".to_string());
@@ -390,7 +337,6 @@ pub fn quilt(
                                     get_bool_from_value(command_args_val, "no_headers");
                                 let chunk_size =
                                     get_usize_from_value(command_args_val, "chunk_size");
-
                                 loaded_df = Some(load_op::load(
                                     &[path_to_load],
                                     &separator,
@@ -473,14 +419,12 @@ pub fn quilt(
                 if sources_string_vec.len() == 2 {
                     let left_name: &str = sources_string_vec[0].as_str();
                     let right_name: &str = sources_string_vec[1].as_str();
-
                     if left_name.is_empty() || right_name.is_empty() {
                         LogController::error(&format!(
                             "Join stage '{stage_name}' has empty source names. Skipping."
                         ));
                         continue;
                     }
-
                     if let (Some(left_df), Some(right_df)) =
                         (stage_results.get(left_name), stage_results.get(right_name))
                     {
@@ -491,7 +435,6 @@ pub fn quilt(
                         let key_col_name = join_params
                             .and_then(|p| get_string_from_value(p, "key"))
                             .or_else(|| join_params.and_then(|p| get_string_from_value(p, "on")));
-
                         if key_col_name.is_none() {
                             LogController::error(&format!(
                                 "Join stage '{stage_name}' missing 'key' (or 'on') parameter. Skipping."
@@ -499,7 +442,6 @@ pub fn quilt(
                             continue;
                         }
                         let key = key_col_name.unwrap();
-
                         let join_type = match how_str.to_lowercase().as_str() {
                             "inner" => JoinType::Inner,
                             "left" => JoinType::Left,
@@ -509,18 +451,15 @@ pub fn quilt(
                                 JoinType::Inner
                             }
                         };
-
                         let coalesce = join_params
                             .and_then(|p| p.get("coalesce"))
                             .and_then(|v| v.as_bool())
                             .unwrap_or(false);
-
                         let mut join_args = polars::prelude::JoinArgs::new(join_type);
                         if coalesce {
                             join_args = join_args
                                 .with_coalesce(polars::prelude::JoinCoalesce::CoalesceColumns);
                         }
-
                         let joined_df_result = left_df.clone().join(
                             right_df.clone(),
                             &[col(&key)],
@@ -562,7 +501,6 @@ pub fn quilt(
                 stage_config.stage_type, stage_name
             ));
         }
-
         if let Some(df_to_store) = &stage_output_df {
             stage_results.insert(stage_name.clone(), df_to_store.clone());
             last_processed_df = Some(df_to_store.clone());
@@ -575,12 +513,10 @@ pub fn quilt(
             ));
         }
     }
-
     LogController::info(&format!(
         "Quilt '{}' execution processing finished.",
         quilt_config.title
     ));
-
     if let Some(path_str) = output_path_str {
         if let Some(final_df_to_dump) = last_processed_df {
             LogController::info(&format!("Saving final quilt output to: {path_str}"));
@@ -592,7 +528,6 @@ pub fn quilt(
                     .unwrap_or_else(|_| Path::new(".").to_path_buf())
                     .join(final_output_path)
             };
-
             if let Some(parent) = absolute_path.parent() {
                 if !parent.exists() {
                     if let Err(e) = std::fs::create_dir_all(parent) {

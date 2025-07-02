@@ -3,12 +3,10 @@ use polars::prelude::*;
 use serde_json::Value as JsonValue;
 use serde_xml_rs::from_str as xml_from_str;
 use serde_yaml;
-
 pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str) -> LazyFrame {
     LogController::debug(&format!(
         "Converting column '{colname}' from {from_format} to {to_format}"
     ));
-
     let collected_df = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
@@ -16,24 +14,20 @@ pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str
             std::process::exit(1);
         }
     };
-
     let schema = collected_df.schema();
     if !schema.iter_names().any(|s| s == colname) {
         eprintln!("Error: Column '{colname}' not found in DataFrame for convert operation");
         std::process::exit(1);
     }
-
     // Create the conversion expression - replace the original column
     let from_format_owned = from_format.to_string();
     let to_format_owned = to_format.to_string();
-
     let conversion_expr = col(colname)
         .cast(DataType::String)
         .map(
             move |s_col: Column| {
                 let ca = s_col.str()?;
                 let mut converted_values: Vec<Option<String>> = Vec::new();
-
                 for opt_str in ca.into_iter() {
                     if let Some(input_str) = opt_str {
                         let converted_result =
@@ -43,7 +37,6 @@ pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str
                         converted_values.push(None);
                     }
                 }
-
                 Ok(Some(
                     Series::new("converted".into(), converted_values).into(),
                 ))
@@ -51,10 +44,8 @@ pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str
             GetOutput::from_type(DataType::String),
         )
         .alias(colname); // Use original column name to replace it
-
     df.clone().with_column(conversion_expr)
 }
-
 fn convert_format(input_str: &str, from_format: &str, to_format: &str) -> String {
     match (
         from_format.to_lowercase().as_str(),
@@ -79,11 +70,9 @@ fn convert_format(input_str: &str, from_format: &str, to_format: &str) -> String
         }
     }
 }
-
 fn convert_json_to_yaml(json_str: &str) -> String {
     // First, try to clean up the JSON string
     let cleaned_json = clean_json_string(json_str);
-
     // Try to parse as JSON
     match serde_json::from_str::<JsonValue>(&cleaned_json) {
         Ok(json_value) => {
@@ -109,7 +98,6 @@ fn convert_json_to_yaml(json_str: &str) -> String {
         }
     }
 }
-
 fn convert_yaml_to_json(yaml_str: &str) -> String {
     // Try to parse as YAML
     match serde_yaml::from_str::<JsonValue>(yaml_str) {
@@ -129,11 +117,9 @@ fn convert_yaml_to_json(yaml_str: &str) -> String {
         }
     }
 }
-
 fn convert_json_to_xml(json_str: &str) -> String {
     // First, try to clean up the JSON string
     let cleaned_json = clean_json_string(json_str);
-
     // Try to parse as JSON
     match serde_json::from_str::<JsonValue>(&cleaned_json) {
         Ok(json_value) => {
@@ -146,7 +132,6 @@ fn convert_json_to_xml(json_str: &str) -> String {
         }
     }
 }
-
 fn convert_xml_to_json(xml_str: &str) -> String {
     // Try to parse as XML
     match xml_from_str::<JsonValue>(xml_str) {
@@ -166,7 +151,6 @@ fn convert_xml_to_json(xml_str: &str) -> String {
         }
     }
 }
-
 fn convert_yaml_to_xml(yaml_str: &str) -> String {
     // YAML -> JSON -> XML
     match serde_yaml::from_str::<JsonValue>(yaml_str) {
@@ -180,7 +164,6 @@ fn convert_yaml_to_xml(yaml_str: &str) -> String {
         }
     }
 }
-
 fn convert_xml_to_yaml(xml_str: &str) -> String {
     // XML -> JSON -> YAML
     match xml_from_str::<JsonValue>(xml_str) {
@@ -201,10 +184,8 @@ fn convert_xml_to_yaml(xml_str: &str) -> String {
         }
     }
 }
-
 fn clean_json_string(json_str: &str) -> String {
     let mut cleaned = json_str.trim().to_string();
-
     // Remove surrounding quotes if they exist and are not part of the JSON
     if cleaned.starts_with('"') && cleaned.ends_with('"') && cleaned.len() > 1 {
         // Check if this is a quoted JSON string
@@ -213,21 +194,17 @@ fn clean_json_string(json_str: &str) -> String {
             cleaned = inner.to_string();
         }
     }
-
     // Unescape common escape sequences
     cleaned = cleaned.replace("\\\"", "\"");
     cleaned = cleaned.replace("\\\\", "\\");
-
     // Try to fix common JSON formatting issues
     // Handle cases where quotes might be missing around keys
     if !cleaned.starts_with('{') && !cleaned.starts_with('[') {
         // If it doesn't look like JSON, wrap it as a string value
         cleaned = format!("\"{}\"", cleaned.replace("\"", "\\\""));
     }
-
     cleaned
 }
-
 fn json_value_to_xml(value: &JsonValue, _tag_name: &str) -> String {
     match value {
         JsonValue::Object(map) => {
@@ -255,7 +232,6 @@ fn json_value_to_xml(value: &JsonValue, _tag_name: &str) -> String {
         JsonValue::Null => String::new(),
     }
 }
-
 fn xml_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -263,11 +239,9 @@ fn xml_escape(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
 }
-
 fn format_json(json_str: &str) -> String {
     // Clean and format JSON
     let cleaned_json = clean_json_string(json_str);
-
     match serde_json::from_str::<JsonValue>(&cleaned_json) {
         Ok(json_value) => match serde_json::to_string_pretty(&json_value) {
             Ok(formatted) => formatted,
@@ -282,7 +256,6 @@ fn format_json(json_str: &str) -> String {
         }
     }
 }
-
 fn format_yaml(yaml_str: &str) -> String {
     // Re-parse and format YAML
     match serde_yaml::from_str::<JsonValue>(yaml_str) {
@@ -303,7 +276,6 @@ fn format_yaml(yaml_str: &str) -> String {
         }
     }
 }
-
 fn format_xml(xml_str: &str) -> String {
     // Simple XML formatting - parse and regenerate
     match xml_from_str::<JsonValue>(xml_str) {

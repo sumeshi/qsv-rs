@@ -1,10 +1,8 @@
 use crate::controllers::log::LogController;
 use comfy_table::{presets::UTF8_FULL, Cell, Color, Table};
 use polars::prelude::*;
-
 pub fn stats(df: &LazyFrame) {
     LogController::debug("Calculating statistics for DataFrame manually");
-
     let df_collected = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
@@ -12,17 +10,14 @@ pub fn stats(df: &LazyFrame) {
             return;
         }
     };
-
     let mut table = Table::new();
     table.load_preset(UTF8_FULL);
-
     let column_names = df_collected.get_column_names();
     let mut header_cells = vec![Cell::new("Statistic").fg(Color::Green)];
     for name in column_names.iter() {
         header_cells.push(Cell::new(name).fg(Color::Green));
     }
     table.set_header(header_cells);
-
     let height = df_collected.height();
     let mut count_row = vec![Cell::new("count")];
     let mut null_count_row = vec![Cell::new("null_count")];
@@ -34,14 +29,11 @@ pub fn stats(df: &LazyFrame) {
     let mut p75_row = vec![Cell::new("75%")];
     let mut max_row = vec![Cell::new("max")];
     let mut dtype_row = vec![Cell::new("datatype")];
-
     for col_name in column_names {
         let series = df_collected.column(col_name).unwrap();
-
         count_row.push(Cell::new(height));
         null_count_row.push(Cell::new(series.null_count()));
         dtype_row.push(Cell::new(series.dtype().to_string()));
-
         if matches!(
             series.dtype(),
             DataType::Int8
@@ -58,7 +50,6 @@ pub fn stats(df: &LazyFrame) {
             // Polars upcasts all numeric types to Float64 for these operations or requires it
             // We'll try to cast to f64, if it fails for some numeric types (like i128), then skip numeric stats
             let s_f64 = series.cast(&DataType::Float64);
-
             if let Ok(s_f64) = s_f64 {
                 if let Ok(ca) = s_f64.f64() {
                     mean_row.push(Cell::new(
@@ -72,10 +63,8 @@ pub fn stats(df: &LazyFrame) {
                     min_row.push(Cell::new(
                         ca.min().map_or_else(|| "-".to_string(), |v| format!("{v}")),
                     ));
-
                     let quantiles = [0.25, 0.50, 0.75];
                     let interpolated = polars::prelude::QuantileMethod::Linear;
-
                     // Call quantile_reduce for each percentile
                     if let Ok(scalar_25) = s_f64.quantile_reduce(quantiles[0], interpolated) {
                         p25_row.push(Cell::new(
@@ -107,7 +96,6 @@ pub fn stats(df: &LazyFrame) {
                     } else {
                         p75_row.push(Cell::new("-"));
                     }
-
                     max_row.push(Cell::new(
                         ca.max().map_or_else(|| "-".to_string(), |v| format!("{v}")),
                     ));
@@ -162,7 +150,6 @@ pub fn stats(df: &LazyFrame) {
             p75_row.push(Cell::new("-"));
         }
     }
-
     table.add_row(count_row);
     table.add_row(null_count_row);
     table.add_row(dtype_row);
@@ -173,6 +160,5 @@ pub fn stats(df: &LazyFrame) {
     table.add_row(p50_row);
     table.add_row(p75_row);
     table.add_row(max_row);
-
     println!("{table}");
 }
