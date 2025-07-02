@@ -137,3 +137,41 @@ chainables = [
     TestNewFeature,  # <- Add here
 ]
 ```
+
+## Feature Development Requirements
+
+### Documentation Updates
+When adding new features or commands:
+- **ALWAYS update README.md** with comprehensive documentation including:
+  - Command usage and parameters  
+  - Examples showing typical use cases
+  - Integration with other commands
+- **ALWAYS update help text** in `command.rs` with:
+  - Detailed help functions for new commands
+  - Updated command listings in general help
+  - Consistent formatting with existing help text
+- **Verify documentation accuracy** by testing all examples provided
+
+### Documentation Standards
+- Keep README.md and help text synchronized
+- Include realistic, working examples
+- Document all parameters, options, and edge cases
+- Maintain consistent formatting and style
+
+## Mandatory Code Quality Rules
+
+### Warning Resolution
+- **ALL compiler warnings MUST be fixed before completion**
+- Remove unused code instead of allowing dead code warnings
+- Address performance, safety, and style warnings immediately
+
+### Testing and Verification
+- **ALWAYS run full execution tests before declaring completion**
+- Verify functionality works as expected after any code changes
+- Test both success and failure scenarios when applicable
+
+### Code Completion Standards
+- Only inform user of completion after ALL warnings are resolved
+- Only inform user of completion after execution tests pass
+- Only inform user of completion after documentation is updated
+- Provide clear verification that functionality works as intended
