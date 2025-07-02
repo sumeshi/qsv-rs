@@ -119,7 +119,29 @@ jobs:
     - name: Get version from tag
       id: get_version
       run: |
-        echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        echo "=== Debug: Checking version sources ==="
+        echo "github.ref: ${{ github.ref }}"
+        echo "auto-tag.should_release: ${{ needs.auto-tag.outputs.should_release }}"
+        echo "auto-tag.version: ${{ needs.auto-tag.outputs.version }}"
+        
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "Using tag version: $VERSION"
+        elif [[ "${{ needs.auto-tag.outputs.should_release }}" == "true" ]]; then
+          VERSION="${{ needs.auto-tag.outputs.version }}"
+          echo "Using auto-tag version: $VERSION"
+        else
+          echo "ERROR: No valid version found!"
+          exit 1
+        fi
+        
+        if [[ -z "$VERSION" ]]; then
+          echo "ERROR: VERSION is empty!"
+          exit 1
+        fi
+        
+        echo "Final VERSION: $VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
       shell: bash
       
     - name: Install musl tools (Linux)
@@ -145,7 +167,7 @@ jobs:
     - name: Build release binary
       run: cargo build --release --target ${{ matrix.target }}
       
-    - name: Prepare binary (Unix)
+    - name: Prepare binary (Linux)
       if: matrix.os != 'windows-latest'
       run: |
         cp target/${{ matrix.target }}/release/qsv ${{ matrix.name }}-${{ steps.get_version.outputs.VERSION }}
@@ -210,11 +232,30 @@ jobs:
     - name: Get version
       id: get_version
       run: |
+        echo "=== Debug: Checking version sources ==="
+        echo "github.ref: ${{ github.ref }}"
+        echo "auto-tag.should_release: ${{ needs.auto-tag.outputs.should_release }}"
+        echo "auto-tag.version: ${{ needs.auto-tag.outputs.version }}"
+        
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "Using tag version: $VERSION"
+        elif [[ "${{ needs.auto-tag.outputs.should_release }}" == "true" ]]; then
+          VERSION="${{ needs.auto-tag.outputs.version }}"
+          echo "Using auto-tag version: $VERSION"
         else
-          echo "VERSION=${{ needs.auto-tag.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "ERROR: No valid version found!"
+          exit 1
         fi
+        
+        if [[ -z "$VERSION" ]]; then
+          echo "ERROR: VERSION is empty!"
+          exit 1
+        fi
+        
+        echo "Final VERSION: $VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+      
 
     - name: Generate release notes
       id: release_notes
@@ -222,7 +263,7 @@ jobs:
         cat > release_notes.md << 'EOF'
         ## Quilter-CSV ${{ steps.get_version.outputs.VERSION }}
         
-        ### Core Features
+        ### Features
         - Pipeline-style command chaining: Chain multiple commands in a single line for fast and efficient data processing
         - Flexible filtering and transformation: Perform operations like select, filter, sort, deduplicate, and timezone conversion
         - YAML-based batch processing (Quilt): Automate complex workflows using YAML configuration files

@@ -2049,7 +2049,7 @@ dependencies = [
 
 [[package]]
 name = "qsv"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "chrono",
  "chrono-tz 0.8.6",
