@@ -188,24 +188,47 @@ fn convert_xml_to_yaml(xml_str: &str) -> String {
     }
 }
 fn clean_json_string(json_str: &str) -> String {
-    let mut cleaned = json_str.trim().to_string();
-    // Remove surrounding quotes if they exist and are not part of the JSON
+    let trimmed = json_str.trim();
+
+    // First, try to parse the string as-is
+    if serde_json::from_str::<JsonValue>(trimmed).is_ok() {
+        // If it's already valid JSON, don't modify it
+        return trimmed.to_string();
+    }
+
+    let mut cleaned = trimmed.to_string();
+
+    // Only apply cleaning if the original parse failed
+    // Remove surrounding quotes if they exist and contain JSON
     if cleaned.starts_with('"') && cleaned.ends_with('"') && cleaned.len() > 1 {
-        // Check if this is a quoted JSON string
         let inner = &cleaned[1..cleaned.len() - 1];
-        if inner.starts_with('{') && inner.ends_with('}') {
+        // Try parsing the inner content
+        if serde_json::from_str::<JsonValue>(inner).is_ok() {
             cleaned = inner.to_string();
+        } else {
+            // Try unescaping the inner content
+            let unescaped = inner.replace("\\\"", "\"").replace("\\\\", "\\");
+            if serde_json::from_str::<JsonValue>(&unescaped).is_ok() {
+                cleaned = unescaped;
+            }
         }
     }
-    // Unescape common escape sequences
-    cleaned = cleaned.replace("\\\"", "\"");
-    cleaned = cleaned.replace("\\\\", "\\");
-    // Try to fix common JSON formatting issues
-    // Handle cases where quotes might be missing around keys
-    if !cleaned.starts_with('{') && !cleaned.starts_with('[') {
-        // If it doesn't look like JSON, wrap it as a string value
-        cleaned = format!("\"{}\"", cleaned.replace("\"", "\\\""));
+
+    // If it's still not valid JSON after basic cleaning, try more aggressive cleaning
+    if serde_json::from_str::<JsonValue>(&cleaned).is_err() {
+        // Handle HTML/XML entities
+        cleaned = cleaned.replace("&amp;", "&");
+        cleaned = cleaned.replace("&lt;", "<");
+        cleaned = cleaned.replace("&gt;", ">");
+        cleaned = cleaned.replace("&quot;", "\"");
+        cleaned = cleaned.replace("&apos;", "'");
+
+        // If it still doesn't look like JSON, wrap it as a string value
+        if !cleaned.starts_with('{') && !cleaned.starts_with('[') && !cleaned.starts_with('"') {
+            cleaned = format!("\"{}\"", cleaned.replace("\"", "\\\""));
+        }
     }
+
     cleaned
 }
 fn json_value_to_xml(value: &JsonValue, _tag_name: &str) -> String {
