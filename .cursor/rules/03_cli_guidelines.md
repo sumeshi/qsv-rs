@@ -91,6 +91,18 @@ return Err(anyhow::anyhow!("CSV error: {}", e));
 - Use streaming/low-memory mode for large files with progress indicators
 - Polars lazy evaluation by default, collect only for output
 
+## Performance Considerations
+- Use lazy evaluation with Polars LazyFrame when possible
+- Avoid unnecessary data collection with `.collect()`
+- Implement streaming/batching for large datasets (>1GB)
+- Use parallel processing with rayon for multi-file operations
+
+## Memory Management
+- Default batch size: 1GB for streaming operations
+- Support configurable batch sizes (1MB-10GB range)
+- Use traditional methods for datasets that fit in memory
+- Implement fallback mechanisms for large dataset operations
+
 ## Testing CLI Commands
 
 ### Integration Tests

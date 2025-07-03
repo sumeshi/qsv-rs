@@ -166,7 +166,11 @@ When adding new features or commands:
 - Address performance, safety, and style warnings immediately
 
 ### Testing and Verification
+- **CRITICAL**: Always run unit tests (`cd tests && python3 run_tests.py`) before reporting completion to the user
 - **ALWAYS run full execution tests before declaring completion**
+- Verify that all tests pass (100% success rate) before claiming a feature is complete
+- If any tests fail, fix the issues before reporting success
+- Never report "done" unless all tests are passing
 - Verify functionality works as expected after any code changes
 - Test both success and failure scenarios when applicable
 
