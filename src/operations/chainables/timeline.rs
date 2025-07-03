@@ -43,7 +43,7 @@ pub fn timeline(
         .map(
             move |s_col: Column| {
                 let ca = s_col.str()?;
-                let mut timeline_buckets: Vec<Option<String>> = Vec::new();
+                let mut timeline_buckets: Vec<Option<String>> = Vec::with_capacity(ca.len());
                 for opt_time_str in ca.into_iter() {
                     if let Some(time_str) = opt_time_str {
                         if let Some(bucket) = time_to_bucket(time_str, interval_duration) {
@@ -63,7 +63,8 @@ pub fn timeline(
         )
         .alias(&bucket_column_name);
 
-    let mut agg_exprs = vec![len().alias("count")];
+    let mut agg_exprs = Vec::with_capacity(if agg_column.is_some() { 2 } else { 1 });
+    agg_exprs.push(len().alias("count"));
 
     // Add aggregation column if specified
     if let Some(agg_col) = agg_column {

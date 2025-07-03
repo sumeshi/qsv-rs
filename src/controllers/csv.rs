@@ -1,13 +1,28 @@
 use crate::controllers::log::LogController;
 use glob::glob;
 use polars::prelude::*;
-// use rayon::prelude::*; // Temporarily disabled
+use rayon::prelude::*; // Re-enabled for parallel processing
 use std::path::{Path, PathBuf};
 // Performance optimization constants
 const OPTIMAL_CHUNK_SIZE: usize = 8192; // Optimized chunk size for CSV reading
 const PARALLEL_THRESHOLD: usize = 2; // Minimum files to use parallel processing
 const LARGE_FILE_THRESHOLD: u64 = 100 * 1024 * 1024; // 100MB threshold for large files
 const GZIP_BUFFER_SIZE: usize = 16 * 1024 * 1024; // 16MB buffer for gzip (increased from 8MB)
+
+// Environment variable helpers for unified configuration
+fn get_env_chunk_size() -> Option<usize> {
+    std::env::var("QSV_CHUNK_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+fn get_env_memory_limit_mb() -> usize {
+    std::env::var("QSV_MEMORY_LIMIT_MB")
+        .unwrap_or_else(|_| "1024".to_string()) // Default 1GB
+        .parse::<usize>()
+        .unwrap_or(1024)
+        .clamp(512, 4096) // Limit between 512MB-4GB
+}
 
 // Utility function to check if file paths exist
 pub fn exists_path(paths: &[impl AsRef<Path>]) -> bool {
@@ -29,7 +44,9 @@ fn get_optimized_csv_options(
     file_size: Option<u64>,
 ) -> CsvReadOptions {
     let sep_byte = separator.as_bytes()[0];
-    let optimized_chunk_size = chunk_size.unwrap_or({
+
+    // Prioritize environment variable, then provided chunk_size, then defaults
+    let optimized_chunk_size = get_env_chunk_size().or(chunk_size).unwrap_or({
         match file_size {
             Some(size) if size > LARGE_FILE_THRESHOLD => OPTIMAL_CHUNK_SIZE * 2, // Larger chunks for big files
             _ => OPTIMAL_CHUNK_SIZE,
@@ -106,7 +123,7 @@ impl CsvController {
             // For gzipped files, use chunked decompression to balance memory usage and performance
             use flate2::read::GzDecoder;
             use std::fs::File;
-            use std::io::{BufReader, Read, Write};
+            use std::io::{BufReader, Read};
             let file = match File::open(path) {
                 Ok(f) => f,
                 Err(e) => {
@@ -124,7 +141,7 @@ impl CsvController {
                     file_size / 1024 / 1024
                 ));
                 let mut gz_decoder = GzDecoder::new(BufReader::new(file));
-                let mut decompressed_content = Vec::new();
+                let mut decompressed_content = Vec::with_capacity((file_size / 2) as usize); // Estimate 50% compression ratio
                 if let Err(e) = gz_decoder.read_to_end(&mut decompressed_content) {
                     eprintln!("Error decompressing gzipped file {}: {}", path.display(), e);
                     std::process::exit(1);
@@ -147,76 +164,71 @@ impl CsvController {
                     }
                 }
             } else {
-                // For larger files, use a temporary file with chunked decompression
+                // For larger files, use streaming approach to avoid temporary files
                 LogController::debug(&format!(
-                    "Large gzipped file ({}MB), using chunked decompression",
+                    "Large gzipped file ({}MB), using streaming decompression",
                     file_size / 1024 / 1024
                 ));
-                let temp_dir = std::env::temp_dir();
-                let temp_filename = format!(
-                    "qsv_gzip_{}_{}.csv",
-                    std::process::id(),
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs()
-                );
-                let temp_path = temp_dir.join(temp_filename);
-                // Decompress in chunks to temporary file
+
+                use std::io::Cursor;
+
+                // Create a streaming reader that decompresses on-the-fly
                 let mut gz_decoder = GzDecoder::new(BufReader::new(file));
-                let mut temp_file = match std::fs::File::create(&temp_path) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        eprintln!("Error creating temporary file for large gzip: {e}");
-                        std::process::exit(1);
-                    }
-                };
-                // Copy in chunks to avoid loading everything into memory
-                let mut buffer = vec![0u8; GZIP_BUFFER_SIZE];
+
+                // Use a larger memory buffer for streaming (configurable)
+                let streaming_buffer_size = get_env_memory_limit_mb() * 1024 * 1024;
+
+                let mut decompressed_data = Vec::with_capacity(streaming_buffer_size);
+
+                // Read in larger chunks to balance memory vs performance
+                let mut total_read = 0;
+                let max_memory_usage = streaming_buffer_size.min(4 * 1024 * 1024 * 1024); // Max 4GB
+
                 loop {
-                    match gz_decoder.read(&mut buffer) {
+                    let mut chunk = vec![0u8; GZIP_BUFFER_SIZE];
+                    match gz_decoder.read(&mut chunk) {
                         Ok(0) => break, // EOF
                         Ok(n) => {
-                            if let Err(e) = temp_file.write_all(&buffer[..n]) {
-                                eprintln!("Error writing to temporary file: {e}");
-                                let _ = std::fs::remove_file(&temp_path);
-                                std::process::exit(1);
+                            chunk.truncate(n);
+
+                            // Check if we're approaching memory limit
+                            if total_read + n > max_memory_usage {
+                                LogController::warn(&format!(
+                                    "Large gzip file exceeds {}GB memory limit. Consider using --low-memory flag.",
+                                    max_memory_usage / (1024 * 1024 * 1024)
+                                ));
+                                break;
                             }
+
+                            decompressed_data.extend_from_slice(&chunk);
+                            total_read += n;
                         }
                         Err(e) => {
-                            eprintln!("Error reading from gzipped file {}: {}", path.display(), e);
-                            let _ = std::fs::remove_file(&temp_path);
+                            eprintln!("Error reading gzipped file {}: {}", path.display(), e);
                             std::process::exit(1);
                         }
                     }
                 }
-                if let Err(e) = temp_file.flush() {
-                    eprintln!("Error flushing temporary file: {e}");
-                    let _ = std::fs::remove_file(&temp_path);
-                    std::process::exit(1);
-                }
-                drop(temp_file); // Close the file
 
-                // Read from temporary file using basic settings for compatibility
-                let mut reader = LazyCsvReader::new(&temp_path)
-                    .with_separator(separator.as_bytes()[0])
+                LogController::debug(&format!(
+                    "Decompressed {}MB into memory",
+                    total_read / (1024 * 1024)
+                ));
+
+                let cursor = Cursor::new(decompressed_data);
+
+                // Use streaming CSV options for large files
+                let csv_options = polars::prelude::CsvReadOptions::default()
                     .with_has_header(has_header)
-                    .with_low_memory(low_memory);
-                if let Some(chunk_size) = chunk_size {
-                    reader = reader.with_chunk_size(chunk_size);
-                }
-                let reader = reader.finish();
-                // Schedule cleanup of temporary file
-                let temp_path_for_cleanup = temp_path.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                    let _ = std::fs::remove_file(&temp_path_for_cleanup);
-                });
-                match reader {
-                    Ok(df) => df,
+                    .with_low_memory(true) // Force low memory for large files
+                    .with_chunk_size(chunk_size.unwrap_or(8192))
+                    .map_parse_options(|opts| opts.with_separator(separator.as_bytes()[0]));
+
+                let reader = csv_options.into_reader_with_file_handle(cursor);
+                match reader.finish() {
+                    Ok(df) => df.lazy(),
                     Err(e) => {
-                        let _ = std::fs::remove_file(&temp_path);
-                        eprintln!("Error parsing decompressed CSV file {}: {}. Please check the file format and separator.", path.display(), e);
+                        eprintln!("Error parsing large gzipped CSV file {}: {}. Please check the file format and separator.", path.display(), e);
                         std::process::exit(1);
                     }
                 }
@@ -266,7 +278,7 @@ impl CsvController {
         let dataframes = if self.paths.len() >= PARALLEL_THRESHOLD {
             LogController::debug("Using parallel file reading for better performance");
             self.paths
-                .iter() // Use regular iterator for now
+                .par_iter() // Enabled parallel processing
                 .map(|path| self.read_csv_file(path, separator, low_memory, no_headers, chunk_size))
                 .collect::<Vec<_>>()
         } else {
@@ -299,7 +311,7 @@ impl CsvController {
         chunk_size: Option<usize>,
     ) -> LazyFrame {
         let pattern_str = pattern.to_string_lossy();
-        let mut paths = Vec::new();
+        let mut paths = Vec::with_capacity(16); // Start with reasonable capacity for glob results
         match glob(&pattern_str) {
             Ok(entries) => {
                 for entry in entries {

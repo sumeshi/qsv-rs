@@ -3,7 +3,7 @@ use crate::controllers::dataframe::DataFrameController;
 use crate::controllers::log::LogController;
 use polars::prelude::{col, JoinType, LazyFrame};
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
+use serde_yml::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -226,7 +226,7 @@ pub struct QuiltConfig {
     pub description: Option<String>,
     pub version: Option<String>,
     pub author: Option<String>,
-    pub stages: serde_yaml::Mapping,
+    pub stages: serde_yml::Mapping,
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StageConfig {
@@ -235,7 +235,7 @@ pub struct StageConfig {
     pub source: Option<String>,
     pub sources: Option<Vec<String>>,
     pub params: Option<Value>,
-    pub steps: Option<serde_yaml::Mapping>,
+    pub steps: Option<serde_yml::Mapping>,
 }
 fn get_string_from_value(val: &Value, key: &str) -> Option<String> {
     val.get(key).and_then(|v| v.as_str().map(String::from))
@@ -268,7 +268,7 @@ pub fn quilt(
             std::process::exit(1);
         }
     };
-    let quilt_config: QuiltConfig = match serde_yaml::from_str(&config_content) {
+    let quilt_config: QuiltConfig = match serde_yml::from_str(&config_content) {
         Ok(config) => config,
         Err(e) => {
             eprintln!("Error parsing YAML config: {e}");
@@ -287,7 +287,7 @@ pub fn quilt(
             .as_str()
             .unwrap_or("unknown_stage")
             .to_string();
-        let stage_config: StageConfig = match serde_yaml::from_value(stage_config_val.clone()) {
+        let stage_config: StageConfig = match serde_yml::from_value(stage_config_val.clone()) {
             Ok(sc) => sc,
             Err(e) => {
                 LogController::error(&format!(
@@ -433,9 +433,86 @@ pub fn quilt(
                 ));
             }
         } else if stage_config.stage_type == "concat" {
-            LogController::warn(&format!(
-                "Stage type 'concat' for stage '{stage_name}' is not yet implemented."
-            ));
+            if let Some(sources_vec) = &stage_config.sources {
+                if sources_vec.len() >= 2 {
+                    let mut dataframes_to_concat: Vec<LazyFrame> = Vec::new();
+                    let mut missing_sources = Vec::new();
+
+                    for source_name in sources_vec {
+                        if let Some(source_df) = stage_results.get(source_name) {
+                            dataframes_to_concat.push(source_df.clone());
+                        } else {
+                            missing_sources.push(source_name.as_str());
+                        }
+                    }
+
+                    if !missing_sources.is_empty() {
+                        LogController::error(&format!(
+                            "Could not find source DataFrame(s): {missing_sources:?} for concat stage '{stage_name}'. Skipping."
+                        ));
+                        continue;
+                    }
+
+                    if dataframes_to_concat.len() >= 2 {
+                        // Get concatenation method from params.how (default: vertical)
+                        let concat_how = stage_config
+                            .params
+                            .as_ref()
+                            .and_then(|p| get_string_from_value(p, "how"))
+                            .unwrap_or_else(|| "vertical".to_string());
+
+                        let result_df = match concat_how.to_lowercase().as_str() {
+                            "vertical" | "v" => {
+                                // Vertical concatenation (row-wise) - default behavior
+                                let mut result = dataframes_to_concat[0].clone();
+                                for df in dataframes_to_concat.into_iter().skip(1) {
+                                    result = polars::prelude::concat(
+                                        [result, df],
+                                        polars::prelude::UnionArgs::default(),
+                                    )
+                                    .expect("Failed to concatenate DataFrames vertically");
+                                }
+                                result
+                            }
+                            "horizontal" | "h" => {
+                                // Horizontal concatenation (column-wise) - Not yet supported
+                                LogController::error(&format!(
+                                    "Horizontal concatenation is not yet implemented for stage '{stage_name}'. Use 'vertical' instead."
+                                ));
+                                continue;
+                            }
+                            _ => {
+                                LogController::error(&format!(
+                                    "Invalid concat method '{concat_how}' for stage '{stage_name}'. Use 'vertical' or 'horizontal'. Skipping."
+                                ));
+                                continue;
+                            }
+                        };
+
+                        stage_output_df = Some(result_df);
+                        LogController::debug(&format!(
+                            "Concat stage '{stage_name}' completed, concatenated {} sources: {sources_vec:?} using {concat_how} method",
+                            sources_vec.len()
+                        ));
+                    } else {
+                        LogController::warn(&format!(
+                            "Concat stage '{stage_name}' needs at least 2 valid DataFrames, found {}. Skipping.",
+                            dataframes_to_concat.len()
+                        ));
+                    }
+                } else {
+                    LogController::error(&format!(
+                        "Concat stage '{stage_name}' must have at least two sources. Found {}. Skipping.",
+                        sources_vec.len()
+                    ));
+                    continue;
+                }
+            } else {
+                LogController::error(&format!(
+                    "Concat stage '{stage_name}' missing 'sources' parameter. Skipping."
+                ));
+                continue;
+            }
         } else if stage_config.stage_type == "join" {
             if let Some(sources_string_vec) = &stage_config.sources {
                 if sources_string_vec.len() == 2 {

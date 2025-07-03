@@ -2,7 +2,7 @@ use crate::controllers::log::LogController;
 use polars::prelude::*;
 use serde_json::Value as JsonValue;
 use serde_xml_rs::from_str as xml_from_str;
-use serde_yaml;
+use serde_yml;
 
 pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str) -> LazyFrame {
     LogController::debug(&format!(
@@ -80,7 +80,7 @@ fn convert_json_to_yaml(json_str: &str) -> String {
     match serde_json::from_str::<JsonValue>(&cleaned_json) {
         Ok(json_value) => {
             // Convert JSON to YAML
-            match serde_yaml::to_string(&json_value) {
+            match serde_yml::to_string(&json_value) {
                 Ok(yaml_str) => {
                     // Remove the trailing newline and document separator if present
                     yaml_str
@@ -103,7 +103,7 @@ fn convert_json_to_yaml(json_str: &str) -> String {
 }
 fn convert_yaml_to_json(yaml_str: &str) -> String {
     // Try to parse as YAML
-    match serde_yaml::from_str::<JsonValue>(yaml_str) {
+    match serde_yml::from_str::<JsonValue>(yaml_str) {
         Ok(yaml_value) => {
             // Convert YAML to JSON
             match serde_json::to_string_pretty(&yaml_value) {
@@ -156,7 +156,7 @@ fn convert_xml_to_json(xml_str: &str) -> String {
 }
 fn convert_yaml_to_xml(yaml_str: &str) -> String {
     // YAML -> JSON -> XML
-    match serde_yaml::from_str::<JsonValue>(yaml_str) {
+    match serde_yml::from_str::<JsonValue>(yaml_str) {
         Ok(yaml_value) => {
             // Convert YAML to XML manually
             json_value_to_xml(&yaml_value, "root")
@@ -170,7 +170,7 @@ fn convert_yaml_to_xml(yaml_str: &str) -> String {
 fn convert_xml_to_yaml(xml_str: &str) -> String {
     // XML -> JSON -> YAML
     match xml_from_str::<JsonValue>(xml_str) {
-        Ok(xml_value) => match serde_yaml::to_string(&xml_value) {
+        Ok(xml_value) => match serde_yml::to_string(&xml_value) {
             Ok(yaml_str) => yaml_str
                 .trim_end_matches('\n')
                 .trim_end_matches("---")
@@ -261,8 +261,8 @@ fn format_json(json_str: &str) -> String {
 }
 fn format_yaml(yaml_str: &str) -> String {
     // Re-parse and format YAML
-    match serde_yaml::from_str::<JsonValue>(yaml_str) {
-        Ok(yaml_value) => match serde_yaml::to_string(&yaml_value) {
+    match serde_yml::from_str::<JsonValue>(yaml_str) {
+        Ok(yaml_value) => match serde_yml::to_string(&yaml_value) {
             Ok(formatted) => formatted
                 .trim_end_matches('\n')
                 .trim_end_matches("---")

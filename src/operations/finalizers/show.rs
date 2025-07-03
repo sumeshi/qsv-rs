@@ -57,7 +57,9 @@ fn show_streaming_internal<W: Write>(
             current_offset + batch_df.height()
         ));
 
-        let mut buf = Vec::new();
+        // Estimate buffer size: ~100 bytes per row on average for CSV output
+        let estimated_buffer_size = batch_df.height() * 100;
+        let mut buf = Vec::with_capacity(estimated_buffer_size);
         CsvWriter::new(&mut buf)
             .include_header(!header_written)
             .with_separator(b',')
@@ -91,7 +93,9 @@ fn show_traditional(df: &LazyFrame) {
         Ok(mut df_collected) => {
             // By default, Polars prints a table to stdout
             // To emulate the previous CSV output, we use CsvWriter
-            let mut buf = Vec::new();
+            // Estimate buffer size based on data size
+            let estimated_size = df_collected.height() * 100; // ~100 bytes per row estimate
+            let mut buf = Vec::with_capacity(estimated_size);
             if CsvWriter::new(&mut buf)
                 .include_header(true)
                 .with_separator(b',')

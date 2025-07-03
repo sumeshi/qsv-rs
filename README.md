@@ -9,107 +9,11 @@ A fast, flexible, and memory-efficient command-line tool written in Rust for pro
 > [!NOTE]
 > The original version of this project was implemented in Python and can be found at [sumeshi/quilter-csv](https://github.com/sumeshi/quilter-csv). This Rust version is a complete rewrite.
 
-## 🚀 **Large File Processing (100GB+)**
-
-qsv-rs supports **TRUE STREAMING** for processing files of unlimited size without memory constraints!
-
-### 🔥 **Key Features**
-
-- **Unlimited File Size**: Process 100GB+ files without loading into memory
-- **Smart Memory Management**: Configurable batch sizes (default: 1GB)
-- **Streaming Output**: `show` command with memory-efficient streaming
-- **Streaming File Save**: `dump` command with batch processing for large files
-- **Memory-Efficient Loading**: Parallel processing with optimized buffers
-- **Automatic Optimization**: Dynamic chunk sizing based on data characteristics
-
-### 💡 **Usage Examples**
-
-```bash
-# Stream display massive files (1GB batches by default)
-qsv load huge_dataset.csv - show
-
-# Custom memory usage - 512MB batches
-qsv load big_file.csv - show --batch-size 512MB
-
-# High-memory server - 4GB batches for maximum performance
-qsv load massive.csv - show --batch-size 4GB
-
-# Stream save large results to file with custom batch size
-qsv load big_file.csv - select important_columns - dump -o output.csv --batch-size 2GB
-
-# Parallel processing for multiple files
-qsv load file1.csv file2.csv file3.csv - head 1000 - dump -o combined.csv
-
-# Memory-efficient filtering for 100GB+ files
-qsv load massive.csv - select col1,col2,col3 - show > filtered.csv
-```
-
-### ⚡ **Performance Optimizations**
-
-- **Configurable Batch Sizes**: 1GB default, 1MB-10GB range
-- **Dynamic Row Estimation**: Automatically calculates optimal batch sizes
-- **Parallel File Loading**: Automatic for 2+ files  
-- **16MB gzip buffers**: Optimized compression handling
-- **Intelligent Memory Usage**: Adapts to data characteristics
-
-### 📊 **Memory Usage**
-
-| Operation | Default Memory | File Size Limit | Configurable |
-|-----------|---------------|-----------------|--------------|
-| `show`    | 1GB batches   | **Unlimited**   | ✅ --batch-size |
-| `dump`    | 1GB batches   | **Unlimited**   | ✅ --batch-size |
-| `stats`   | Full dataset  | ~9GB           | ❌ |
-
-### 🛠️ **Memory Configuration**
-
-```bash
-# Configure batch size for your system
---batch-size 512MB    # Low memory systems
---batch-size 1GB      # Default (balanced)
---batch-size 2GB      # High memory systems  
---batch-size 4GB      # Maximum performance
-```
-
-### 🎯 **Best Practices for Large Files**
-
-1. **Use streaming operations:**
-```bash
-# ✅ Good - streams data with configurable memory
-qsv load huge.csv - show --batch-size 2GB
-qsv load huge.csv - select cols - dump -o output.csv --batch-size 1GB
-
-# ❌ Avoid for huge files - loads everything into memory
-qsv load huge.csv - stats
-```
-
-2. **Optimize batch size for your system:**
-```bash
-# Low memory (4GB RAM): Use smaller batches
-qsv load huge.csv - show --batch-size 256MB
-
-# High memory (32GB+ RAM): Use larger batches for speed
-qsv load huge.csv - show --batch-size 4GB
-```
-
-3. **Use appropriate commands for your use case:**
-```bash
-# Preview large files (safe)
-qsv load huge.csv - head 10 - show
-
-# Process and save large files (streaming)
-qsv load huge.csv - filter "column > 100" - dump -o results.csv --batch-size 2GB
-
-# Real-time processing (streaming)
-qsv load huge.csv - select col1,col2 - show --batch-size 1GB | other_tool
-```
-
 ## Features
 
-- **CSV Processing**: Load, filter, select, sort, and manipulate CSV data
-- **Multiple Formats**: Support for CSV, TSV, and gzipped files
-- **Memory Efficient**: Lazy evaluation with Polars
-- **Fast Performance**: Optimized for large datasets
-- **Flexible Pipeline**: Chain operations with intuitive syntax
+- **Pipeline-style command chaining**: Chain multiple commands in a single line for fast and efficient data processing
+- **Flexible filtering and transformation**: Perform operations like select, filter, sort, deduplicate, and timezone conversion
+- **YAML-based batch processing (Quilt)**: Automate complex workflows using YAML configuration files
 
 ## Usage
 ![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
@@ -177,6 +81,10 @@ Load one or more CSV or Parquet files.
 | --low-memory  | flag    | `false` | Enable low-memory mode for very large files (CSV files only). |
 | --no-headers  | flag    | `false` | Treat the first row as data, not headers (CSV files only). When enabled, columns will be named automatically (column_0, column_1, etc.). |
 | --chunk-size  | int     | (auto)  | Number of rows to read per chunk (CSV files only). Controls memory usage during file processing. |
+
+**Environment Variables:**
+- `QSV_CHUNK_SIZE`: Default chunk size for CSV processing (overrides auto-detection, can be overridden by --chunk-size)
+- `QSV_MEMORY_LIMIT_MB`: Memory limit for gzip decompression and streaming operations (default: 1024MB, range: 512-4096MB)
 
 Example:
 ```bash
@@ -290,11 +198,14 @@ Displays the first N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| number | int  | 5       | Number of rows to display. Positional argument. |
+| number | int  | 5       | Number of rows to display. Can be specified as positional argument or with -n/--number option. |
+| -n, --number | int | | Alternative way to specify number of rows. |
 
 ```bash
 $ qsv load data.csv - head 3
 $ qsv load data.csv - head 10
+$ qsv load data.csv - head -n 3
+$ qsv load data.csv - head --number 10
 ```
 
 #### `tail`
@@ -302,11 +213,14 @@ Displays the last N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| number | int  | 5       | Number of rows to display. Positional argument. |
+| number | int  | 5       | Number of rows to display. Can be specified as positional argument or with -n/--number option. |
+| -n, --number | int | | Alternative way to specify number of rows. |
 
 ```bash
 $ qsv load data.csv - tail 3
 $ qsv load data.csv - tail 10
+$ qsv load data.csv - tail -n 3
+$ qsv load data.csv - tail --number 10
 ```
 
 #### `sort`
@@ -553,13 +467,14 @@ Splits data into separate CSV files based on unique values in a specified column
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | colname | str |         | Column name to partition by. Required. |
-| output_directory | str |         | Directory to save partitioned files. Required. |
+| output_directory | str | `./partitions/` | Directory to save partitioned files. Optional - if not specified, creates a `./partitions/` directory. |
 
 The output directory will be created if it doesn't exist. Each file is named after the unique value in the partition column (with invalid filename characters replaced by underscores).
 
 Example:
 ```bash
-$ qsv load data.csv - partition category ./partitions/
+$ qsv load data.csv - partition category                    # Uses default ./partitions/ directory
+$ qsv load data.csv - partition category ./partitions/      # Explicit directory
 $ qsv load sales.csv - partition region ./by_region/
 $ qsv load logs.csv - partition date ./daily_logs/
 $ qsv load data.csv - select col1,col2 - partition col1 ./numeric_partitions/
@@ -605,11 +520,15 @@ $ qsv load data.csv - select col1 - showquery
 #### `show`
 Displays the resulting data as CSV to standard output. Header is included by default.
 
-This command does not take any arguments or options.
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| --batch-size | str | `1GB` | Memory batch size for streaming large datasets (e.g., `512MB`, `2GB`). Range: 1MB-10GB. |
 
 Example:
 ```bash
 $ qsv load data.csv - head 5 - show
+$ qsv load huge.csv - show --batch-size 2GB                 # Streaming mode for large files
+$ qsv load data.csv - select col1,col2 - show --batch-size 512MB
 ```
 
 #### `showtable`
@@ -637,15 +556,17 @@ Outputs the processing results to a CSV file.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| -o, --output | str | `dump_<timestamp>.csv` | File path to save the CSV data. If not specified, a default timestamped filename is used. |
+| -o, --output | str | `dump_<timestamp>.csv` | File path to save the CSV data. Optional - if not specified, a default timestamped filename is automatically generated. |
 | -s, --separator | char | `,` | Field separator character for the output CSV file. |
+| --batch-size | str | `1GB` | Memory batch size for streaming large datasets (e.g., `512MB`, `2GB`). Range: 1MB-10GB. |
 
 Example:
 ```bash
-$ qsv load data.csv - head 100 - dump                       # Saves to dump_<timestamp>.csv
+$ qsv load data.csv - dump                                  # Saves to dump_<timestamp>.csv
 $ qsv load data.csv - head 100 - dump -o results.csv
 $ qsv load data.csv - head 100 - dump --output results.csv
 $ qsv load data.csv - head 100 - dump -o results.csv -s ';'
+$ qsv load huge.csv - dump -o output.csv --batch-size 2GB   # Streaming mode for large files
 ```
 
 #### `dumpcache`
@@ -704,8 +625,68 @@ Within a Quilt YAML file, stages can be of different types to orchestrate the fl
 | Operation Type | Description                                                | Key Parameters                                                                                                                                    |
 | -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `process`      | Executes a series of qsv operations on a dataset.          | `steps`: Dictionary of operations (e.g., `load`, `select`, `head`, `showtable`). Each key is a qsv command, and its value contains arguments/options. <br> `source` (optional): Specifies the output of a previous stage as input. |
-| `concat`       | Concatenates multiple datasets (stages).                   | `sources`: List of stage names whose outputs to concatenate. <br>`params.how` (optional): Method for concatenation, e.g., `vertical` (default), `horizontal`. |
+| `concat`       | Concatenates multiple datasets (stages).                   | `sources`: List of stage names whose outputs to concatenate. <br>`params.how` (optional): Method for concatenation, `vertical` (default). Note: `horizontal` concatenation is not yet implemented. |
 | `join`         | Joins datasets from multiple stages based on keys.         | `sources`: List of two stage names whose outputs to join. <br>`params.left_on`/`params.right_on` or `params.on`: Column(s) for joining. <br>`params.how` (optional): Join type (`inner`, `left`, `outer`, `cross`). |
+
+## Huge File Processing
+
+qsv-rs supports streaming processing for huge files without loading them entirely into memory.
+
+### Usage Examples
+
+```bash
+# Stream display huge files (1GB batches by default)
+$ qsv load huge.csv - show
+
+# Custom memory usage - 512MB batches
+$ qsv load huge.csv - show --batch-size 512MB
+
+# High-memory server - 2GB batches for maximum performance
+$ qsv load huge.csv - show --batch-size 2GB
+
+# Stream save large results to file with custom batch size
+$ qsv load huge.csv - select important,columns - dump -o output.csv --batch-size 2GB
+```
+
+### Memory Configuration
+
+```bash
+# Configure batch size for your system
+--batch-size 512MB    # Low memory systems
+--batch-size 1GB      # Default (balanced)
+--batch-size 2GB      # High memory systems (2GB+)
+
+# Configure gzip decompression memory (environment variable)
+export QSV_MEMORY_LIMIT_MB=512   # Low memory systems
+export QSV_MEMORY_LIMIT_MB=1024  # Default (1GB)
+export QSV_MEMORY_LIMIT_MB=2048  # High memory systems (2GB+)
+```
+
+### Gzip File Processing
+
+```bash
+# Process large gzip files with different memory settings
+$ QSV_MEMORY_LIMIT_MB=2048 qsv load huge.csv.gz - show
+$ QSV_MEMORY_LIMIT_MB=512 qsv load huge.csv.gz - head 1000 - show  # Low memory
+```
+
+### Parquet Cache for Performance
+
+For repeated processing of large CSV files, convert to Parquet format for significantly faster loading.
+
+**Performance Benefits:**
+- Faster loading compared to CSV format
+- Better compression (smaller file sizes)
+- Preserves data types (no re-parsing needed)
+
+```bash
+# One-time conversion: CSV to Parquet cache
+$ qsv load huge.csv - dumpcache -o huge.parquet
+
+# Subsequent processing: Load from Parquet (much faster)
+$ qsv load huge.parquet - select col1,col2 - show
+$ qsv load huge.parquet - isin category "important" - dump -o result.csv
+```
 
 ## Installation
 

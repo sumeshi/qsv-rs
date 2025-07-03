@@ -1,5 +1,6 @@
 use crate::controllers::log::LogController;
 use polars::prelude::*;
+use regex;
 
 pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) -> LazyFrame {
     let schema = match df.clone().collect_schema() {
@@ -19,35 +20,21 @@ pub fn contains(df: &LazyFrame, colname: &str, pattern: &str, ignorecase: bool) 
         "Applying contains: column={colname} pattern='{pattern}' ignorecase={ignorecase}"
     ));
 
-    // Consider case-insensitive option
-    let pattern_to_use = if ignorecase {
-        pattern.to_lowercase()
+    // Use Polars' native string operations for better performance
+    let expr = if ignorecase {
+        // For case-insensitive search, use regex with (?i) flag
+        let pattern_regex = format!("(?i){}", regex::escape(pattern));
+        col(colname)
+            .cast(DataType::String)
+            .str()
+            .contains(lit(pattern_regex), false) // literal=false for regex
     } else {
-        pattern.to_string()
+        // For case-sensitive search, use literal contains
+        col(colname)
+            .cast(DataType::String)
+            .str()
+            .contains(lit(pattern), true) // literal=true for exact string match
     };
-
-    let expr = col(colname)
-        .cast(DataType::String)
-        .map(
-            move |s_col: Column| {
-                let ca = s_col.str()?;
-                let result_ca: ChunkedArray<BooleanType> = ca
-                    .into_iter()
-                    .map(|opt_val: Option<&str>| {
-                        opt_val.is_some_and(|val| {
-                            if ignorecase {
-                                val.to_lowercase().contains(&pattern_to_use)
-                            } else {
-                                val.contains(&pattern_to_use)
-                            }
-                        })
-                    })
-                    .collect();
-                Ok(Some(result_ca.into_series().into()))
-            },
-            GetOutput::from_type(DataType::Boolean),
-        )
-        .alias("contains_result");
 
     df.clone().filter(expr)
 }

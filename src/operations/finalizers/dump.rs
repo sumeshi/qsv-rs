@@ -105,7 +105,9 @@ fn dump_streaming_internal<W: Write>(
         ));
 
         // Use a temporary buffer to write each batch, then write buffer to the writer
-        let mut buf = Vec::new();
+        // Estimate buffer size: ~100 bytes per row on average for CSV output
+        let estimated_buffer_size = batch_df.height() * 100;
+        let mut buf = Vec::with_capacity(estimated_buffer_size);
         CsvWriter::new(&mut buf)
             .include_header(!header_written) // Write header only for the first batch
             .with_separator(separator as u8)

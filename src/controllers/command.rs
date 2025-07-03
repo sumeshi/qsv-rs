@@ -23,6 +23,7 @@ fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
             opts.insert("low_memory");
             opts.insert("no_headers");
             opts.insert("chunk_size");
+            opts.insert("chunk-size");
             opts.insert("separator");
             opts.insert("s");
             opts
@@ -186,6 +187,8 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "unit"
                         | "batch-size"
                         | "batch_size"
+                        | "chunk-size"
+                        | "chunk_size"
                 );
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
                     // --option value format
@@ -343,7 +346,7 @@ pub fn print_help() {
     println!("  qsv load data.csv - select 2:4 - show");
     println!("  qsv load data.csv - grep pattern - showtable");
     println!("  qsv load data.csv - sort col1 -d - show");
-    println!("  qsv load data.csv - isin col1 1,2,3 - uniq col1 - show");
+    println!("  qsv load data.csv - isin col1 1,2,3 - uniq - show");
     println!("  qsv load data.csv - changetz datetime --from-tz UTC --to-tz Asia/Tokyo - show");
     println!("  qsv load data.csv - partition category ./partitions/");
     println!();
@@ -390,6 +393,9 @@ fn print_load_help() {
     println!("  --low-memory         Use memory-efficient loading for large files");
     println!("  --no-headers         Treat the first row as data, not headers");
     println!("  --chunk-size <size>  Process files in chunks of this size");
+    println!("\nEnvironment Variables:");
+    println!("  QSV_CHUNK_SIZE       Default chunk size for CSV processing");
+    println!("  QSV_MEMORY_LIMIT_MB  Memory limit for gzip decompression (512-4096MB)");
     println!("\nExamples:");
     println!("  qsv load data.csv - show");
     println!("  qsv load data.csv -s ';' - show");
@@ -397,6 +403,8 @@ fn print_load_help() {
     println!("  qsv load data.csv --low-memory - show");
     println!("  qsv load data.csv --no-headers - show");
     println!("  qsv load data.csv --chunk-size 1000 - show");
+    println!("  QSV_CHUNK_SIZE=8192 qsv load data.csv - show      # Use environment variable");
+    println!("  QSV_MEMORY_LIMIT_MB=2048 qsv load data.csv.gz - show  # Gzip memory limit");
     println!("  qsv load file1.csv file2.csv - show");
 }
 fn print_select_help() {
@@ -455,15 +463,25 @@ fn print_grep_help() {
 }
 fn print_head_help() {
     println!("head: Show first N rows\n");
-    println!("Usage: head <number>\n");
+    println!("Usage: head <number>");
+    println!("       head [-n|--number] <number>\n");
+    println!("Options:");
+    println!("  -n, --number <number>  Number of rows to display\n");
     println!("Examples:");
     println!("  qsv load data.csv - head 10 - show");
+    println!("  qsv load data.csv - head -n 5 - show");
+    println!("  qsv load data.csv - head --number 3 - show");
 }
 fn print_tail_help() {
     println!("tail: Show last N rows\n");
-    println!("Usage: tail <number>\n");
+    println!("Usage: tail <number>");
+    println!("       tail [-n|--number] <number>\n");
+    println!("Options:");
+    println!("  -n, --number <number>  Number of rows to display\n");
     println!("Examples:");
     println!("  qsv load data.csv - tail 10 - show");
+    println!("  qsv load data.csv - tail -n 5 - show");
+    println!("  qsv load data.csv - tail --number 3 - show");
 }
 fn print_sort_help() {
     println!("sort: Sort rows by column(s)\n");
@@ -481,10 +499,10 @@ fn print_count_help() {
     println!("  qsv load data.csv - count - show");
 }
 fn print_uniq_help() {
-    println!("uniq: Remove duplicate rows based on column(s)\n");
-    println!("Usage: uniq <col1>[,<col2>,...]\n");
+    println!("uniq: Remove duplicate rows based on all columns\n");
+    println!("Usage: uniq\n");
     println!("Examples:");
-    println!("  qsv load data.csv - uniq col1 - show");
+    println!("  qsv load data.csv - uniq - show");
 }
 fn print_changetz_help() {
     println!("changetz: Change timezone of a datetime column\n");
@@ -563,12 +581,15 @@ fn print_timeslice_help() {
 }
 fn print_partition_help() {
     println!("partition: Split data into separate files by column values\n");
-    println!("Usage: partition <colname> <output_directory>\n");
+    println!("Usage: partition <colname> [output_directory]\n");
     println!("Arguments:");
     println!("  <colname>           Column name to partition by");
-    println!("  <output_directory>  Directory to save partitioned files");
+    println!("  [output_directory]  Directory to save partitioned files (default: ./partitions/)");
     println!("\nExamples:");
-    println!("  qsv load data.csv - partition category ./partitions/ - show");
+    println!(
+        "  qsv load data.csv - partition category                    # Uses default ./partitions/"
+    );
+    println!("  qsv load data.csv - partition category ./partitions/");
     println!("  qsv load sales.csv - partition region ./by_region/ - show");
     println!("  qsv load logs.csv - partition date ./daily_logs/ - show");
     println!("\nNote: Creates one CSV file per unique value in the specified column.");
@@ -608,7 +629,7 @@ fn print_timeround_help() {
     println!("  qsv load data.csv - timeround timestamp --unit d --output date_only");
     println!("  qsv load data.csv - timeround timestamp --unit h --output hour_rounded");
     println!("  qsv load data.csv - timeround timestamp --unit m");
-    println!("  qsv load logs.csv - timeround created_at --unit day --output created_day");
+    println!("  qsv load logs.csv - timeround created_at --unit d --output created_day");
 }
 fn print_show_help() {
     println!("show: Print result as CSV\n");
@@ -650,13 +671,16 @@ fn print_showquery_help() {
 }
 fn print_dump_help() {
     println!("dump: Save DataFrame as CSV\n");
-    println!("Usage: dump -o|--output <file> [-s|--separator <char>] [--batch-size <size>]\n");
+    println!("Usage: dump [-o|--output <file>] [-s|--separator <char>] [--batch-size <size>]\n");
     println!("Options:");
-    println!("  -o, --output <file>     Output file path (required)");
+    println!(
+        "  -o, --output <file>     Output file path (optional, default: dump_<timestamp>.csv)"
+    );
     println!("  -s, --separator <char>  Field separator character (default: ',')");
     println!("  --batch-size <size>     Memory batch size for streaming (default: 1GB)");
     println!("                          Accepts values like: 512MB, 2GB, 1024MB");
     println!("\nExamples:");
+    println!("  qsv load data.csv - dump                        # Auto-named file");
     println!("  qsv load data.csv - dump -o results.csv");
     println!("  qsv load data.csv - dump --output results.csv");
     println!("  qsv load data.csv - dump -o results.csv -s ';'");
