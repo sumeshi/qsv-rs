@@ -30,41 +30,43 @@ pub fn dumpcache(df: &LazyFrame, output_path_opt: Option<&str>) {
         final_path.display()
     ));
 
-    let _file = match File::create(&final_path) {
-        Ok(f) => f,
+    // Collect the LazyFrame first to ensure data is available
+    let mut df_collected = match df.clone().collect() {
+        Ok(df) => df,
         Err(e) => {
             eprintln!(
-                "Error: Failed to create cache file '{}': {}",
-                final_path.display(),
+                "Error: Failed to collect DataFrame for caching: {}",
                 e
             );
             return;
         }
     };
 
-    // Use streaming sink_parquet to write in batches
-    match df.clone().sink_parquet(
-        SinkTarget::Path(final_path.clone().into()),
-        ParquetWriteOptions {
-            compression: ParquetCompression::Snappy,
-            statistics: StatisticsOptions::default(),
-            row_group_size: None,
-            data_page_size: None,
-            key_value_metadata: None,
-            field_overwrites: vec![],
-        },
-        None,               // CloudOptions
-        Default::default(), // SinkOptions
-    ) {
-        Ok(_) => {
-            LogController::info(&format!(
-                "DataFrame cache saved successfully to: {}",
-                final_path.display()
-            ));
+    // Write to Parquet file
+    match File::create(&final_path) {
+        Ok(file) => {
+            match ParquetWriter::new(file)
+                .with_compression(ParquetCompression::Snappy)
+                .finish(&mut df_collected)
+            {
+                Ok(_) => {
+                    LogController::info(&format!(
+                        "DataFrame cache saved successfully to: {}",
+                        final_path.display()
+                    ));
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Error writing parquet cache to file '{}': {}",
+                        final_path.display(),
+                        e
+                    );
+                }
+            }
         }
         Err(e) => {
             eprintln!(
-                "Error writing parquet cache to file '{}': {}",
+                "Error: Failed to create cache file '{}': {}",
                 final_path.display(),
                 e
             );

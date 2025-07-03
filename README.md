@@ -695,75 +695,9 @@ Download the latest release from [GitHub Releases](https://github.com/sumeshi/qs
 
 ### Build from Source
 ```bash
-git clone https://github.com/sumeshi/qsv-rs.git
-cd qsv-rs
-cargo build --release
-```
-
-## Testing
-
-This project includes a comprehensive test suite to ensure all functionality works correctly.
-
-### Running All Tests
-
-To run the complete test suite (132 tests covering all features):
-
-```bash
-$ python3 tests/run_tests.py
-```
-
-This will execute all tests for:
-- **Initializers** (1 test module): `load`
-- **Chainables** (17 test modules): `select`, `isin`, `contains`, `sed`, `grep`, `head`, `tail`, `sort`, `count`, `uniq`, `changetz`, `renamecol`, `convert`, `timeline`, `timeslice`, `pivot`, `timeround`
-- **Finalizers** (7 test modules): `show`, `showtable`, `headers`, `stats`, `showquery`, `dump`, `partition`
-- **Quilters** (1 test module): `quilt`
-
-### Running Individual Tests
-
-You can also run individual test modules:
-
-```bash
-# Test a specific feature
-$ python3 tests/test_chainables_select.py
-$ python3 tests/test_finalizers_show.py
-$ python3 tests/test_quilters_quilt.py
-
-# Test using unittest module
-$ python3 -m unittest tests.test_chainables_select
-```
-
-### Test Coverage
-
-The test suite provides 100% feature coverage:
-- All commands and options are tested
-- Various data formats and edge cases are covered
-- Error handling and validation are verified
-- Integration between different operations is tested
-
-### Adding New Tests
-
-When adding new features or test cases:
-
-1. Create test files following the naming convention: `test_{category}_{feature}.py`
-2. Inherit from `QsvTestBase` class for consistent test infrastructure
-3. **Manually add the new test class to `tests/run_tests.py`** in the appropriate section:
-   - Add import statement at the top
-   - Add test class to the corresponding list (`initializers`, `chainables`, `finalizers`, or `quilters`)
-4. Use existing fixture files in `tests/fixtures/` or create new ones as needed
-5. Ensure tests are self-contained and clean up any temporary files
-
-Example of adding a new test to `run_tests.py`:
-```python
-# Add import
-from test_chainables_newfeature import TestNewFeature
-
-# Add to chainables list
-chainables = [
-    TestSelect,
-    TestHead,
-    # ... existing tests ...
-    TestNewFeature,  # Add your new test here
-]
+$ git clone https://github.com/sumeshi/qsv-rs.git
+$ cd qsv-rs
+$ cargo build --release
 ```
 
 ## Contributing
