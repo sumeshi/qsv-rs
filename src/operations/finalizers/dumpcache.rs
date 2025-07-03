@@ -34,10 +34,7 @@ pub fn dumpcache(df: &LazyFrame, output_path_opt: Option<&str>) {
     let mut df_collected = match df.clone().collect() {
         Ok(df) => df,
         Err(e) => {
-            eprintln!(
-                "Error: Failed to collect DataFrame for caching: {}",
-                e
-            );
+            eprintln!("Error: Failed to collect DataFrame for caching: {e}");
             return;
         }
     };
