@@ -1,6 +1,7 @@
 use crate::controllers::log::LogController;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use polars::prelude::*;
+
 pub fn timeline(
     df: &LazyFrame,
     time_column: &str,
@@ -8,20 +9,21 @@ pub fn timeline(
     agg_type: &str,
     agg_column: Option<&str>,
 ) -> LazyFrame {
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
+    let schema = match df.clone().collect_schema() {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for timeline: {e}");
+            eprintln!("Error getting schema for timeline operation: {e}");
             std::process::exit(1);
         }
     };
-    let schema = collected_df.schema();
+
     if !schema.iter_names().any(|s| s == time_column) {
         eprintln!(
             "Error: Time column '{time_column}' not found in DataFrame for timeline operation"
         );
         std::process::exit(1);
     }
+
     // Parse interval (e.g., "1h", "5m", "30s")
     let interval_duration = parse_interval(interval);
     if interval_duration.is_none() {
@@ -29,9 +31,11 @@ pub fn timeline(
         std::process::exit(1);
     }
     let interval_duration = interval_duration.unwrap();
+
     LogController::debug(&format!(
         "Creating timeline: column={time_column}, interval={interval}, aggregation={agg_type}"
     ));
+
     // Convert to LazyFrame and perform timeline aggregation
     let bucket_column_name = format!("timeline_{interval}");
     let timeline_expr = col(time_column)
@@ -58,7 +62,9 @@ pub fn timeline(
             GetOutput::from_type(DataType::String),
         )
         .alias(&bucket_column_name);
+
     let mut agg_exprs = vec![len().alias("count")];
+
     // Add aggregation column if specified
     if let Some(agg_col) = agg_column {
         if !schema.iter_names().any(|s| s == agg_col) {
@@ -95,6 +101,7 @@ pub fn timeline(
         };
         agg_exprs.push(agg_expr);
     }
+
     df.clone()
         .with_column(timeline_expr)
         .group_by([col(&bucket_column_name)])

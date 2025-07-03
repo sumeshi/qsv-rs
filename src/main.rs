@@ -6,7 +6,9 @@ use std::process;
 mod controllers;
 mod operations;
 
-use controllers::command::{parse_commands, print_chainable_help, print_help, Command};
+use controllers::command::{
+    parse_batch_size, parse_commands, print_chainable_help, print_help, Command,
+};
 use controllers::dataframe::DataFrameController;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -124,7 +126,7 @@ fn parse_column_names(input: &str) -> Vec<String> {
         let part = part.trim();
 
         // Handle quoted colon notation: "col1":"col3"
-        if part.starts_with('"') && part.contains("\":\"") && part.ends_with('"') {
+        if part.starts_with('"') && part.contains(":") && part.ends_with('"') {
             // Pass quoted colon range as-is to select.rs for proper processing
             result.push(part.to_string());
             continue;
@@ -193,20 +195,21 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             }
 
             let mut paths = Vec::new();
-            let separator = match cmd.options.get("separator") {
-                Some(Some(sep)) => sep.clone(),
-                _ => ",".to_string(),
-            };
+            let separator = cmd
+                .options
+                .get("separator")
+                .or_else(|| cmd.options.get("s"))
+                .and_then(|opt| opt.as_ref())
+                .cloned()
+                .unwrap_or_else(|| ",".to_string());
 
-            let low_memory =
-                cmd.options.contains_key("low-memory") || cmd.options.contains_key("low_memory");
+            let low_memory = cmd.options.contains_key("low_memory");
 
-            let no_headers =
-                cmd.options.contains_key("no-headers") || cmd.options.contains_key("no_headers");
+            let no_headers = cmd.options.contains_key("no_headers");
 
             let chunk_size = cmd
                 .options
-                .get("chunk-size")
+                .get("chunk_size")
                 .and_then(|opt| opt.as_ref())
                 .and_then(|size_str| size_str.parse::<usize>().ok());
 
@@ -270,7 +273,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
             let colname = &cmd.args[0];
             let pattern = &cmd.args[1];
-            let ignorecase = cmd.options.contains_key("ignorecase");
+            let ignorecase = cmd.options.contains_key("ignore_case");
 
             controller.contains(colname, pattern, ignorecase);
         }
@@ -286,7 +289,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let pattern = &cmd.args[0];
             let replacement = &cmd.args[1];
             let colname = cmd.options.get("column").and_then(|opt| opt.as_deref());
-            let ignorecase = cmd.options.contains_key("ignorecase");
+            let ignorecase = cmd.options.contains_key("ignore_case");
 
             controller.sed(colname, pattern, replacement, ignorecase);
         }
@@ -301,10 +304,8 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
             let pattern = &cmd.args[0];
 
-            let ignorecase =
-                cmd.options.contains_key("ignorecase") || cmd.options.contains_key("i");
-            let is_inverted =
-                cmd.options.contains_key("invert-match") || cmd.options.contains_key("v");
+            let ignorecase = cmd.options.contains_key("ignore_case");
+            let is_inverted = cmd.options.contains_key("invert_match");
 
             controller.grep(pattern, ignorecase, is_inverted);
         }
@@ -392,7 +393,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
             let colname = &cmd.args[0];
 
-            let tz_from = match cmd.options.get("from-tz") {
+            let tz_from = match cmd.options.get("from_tz") {
                 Some(Some(tz)) => tz,
                 _ => {
                     eprintln!("Error: 'changetz' command requires --from-tz option");
@@ -400,7 +401,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
                 }
             };
 
-            let tz_to = match cmd.options.get("to-tz") {
+            let tz_to = match cmd.options.get("to_tz") {
                 Some(Some(tz)) => tz,
                 _ => {
                     eprintln!("Error: 'changetz' command requires --to-tz option");
@@ -411,12 +412,10 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
             let input_format = cmd
                 .options
                 .get("input_format")
-                .or_else(|| cmd.options.get("input-format"))
                 .and_then(|opt_val| opt_val.as_deref());
             let output_format = cmd
                 .options
                 .get("output_format")
-                .or_else(|| cmd.options.get("output-format"))
                 .and_then(|opt_val| opt_val.as_deref());
             let ambiguous_time = cmd
                 .options
@@ -665,7 +664,19 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
         "show" => {
             check_data_loaded(controller, "show");
-            controller.show();
+            if let Some(batch_size_str) = cmd.options.get("batch_size").and_then(|v| v.as_ref()) {
+                match parse_batch_size(batch_size_str) {
+                    Ok(batch_size) => {
+                        controller.show_with_batch_size(batch_size);
+                    }
+                    Err(e) => {
+                        eprintln!("Error parsing batch-size: {e}");
+                        process::exit(1);
+                    }
+                }
+            } else {
+                controller.show();
+            }
         }
 
         "stats" => {
@@ -680,21 +691,38 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
 
         "dump" => {
             check_data_loaded(controller, "dump");
+
             let output_path = cmd
                 .options
                 .get("output")
-                .and_then(|opt_val| opt_val.as_deref())
-                .unwrap_or_else(|| {
-                    eprintln!("Error: 'dump' command requires -o/--output option");
-                    process::exit(1);
-                });
+                .or_else(|| cmd.options.get("o"))
+                .and_then(|v| v.as_ref());
 
             let separator = cmd
                 .options
                 .get("separator")
-                .and_then(|opt_val| opt_val.as_ref().and_then(|s| s.chars().next()));
+                .or_else(|| cmd.options.get("s"))
+                .and_then(|v| v.as_ref())
+                .and_then(|s| s.chars().next())
+                .unwrap_or(',');
 
-            controller.dump(Some(output_path), separator);
+            if let Some(batch_size_str) = cmd.options.get("batch_size").and_then(|v| v.as_ref()) {
+                match parse_batch_size(batch_size_str) {
+                    Ok(batch_size) => {
+                        controller.dump_with_batch_size(
+                            output_path.map(|s| s.as_str()),
+                            separator,
+                            batch_size,
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Error parsing batch_size: {e}");
+                        process::exit(1);
+                    }
+                }
+            } else {
+                controller.dump(output_path.map(|s| s.as_str()), Some(separator));
+            }
         }
         "dumpcache" => {
             check_data_loaded(controller, "dumpcache");
@@ -704,6 +732,7 @@ fn process_command(controller: &mut DataFrameController, cmd: &Command) {
                 .and_then(|opt_val| opt_val.as_deref());
             controller.dumpcache(output_path);
         }
+
         // Unsupported commands
         _ => {
             eprintln!("Error: Unknown command '{}'", cmd.name);

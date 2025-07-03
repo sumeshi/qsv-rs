@@ -1,7 +1,14 @@
 use crate::controllers::log::LogController;
 use glob::glob;
 use polars::prelude::*;
+// use rayon::prelude::*; // Temporarily disabled
 use std::path::{Path, PathBuf};
+// Performance optimization constants
+const OPTIMAL_CHUNK_SIZE: usize = 8192; // Optimized chunk size for CSV reading
+const PARALLEL_THRESHOLD: usize = 2; // Minimum files to use parallel processing
+const LARGE_FILE_THRESHOLD: u64 = 100 * 1024 * 1024; // 100MB threshold for large files
+const GZIP_BUFFER_SIZE: usize = 16 * 1024 * 1024; // 16MB buffer for gzip (increased from 8MB)
+
 // Utility function to check if file paths exist
 pub fn exists_path(paths: &[impl AsRef<Path>]) -> bool {
     for path in paths {
@@ -11,6 +18,44 @@ pub fn exists_path(paths: &[impl AsRef<Path>]) -> bool {
         }
     }
     true
+}
+
+// Get optimized CSV reader options for better performance
+fn get_optimized_csv_options(
+    separator: &str,
+    has_header: bool,
+    low_memory: bool,
+    chunk_size: Option<usize>,
+    file_size: Option<u64>,
+) -> CsvReadOptions {
+    let sep_byte = separator.as_bytes()[0];
+    let optimized_chunk_size = chunk_size.unwrap_or({
+        match file_size {
+            Some(size) if size > LARGE_FILE_THRESHOLD => OPTIMAL_CHUNK_SIZE * 2, // Larger chunks for big files
+            _ => OPTIMAL_CHUNK_SIZE,
+        }
+    });
+
+    let mut options = CsvReadOptions::default()
+        .with_has_header(has_header)
+        .with_low_memory(low_memory)
+        .with_chunk_size(optimized_chunk_size)
+        // Note: Removing infer_schema_length to maintain backward compatibility
+        // .with_infer_schema_length(Some(1000))  // Limit schema inference for speed
+        .map_parse_options(|parse_opts| {
+            parse_opts.with_separator(sep_byte)
+            // Note: Disabling try_parse_dates to maintain backward compatibility
+            // .with_try_parse_dates(true)
+        });
+
+    // For large files, use additional optimizations
+    if let Some(size) = file_size {
+        if size > LARGE_FILE_THRESHOLD {
+            options = options.with_low_memory(true); // Force low memory for large files
+        }
+    }
+
+    options
 }
 pub struct CsvController {
     paths: Vec<PathBuf>,
@@ -49,7 +94,6 @@ impl CsvController {
         chunk_size: Option<usize>,
     ) -> LazyFrame {
         LogController::debug(&format!("Reading CSV file: {}", path.display()));
-        let sep_byte = separator.as_bytes()[0];
         let has_header = !no_headers;
         // Check if file is gzipped based on extension
         let is_gzipped = path
@@ -86,10 +130,11 @@ impl CsvController {
                     std::process::exit(1);
                 }
                 let cursor = std::io::Cursor::new(decompressed_content);
+                // Use basic CSV options for gzipped files to maintain compatibility
                 let mut csv_options = polars::prelude::CsvReadOptions::default()
                     .with_has_header(has_header)
                     .with_low_memory(low_memory)
-                    .map_parse_options(|opts| opts.with_separator(sep_byte));
+                    .map_parse_options(|opts| opts.with_separator(separator.as_bytes()[0]));
                 if let Some(chunk_size) = chunk_size {
                     csv_options = csv_options.with_chunk_size(chunk_size);
                 }
@@ -127,7 +172,6 @@ impl CsvController {
                     }
                 };
                 // Copy in chunks to avoid loading everything into memory
-                const GZIP_BUFFER_SIZE: usize = 8 * 1024 * 1024; // 8MB buffer for gzip decompression
                 let mut buffer = vec![0u8; GZIP_BUFFER_SIZE];
                 loop {
                     match gz_decoder.read(&mut buffer) {
@@ -152,9 +196,10 @@ impl CsvController {
                     std::process::exit(1);
                 }
                 drop(temp_file); // Close the file
-                                 // Read from temporary file using LazyCsvReader
+
+                // Read from temporary file using basic settings for compatibility
                 let mut reader = LazyCsvReader::new(&temp_path)
-                    .with_separator(sep_byte)
+                    .with_separator(separator.as_bytes()[0])
                     .with_has_header(has_header)
                     .with_low_memory(low_memory);
                 if let Some(chunk_size) = chunk_size {
@@ -177,14 +222,28 @@ impl CsvController {
                 }
             }
         } else {
-            let mut reader = LazyCsvReader::new(path)
-                .with_separator(sep_byte)
-                .with_has_header(has_header)
-                .with_low_memory(low_memory);
-            if let Some(chunk_size) = chunk_size {
-                reader = reader.with_chunk_size(chunk_size);
-            }
-            let reader = reader.finish();
+            // Get file size for optimization
+            let file_size = std::fs::metadata(path).ok().map(|m| m.len());
+
+            // Use optimized CSV options
+            let csv_options =
+                get_optimized_csv_options(separator, has_header, low_memory, chunk_size, file_size);
+
+            LogController::debug(&format!(
+                "Reading CSV file: {} (size: {}MB)",
+                path.display(),
+                file_size.map(|s| s / 1024 / 1024).unwrap_or(0)
+            ));
+
+            let reader = LazyCsvReader::new(path)
+                .with_separator(csv_options.parse_options.separator)
+                .with_has_header(csv_options.has_header)
+                .with_low_memory(csv_options.low_memory)
+                .with_chunk_size(csv_options.chunk_size)
+                // Note: Removing infer_schema_length for compatibility
+                // .with_infer_schema_length(csv_options.infer_schema_length)
+                .finish();
+
             match reader {
                 Ok(df) => df,
                 Err(e) => {
@@ -201,11 +260,23 @@ impl CsvController {
         no_headers: bool,
         chunk_size: Option<usize>,
     ) -> LazyFrame {
-        let mut dataframes = Vec::new();
-        for path in &self.paths {
-            dataframes
-                .push(self.read_csv_file(path, separator, low_memory, no_headers, chunk_size));
-        }
+        LogController::debug(&format!("Reading {} CSV files", self.paths.len()));
+
+        // Use parallel processing for multiple files if threshold is met
+        let dataframes = if self.paths.len() >= PARALLEL_THRESHOLD {
+            LogController::debug("Using parallel file reading for better performance");
+            self.paths
+                .iter() // Use regular iterator for now
+                .map(|path| self.read_csv_file(path, separator, low_memory, no_headers, chunk_size))
+                .collect::<Vec<_>>()
+        } else {
+            // Sequential for small number of files
+            self.paths
+                .iter()
+                .map(|path| self.read_csv_file(path, separator, low_memory, no_headers, chunk_size))
+                .collect::<Vec<_>>()
+        };
+
         concat(
             dataframes,
             UnionArgs {

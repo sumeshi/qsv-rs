@@ -1,3 +1,4 @@
+use crate::controllers::command::parse_batch_size;
 use crate::controllers::dataframe::DataFrameController;
 use crate::controllers::log::LogController;
 use polars::prelude::{col, JoinType, LazyFrame};
@@ -12,8 +13,8 @@ use crate::operations::chainables::{
     timeline, timeslice, uniq,
 };
 use crate::operations::finalizers::{
-    dump as dump_op, headers as headers_op, partition as partition_op, show as show_op,
-    showquery as showquery_op, showtable as showtable_op, stats as stats_op,
+    dump as dump_op, dumpcache as dumpcache_op, headers as headers_op, partition as partition_op,
+    show as show_op, showquery as showquery_op, showtable as showtable_op, stats as stats_op,
 };
 use crate::operations::initializers::load as load_op;
 // Type alias for chainable operation functions
@@ -164,8 +165,15 @@ fn create_chainable_dispatch_table() -> HashMap<&'static str, ChainableOperation
 // Create a dispatch table for finalizer operations
 fn create_finalizer_dispatch_table() -> HashMap<&'static str, FinalizerOperation> {
     let mut table: HashMap<&'static str, FinalizerOperation> = HashMap::new();
-    table.insert("show", |df, _args| {
-        show_op::show(df);
+    table.insert("show", |df, args| {
+        if let Some(batch_size_str) = get_string_from_value(args, "batch-size") {
+            match parse_batch_size(&batch_size_str) {
+                Ok(batch_size) => show_op::show_with_batch_size(df, batch_size),
+                Err(e) => eprintln!("Error parsing batch-size for show: {e}"),
+            }
+        } else {
+            show_op::show(df);
+        }
     });
     table.insert("showtable", |df, _args| {
         showtable_op::showtable(df);
@@ -187,7 +195,21 @@ fn create_finalizer_dispatch_table() -> HashMap<&'static str, FinalizerOperation
         let separator = get_string_from_value(args, "separator")
             .and_then(|s| s.chars().next())
             .unwrap_or(',');
-        dump_op::dump(df, &path_from_yaml, separator);
+
+        if let Some(batch_size_str) = get_string_from_value(args, "batch-size") {
+            match parse_batch_size(&batch_size_str) {
+                Ok(batch_size) => {
+                    dump_op::dump_with_batch_size(df, Some(&path_from_yaml), separator, batch_size)
+                }
+                Err(e) => eprintln!("Error parsing batch-size for dump: {e}"),
+            }
+        } else {
+            dump_op::dump(df, Some(&path_from_yaml), separator);
+        }
+    });
+    table.insert("dumpcache", |df, args| {
+        let output_path = get_string_from_value(args, "output");
+        dumpcache_op::dumpcache(df, output_path.as_deref());
     });
     table.insert("partition", |df, args| {
         let colname = get_string_from_value(args, "colname").unwrap_or_default();
@@ -537,7 +559,7 @@ pub fn quilt(
             }
             dump_op::dump(
                 &final_df_to_dump,
-                absolute_path.to_str().unwrap_or(path_str),
+                Some(absolute_path.to_str().unwrap_or(path_str)),
                 ',',
             );
         } else {

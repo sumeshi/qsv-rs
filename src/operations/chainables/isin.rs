@@ -1,23 +1,27 @@
 use crate::controllers::log::LogController;
 use polars::prelude::*;
+
 pub fn isin(df: &LazyFrame, colname: &str, values: &[String]) -> LazyFrame {
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
+    let schema = match df.clone().collect_schema() {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in isin: {e}");
+            eprintln!("Error getting schema for isin operation: {e}");
             std::process::exit(1);
         }
     };
-    let schema = collected_df.schema();
+
     if !schema.iter_names().any(|s| s == colname) {
         eprintln!("Error: Column '{colname}' not found in DataFrame for isin operation");
         std::process::exit(1);
     }
+
     LogController::debug(&format!(
         "Applying isin: column={colname} values={values:?}"
     ));
+
     // Get the column data type
     let col_dtype = schema.get(colname).unwrap();
+
     // For numeric columns, convert to string and do string comparison to avoid type issues
     let filter_expr = if matches!(
         col_dtype,
@@ -38,5 +42,6 @@ pub fn isin(df: &LazyFrame, colname: &str, values: &[String]) -> LazyFrame {
         }
         filter_expr
     };
+
     df.clone().filter(filter_expr)
 }

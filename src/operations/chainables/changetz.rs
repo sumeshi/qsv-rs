@@ -2,8 +2,26 @@ use crate::controllers::log::LogController;
 use chrono::{Local, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use dtparse::parse as dtparse_parse;
+use once_cell::sync::Lazy;
 use polars::prelude::*;
 use regex::Regex;
+
+static FUZZY_DATETIME_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
+    let patterns = [
+        // Month name with day and year: "January 15th, 2023 at 2:30 PM"
+        r"(?i)(?:on\s+)?(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}(?:\s+at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
+        // Short month: "Jan 15, 2023 2:30 PM"
+        r"(?i)(?:on\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
+        // ISO-like in text: "2023-01-15 14:30:00"
+        r"\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?",
+        // US date format: "1/15/2023 2:30 PM"
+        r"\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
+        // Day month year: "Friday Jan 13 2023 9:00 AM"
+        r"(?i)(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
+    ];
+    patterns.iter().map(|p| Regex::new(p).unwrap()).collect()
+});
+
 /// Parse datetime string with comprehensive format support including fuzzy parsing
 fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
     let s = s.trim();
@@ -78,24 +96,9 @@ fn parse_datetime_auto(s: &str) -> Option<NaiveDateTime> {
 }
 /// Extract datetime patterns from fuzzy text using regex
 fn extract_datetime_fuzzy(text: &str) -> Option<String> {
-    // Common datetime patterns to extract from text
-    let patterns = [
-        // Month name with day and year: "January 15th, 2023 at 2:30 PM"
-        r"(?i)(?:on\s+)?(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}(?:\s+at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
-        // Short month: "Jan 15, 2023 2:30 PM"
-        r"(?i)(?:on\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
-        // ISO-like in text: "2023-01-15 14:30:00"
-        r"\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?",
-        // US date format: "1/15/2023 2:30 PM"
-        r"\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
-        // Day month year: "Friday Jan 13 2023 9:00 AM"
-        r"(?i)(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?",
-    ];
-    for pattern in &patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            if let Some(captures) = re.find(text) {
-                return Some(captures.as_str().to_string());
-            }
+    for re in FUZZY_DATETIME_PATTERNS.iter() {
+        if let Some(captures) = re.find(text) {
+            return Some(captures.as_str().to_string());
         }
     }
     None
@@ -196,18 +199,12 @@ pub fn changetz(
     output_format: &str,
     ambiguous_time: &str,
 ) -> LazyFrame {
-    // Validate column exists
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
-        Err(e) => {
-            eprintln!("Error collecting DataFrame in changetz: {e}");
-            std::process::exit(1);
-        }
-    };
-    if !collected_df.schema().iter_names().any(|s| s == colname) {
+    // Validate column exists by checking the schema
+    if df.clone().collect_schema().unwrap().get(colname).is_none() {
         eprintln!("Error: Column '{colname}' not found for changetz operation");
         std::process::exit(1);
     }
+
     // Validate timezones
     if from_tz.to_lowercase() != "local" && from_tz.parse::<Tz>().is_err() {
         eprintln!("Error: Invalid source timezone '{from_tz}'");

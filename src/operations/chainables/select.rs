@@ -1,15 +1,17 @@
 use crate::controllers::log::LogController;
 use polars::prelude::*;
+
 pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
+    let schema = match df.clone().collect_schema() {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for schema check in select: {e}");
+            eprintln!("Error getting schema for select operation: {e}");
             std::process::exit(1);
         }
     };
-    let schema = collected_df.schema();
+
     let available_columns: Vec<String> = schema.iter_names().map(|s| s.to_string()).collect();
+
     // Expand column names to handle colon notation, quoted colon notation, and numeric indices
     let mut expanded_colnames = Vec::new();
     for colname in colnames {
@@ -23,10 +25,10 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
                 let range_cols = parse_colon_range(colname, &available_columns);
                 expanded_colnames.extend(range_cols);
             }
-        } else if colname.starts_with('"') && colname.contains("\":\"") && colname.ends_with('"') {
+        } else if colname.starts_with('"') && colname.contains(":") && colname.ends_with('"') {
             // Handle quoted colon notation: "col1":"col3"
             let inner = &colname[1..colname.len() - 1]; // Remove outer quotes
-            if let Some((start_col, end_col)) = inner.split_once("\":\"") {
+            if let Some((start_col, end_col)) = inner.split_once(":") {
                 let range_cols = parse_quoted_colon_range(start_col, end_col, &available_columns);
                 expanded_colnames.extend(range_cols);
             } else {
@@ -46,6 +48,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
             }
         }
     }
+
     // Validate all expanded column names exist
     for colname in &expanded_colnames {
         if !schema.iter_names().any(|s| s == colname) {
@@ -53,6 +56,7 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
             std::process::exit(1);
         }
     }
+
     let mut selected_cols: Vec<Expr> = Vec::new();
     for name in &expanded_colnames {
         if available_columns.contains(name) {
@@ -61,10 +65,12 @@ pub fn select(df: &LazyFrame, colnames: &[String]) -> LazyFrame {
             LogController::warn(&format!("Column '{name}' not found in DataFrame."));
         }
     }
+
     if selected_cols.is_empty() {
         LogController::warn("No valid columns selected. Returning original DataFrame.");
         return df.clone();
     }
+
     df.clone().select(&selected_cols)
 }
 // Helper function to check if a string is a numeric index

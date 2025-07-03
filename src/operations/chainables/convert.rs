@@ -3,22 +3,25 @@ use polars::prelude::*;
 use serde_json::Value as JsonValue;
 use serde_xml_rs::from_str as xml_from_str;
 use serde_yaml;
+
 pub fn convert(df: &LazyFrame, colname: &str, from_format: &str, to_format: &str) -> LazyFrame {
     LogController::debug(&format!(
         "Converting column '{colname}' from {from_format} to {to_format}"
     ));
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
+
+    let schema = match df.clone().collect_schema() {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for convert: {e}");
+            eprintln!("Error getting schema for convert operation: {e}");
             std::process::exit(1);
         }
     };
-    let schema = collected_df.schema();
+
     if !schema.iter_names().any(|s| s == colname) {
         eprintln!("Error: Column '{colname}' not found in DataFrame for convert operation");
         std::process::exit(1);
     }
+
     // Create the conversion expression - replace the original column
     let from_format_owned = from_format.to_string();
     let to_format_owned = to_format.to_string();

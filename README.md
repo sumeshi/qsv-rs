@@ -1,6 +1,6 @@
 # Quilter-CSV
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
-[![CI/CD Pipeline](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/sumeshi/qsv-rs/actions/workflows/ci-cd.yml)
+[![CI/CD Pipeline](https://github.com/sumeshi/qsv-rs/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/sumeshi/qsv-rs/actions/workflows/release.yml)
 
 ![qsv-rs](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/8484142e88948ecc0c8887db8f3bbb5be0dbe51e/qsv-rs.svg)
 
@@ -9,11 +9,107 @@ A fast, flexible, and memory-efficient command-line tool written in Rust for pro
 > [!NOTE]
 > The original version of this project was implemented in Python and can be found at [sumeshi/quilter-csv](https://github.com/sumeshi/quilter-csv). This Rust version is a complete rewrite.
 
+## 🚀 **Large File Processing (100GB+)**
+
+qsv-rs supports **TRUE STREAMING** for processing files of unlimited size without memory constraints!
+
+### 🔥 **Key Features**
+
+- **Unlimited File Size**: Process 100GB+ files without loading into memory
+- **Smart Memory Management**: Configurable batch sizes (default: 1GB)
+- **Streaming Output**: `show` command with memory-efficient streaming
+- **Streaming File Save**: `dump` command with batch processing for large files
+- **Memory-Efficient Loading**: Parallel processing with optimized buffers
+- **Automatic Optimization**: Dynamic chunk sizing based on data characteristics
+
+### 💡 **Usage Examples**
+
+```bash
+# Stream display massive files (1GB batches by default)
+qsv load huge_dataset.csv - show
+
+# Custom memory usage - 512MB batches
+qsv load big_file.csv - show --batch-size 512MB
+
+# High-memory server - 4GB batches for maximum performance
+qsv load massive.csv - show --batch-size 4GB
+
+# Stream save large results to file with custom batch size
+qsv load big_file.csv - select important_columns - dump -o output.csv --batch-size 2GB
+
+# Parallel processing for multiple files
+qsv load file1.csv file2.csv file3.csv - head 1000 - dump -o combined.csv
+
+# Memory-efficient filtering for 100GB+ files
+qsv load massive.csv - select col1,col2,col3 - show > filtered.csv
+```
+
+### ⚡ **Performance Optimizations**
+
+- **Configurable Batch Sizes**: 1GB default, 1MB-10GB range
+- **Dynamic Row Estimation**: Automatically calculates optimal batch sizes
+- **Parallel File Loading**: Automatic for 2+ files  
+- **16MB gzip buffers**: Optimized compression handling
+- **Intelligent Memory Usage**: Adapts to data characteristics
+
+### 📊 **Memory Usage**
+
+| Operation | Default Memory | File Size Limit | Configurable |
+|-----------|---------------|-----------------|--------------|
+| `show`    | 1GB batches   | **Unlimited**   | ✅ --batch-size |
+| `dump`    | 1GB batches   | **Unlimited**   | ✅ --batch-size |
+| `stats`   | Full dataset  | ~9GB           | ❌ |
+
+### 🛠️ **Memory Configuration**
+
+```bash
+# Configure batch size for your system
+--batch-size 512MB    # Low memory systems
+--batch-size 1GB      # Default (balanced)
+--batch-size 2GB      # High memory systems  
+--batch-size 4GB      # Maximum performance
+```
+
+### 🎯 **Best Practices for Large Files**
+
+1. **Use streaming operations:**
+```bash
+# ✅ Good - streams data with configurable memory
+qsv load huge.csv - show --batch-size 2GB
+qsv load huge.csv - select cols - dump -o output.csv --batch-size 1GB
+
+# ❌ Avoid for huge files - loads everything into memory
+qsv load huge.csv - stats
+```
+
+2. **Optimize batch size for your system:**
+```bash
+# Low memory (4GB RAM): Use smaller batches
+qsv load huge.csv - show --batch-size 256MB
+
+# High memory (32GB+ RAM): Use larger batches for speed
+qsv load huge.csv - show --batch-size 4GB
+```
+
+3. **Use appropriate commands for your use case:**
+```bash
+# Preview large files (safe)
+qsv load huge.csv - head 10 - show
+
+# Process and save large files (streaming)
+qsv load huge.csv - filter "column > 100" - dump -o results.csv --batch-size 2GB
+
+# Real-time processing (streaming)
+qsv load huge.csv - select col1,col2 - show --batch-size 1GB | other_tool
+```
+
 ## Features
 
-- **Pipeline-style command chaining**: Chain multiple commands in a single line for fast and efficient data processing
-- **Flexible filtering and transformation**: Perform operations like select, filter, sort, deduplicate, and timezone conversion
-- **YAML-based batch processing (Quilt)**: Automate complex workflows using YAML configuration files
+- **CSV Processing**: Load, filter, select, sort, and manipulate CSV data
+- **Multiple Formats**: Support for CSV, TSV, and gzipped files
+- **Memory Efficient**: Lazy evaluation with Polars
+- **Fast Performance**: Optimized for large datasets
+- **Flexible Pipeline**: Chain operations with intuitive syntax
 
 ## Usage
 ![](https://gist.githubusercontent.com/sumeshi/644af27c8960a9b6be6c7470fe4dca59/raw/2a19fafd4f4075723c731e4a8c8d21c174cf0ffb/qsv.svg)
@@ -177,16 +273,16 @@ Filter rows where any column matches a regex pattern.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | pattern | str |         | Regex pattern to search for in any column. Required. |
-| -i, --ignorecase | flag | `false` | Perform case-insensitive matching. |
+| -i, --ignore-case | flag | `false` | Perform case-insensitive matching. |
 | -v, --invert-match | flag | `false` | Invert the sense of matching, to select non-matching lines. |
 
 Example:
 ```bash
 $ qsv load data.csv - grep foo 
 $ qsv load data.csv - grep "^FOO" -i                        # Case-insensitive search
-$ qsv load data.csv - grep "^FOO" --ignorecase              # Long form case-insensitive
+$ qsv load data.csv - grep "^FOO" --ignore-case              # Long form case-insensitive
 $ qsv load data.csv - grep "^FOO" -i -v                     # Case-insensitive inverted match
-$ qsv load data.csv - grep "^FOO" --ignorecase --invert-match  # Long form inverted match
+$ qsv load data.csv - grep "^FOO" --ignore-case --invert-match  # Long form inverted match
 ```
 
 #### `head`
@@ -194,7 +290,7 @@ Displays the first N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| number | int  | | Number of rows to display. This is a required positional argument. |
+| number | int  | 5       | Number of rows to display. Positional argument. |
 
 ```bash
 $ qsv load data.csv - head 3
@@ -206,7 +302,7 @@ Displays the last N rows of the dataset.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| number | int  | | Number of rows to display. This is a required positional argument. |
+| number | int  | 5       | Number of rows to display. Positional argument. |
 
 ```bash
 $ qsv load data.csv - tail 3
@@ -486,6 +582,9 @@ $ qsv load data.csv - headers --plain
 #### `stats`
 Displays summary statistics for each column in the dataset (e.g., count, null_count, mean, std, min, max).
 
+> [!WARNING]
+> This command loads the entire dataset into memory to compute statistics. It may fail or cause performance issues with very large files (e.g., 10GB+). For large datasets, consider using `head` or other filters to reduce the data size before running `stats`.
+
 This command does not take any arguments or options.
 
 Example:
@@ -538,11 +637,12 @@ Outputs the processing results to a CSV file.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| -o, --output | str | | File path to save the CSV data. Required. |
+| -o, --output | str | `dump_<timestamp>.csv` | File path to save the CSV data. If not specified, a default timestamped filename is used. |
 | -s, --separator | char | `,` | Field separator character for the output CSV file. |
 
 Example:
 ```bash
+$ qsv load data.csv - head 100 - dump                       # Saves to dump_<timestamp>.csv
 $ qsv load data.csv - head 100 - dump -o results.csv
 $ qsv load data.csv - head 100 - dump --output results.csv
 $ qsv load data.csv - head 100 - dump -o results.csv -s ';'

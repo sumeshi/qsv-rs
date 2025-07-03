@@ -6,8 +6,10 @@ use crate::operations::finalizers::{
     dump, dumpcache, headers, partition, show, showquery, showtable, stats,
 };
 use crate::operations::initializers::load;
+use chrono::Local;
 use polars::prelude::*;
 use std::path::PathBuf;
+
 #[derive(Clone)]
 pub struct DataFrameController {
     df: Option<LazyFrame>,
@@ -213,6 +215,11 @@ impl DataFrameController {
             show::show(df);
         }
     }
+    pub fn show_with_batch_size(&self, batch_size: usize) {
+        if let Some(df) = &self.df {
+            show::show_with_batch_size(df, batch_size);
+        }
+    }
     pub fn showtable(&self) {
         if let Some(df) = &self.df {
             showtable::showtable(df);
@@ -225,9 +232,21 @@ impl DataFrameController {
     }
     pub fn dump(&self, path: Option<&str>, separator: Option<char>) {
         if let Some(df) = &self.df {
-            let output_path_str = path.unwrap_or("output.csv");
+            let output_path_str = path.map(|p| p.to_string()).unwrap_or_else(|| {
+                let now = Local::now();
+                format!("dump_{}.csv", now.format("%Y%m%d_%H%M%S"))
+            });
             let sep_char = separator.unwrap_or(',');
-            dump::dump(df, output_path_str, sep_char);
+            dump::dump(df, Some(&output_path_str), sep_char);
+        }
+    }
+    pub fn dump_with_batch_size(&self, path: Option<&str>, separator: char, batch_size: usize) {
+        if let Some(df) = &self.df {
+            let output_path_str = path.map(|p| p.to_string()).unwrap_or_else(|| {
+                let now = Local::now();
+                format!("dump_{}.csv", now.format("%Y%m%d_%H%M%S"))
+            });
+            dump::dump_with_batch_size(df, Some(&output_path_str), separator, batch_size);
         }
     }
     pub fn dumpcache(&self, output_path: Option<&str>) {

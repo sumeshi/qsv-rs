@@ -1,30 +1,34 @@
 use crate::controllers::log::LogController;
 use chrono::{DateTime, NaiveDateTime};
 use polars::prelude::*;
+
 pub fn timeslice(
     df: &LazyFrame,
     time_column: &str,
     start_time: Option<&str>,
     end_time: Option<&str>,
 ) -> LazyFrame {
-    let collected_df = match df.clone().collect() {
-        Ok(df) => df,
+    let schema = match df.clone().collect_schema() {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("Error collecting DataFrame for timeslice: {e}");
+            eprintln!("Error getting schema for timeslice operation: {e}");
             std::process::exit(1);
         }
     };
-    let schema = collected_df.schema();
+
     if !schema.iter_names().any(|s| s == time_column) {
         eprintln!(
             "Error: Time column '{time_column}' not found in DataFrame for timeslice operation"
         );
         std::process::exit(1);
     }
+
     LogController::debug(&format!(
         "Creating timeslice: column={time_column}, start={start_time:?}, end={end_time:?}"
     ));
+
     let mut filter_expr: Option<Expr> = None;
+
     // Add start time filter
     if let Some(start) = start_time {
         let start_owned = start.to_string(); // Clone the string
@@ -49,6 +53,7 @@ pub fn timeslice(
             None => start_filter,
         });
     }
+
     // Add end time filter
     if let Some(end) = end_time {
         let end_owned = end.to_string(); // Clone the string
@@ -73,6 +78,7 @@ pub fn timeslice(
             None => end_filter,
         });
     }
+
     match filter_expr {
         Some(expr) => df.clone().filter(expr),
         None => {

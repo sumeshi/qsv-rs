@@ -18,27 +18,43 @@ impl Command {
 // Define valid options for each command
 fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
     match command_name {
-        "load" => ["separator", "low-memory", "no-headers", "chunk-size"]
+        "load" => {
+            let mut opts = HashSet::new();
+            opts.insert("low_memory");
+            opts.insert("no_headers");
+            opts.insert("chunk_size");
+            opts.insert("separator");
+            opts.insert("s");
+            opts
+        }
+        "select" => HashSet::new(), // select has no options
+        "isin" => HashSet::new(),   // isin has no options
+        "contains" => ["ignore_case", "ignore-case", "ignorecase"]
             .iter()
             .cloned()
             .collect(),
-        "select" => HashSet::new(), // select has no options
-        "isin" => HashSet::new(),   // isin has no options
-        "contains" => ["ignorecase"].iter().cloned().collect(),
-        "sed" => ["ignorecase", "column"].iter().cloned().collect(),
-        "grep" => ["ignorecase", "invert-match"].iter().cloned().collect(),
+        "sed" => ["ignore_case", "ignore-case", "ignorecase", "column"]
+            .iter()
+            .cloned()
+            .collect(),
+        "grep" => ["ignore_case", "ignore-case", "invert_match", "invert-match"]
+            .iter()
+            .cloned()
+            .collect(),
         "head" => ["number"].iter().cloned().collect(),
         "tail" => ["number"].iter().cloned().collect(),
         "sort" => ["desc"].iter().cloned().collect(),
         "count" => HashSet::new(), // count has no options
         "uniq" => HashSet::new(),  // uniq has no options
         "changetz" => [
+            "from_tz",
             "from-tz",
+            "to_tz",
             "to-tz",
-            "input-format",
             "input_format",
-            "output-format",
+            "input-format",
             "output_format",
+            "output-format",
             "ambiguous",
         ]
         .iter()
@@ -54,14 +70,43 @@ fn get_valid_options(command_name: &str) -> HashSet<&'static str> {
         "pivot" => ["rows", "cols", "values", "agg"].iter().cloned().collect(),
         "timeround" => ["unit", "output"].iter().cloned().collect(),
         "partition" => HashSet::new(), // partition has no options
-        "show" => HashSet::new(),      // show has no options
+        "show" => {
+            let mut opts = HashSet::new();
+            opts.insert("batch_size");
+            opts.insert("batch-size");
+            opts
+        }
         "showtable" => HashSet::new(), // showtable has no options
-        "headers" => ["plain"].iter().cloned().collect(),
+        "headers" => {
+            let mut opts = HashSet::new();
+            opts.insert("plain");
+            opts.insert("p");
+            opts
+        }
         "stats" => HashSet::new(),     // stats has no options
         "showquery" => HashSet::new(), // showquery has no options
-        "dump" => ["separator", "output"].iter().cloned().collect(),
-        "dumpcache" => ["output"].iter().cloned().collect(),
-        "quilt" => ["output"].iter().cloned().collect(),
+        "dump" => {
+            let mut opts = HashSet::new();
+            opts.insert("output");
+            opts.insert("o");
+            opts.insert("separator");
+            opts.insert("s");
+            opts.insert("batch_size");
+            opts.insert("batch-size");
+            opts
+        }
+        "dumpcache" => {
+            let mut opts = HashSet::new();
+            opts.insert("output");
+            opts.insert("o");
+            opts
+        }
+        "quilt" => {
+            let mut opts = HashSet::new();
+            opts.insert("output");
+            opts.insert("o");
+            opts
+        }
         _ => HashSet::new(), // unknown command, no validation
     }
 }
@@ -111,7 +156,9 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                 let needs_value = matches!(
                     option_str,
                     "from-tz"
+                        | "from_tz"
                         | "to-tz"
+                        | "to_tz"
                         | "input-format"
                         | "input_format"
                         | "output-format"
@@ -119,6 +166,7 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "ambiguous"
                         | "output"
                         | "separator"
+                        | "s"
                         | "number"
                         | "interval"
                         | "sum"
@@ -136,13 +184,15 @@ pub fn parse_commands(args: &[String]) -> Vec<Command> {
                         | "to"
                         | "column"
                         | "unit"
+                        | "batch-size"
+                        | "batch_size"
                 );
                 if needs_value && i + 1 < args.len() && !args[i + 1].starts_with('-') {
                     // --option value format
                     let value = args[i + 1].clone();
                     current_command
                         .options
-                        .insert(option_str.to_string(), Some(value));
+                        .insert(option_str.replace('-', "_"), Some(value));
                     i += 2; // Consumed option and its value
                 } else {
                     // It's a flag option
@@ -225,22 +275,23 @@ fn parse_option(cmd: &mut Command, option_str: &str) {
             "s" => "separator".to_string(),
             "n" => "number".to_string(),
             "o" => "output".to_string(),
-            _ => key.to_string(),
+            _ => key.replace('-', "_"),
         };
         cmd.options.insert(final_key, Some(value.to_string()));
     } else {
-        // This is a flag option (e.g., -i, --ignorecase) or a short option passed without '=' that wasn't -s or -n
+        // This is a flag option (e.g., -i, --ignore_case) or a short option passed without '=' that wasn't -s or -n
         // Or it's a key that parse_commands decided should be treated as a flag (e.g. -s at end of args)
         let final_key = match option_str {
             "s" => "separator".to_string(), // if -s is passed as a flag, store as separator: None
             "n" => "number".to_string(),    // if -n is passed as a flag, store as number: None
             "o" => "output".to_string(),    // if -o is passed as a flag, store as output: None
             // Add other short options that are flags here if necessary
-            "i" | "ignorecase" => "ignorecase".to_string(), // Example for grep -i or --ignorecase
-            "d" | "desc" => "desc".to_string(),             // Example for sort -d or --desc
-            "p" | "plain" => "plain".to_string(),           // Example for headers -p or --plain
-            "v" | "invert-match" => "invert-match".to_string(), // Example for grep -v or --invert-match
-            _ => option_str.to_string(),
+            "i" | "ignore-case" => "ignore_case".to_string(), // Example for grep -i or --ignore-case
+            "d" | "desc" => "desc".to_string(),               // Example for sort -d or --desc
+            "p" | "plain" => "plain".to_string(),             // Example for headers -p or --plain
+            "v" | "invert-match" => "invert_match".to_string(), // Example for grep -v or --invert-match
+            "ignorecase" => "ignore_case".to_string(),          // Legacy support
+            _ => option_str.replace('-', "_"),
         };
         // If it's a known flag that should be stored with its full name, do so.
         // Otherwise, it's a flag option (value is None).
@@ -283,6 +334,7 @@ pub fn print_help() {
     println!("  dumpcache    Save as parquet cache file");
     println!("  partition    Split data into separate files by column values");
     println!();
+    println!();
     println!("Quilters:");
     println!("  quilt        Execute a quilt (data processing pipeline from YAML)");
     println!();
@@ -318,6 +370,7 @@ pub fn print_chainable_help(cmd: &str) {
         "partition" => print_partition_help(),
         "pivot" => print_pivot_help(),
         "timeround" => print_timeround_help(),
+
         "show" => print_show_help(),
         "showtable" => print_showtable_help(),
         "headers" => print_headers_help(),
@@ -330,27 +383,21 @@ pub fn print_chainable_help(cmd: &str) {
     }
 }
 fn print_load_help() {
-    println!("load: Load one or more CSV or parquet files\n");
-    println!("Usage: load <file1.csv|file1.parquet> [file2.csv ...] [-s|--separator <char>] [--low-memory] [--no-headers] [--chunk-size <size>]\n");
-    println!("Options (CSV only):");
-    println!("  -s, --separator <char>  Field separator character (default: ',')");
-    println!("  --low-memory            Enable low-memory mode for very large files");
-    println!("  --no-headers            Treat first row as data, not headers");
-    println!("  --chunk-size <size>     Chunk size for reading large files (e.g., 10000)");
-    println!("\nSupported formats:");
-    println!("  - CSV files (.csv, .tsv, .txt)");
-    println!("  - Gzipped CSV files (.csv.gz)");
-    println!("  - Parquet files (.parquet) - high performance, preserves types");
+    println!("load: Load CSV files\n");
+    println!("Usage: load [files...] [options]\n");
+    println!("Options:");
+    println!("  -s, --separator <char> Field separator character (default: ',')");
+    println!("  --low-memory         Use memory-efficient loading for large files");
+    println!("  --no-headers         Treat the first row as data, not headers");
+    println!("  --chunk-size <size>  Process files in chunks of this size");
     println!("\nExamples:");
     println!("  qsv load data.csv - show");
-    println!("  qsv load cache.parquet - show  # Load from parquet cache");
-    println!("  qsv load data1.csv data2.csv data3.csv - show");
-    println!("  qsv load logs/*.tsv -s '\\t' - show");
+    println!("  qsv load data.csv -s ';' - show");
+    println!("  qsv load data.tsv --separator '\t' - show");
     println!("  qsv load data.csv --low-memory - show");
     println!("  qsv load data.csv --no-headers - show");
-    println!("  qsv load data.csv --chunk-size 50000 - show");
-    println!("  qsv load data.csv.gz - show  # Automatically detects gzip files");
-    println!("\nNote: Cannot mix CSV and parquet files in the same load command");
+    println!("  qsv load data.csv --chunk-size 1000 - show");
+    println!("  qsv load file1.csv file2.csv - show");
 }
 fn print_select_help() {
     println!("select: Select columns from the DataFrame\n");
@@ -388,7 +435,7 @@ fn print_sed_help() {
     println!("  sed <pattern> <replacement> [-i]                    (apply to all columns)");
     println!("  sed <pattern> <replacement> --column <colname> [-i] (apply to specific column)\n");
     println!("Options:");
-    println!("  -i, --ignorecase    Case-insensitive matching");
+    println!("  -i, --ignore-case    Case-insensitive matching");
     println!("  --column <colname>  Apply replacement to specific column only\n");
     println!("Examples:");
     println!("  qsv load data.csv - sed foo bar - show                       # Replace 'foo' with 'bar' in all columns");
@@ -397,14 +444,14 @@ fn print_sed_help() {
 }
 fn print_grep_help() {
     println!("grep: Filter rows by regex pattern (any column)\n");
-    println!("Usage: grep <pattern> [-i|--ignorecase] [-v|--invert-match]\n");
+    println!("Usage: grep <pattern> [-i|--ignore-case] [-v|--invert-match]\n");
     println!("Options:");
-    println!("  -i, --ignorecase     Case-insensitive matching");
+    println!("  -i, --ignore-case     Case-insensitive matching");
     println!("  -v, --invert-match   Invert match (select non-matching lines)\n");
     println!("Examples:");
     println!("  qsv load data.csv - grep foo - show");
     println!("  qsv load data.csv - grep bar -i - show");
-    println!("  qsv load data.csv - grep pattern --ignorecase --invert-match - show");
+    println!("  qsv load data.csv - grep pattern --ignore-case --invert-match - show");
 }
 fn print_head_help() {
     println!("head: Show first N rows\n");
@@ -474,7 +521,7 @@ fn print_convert_help() {
     println!("  xml -> json      Convert XML to JSON format");
     println!("  yaml -> xml      Convert YAML to XML format");
     println!("  xml -> yaml      Convert XML to YAML format");
-    println!("\nFormatting (same format conversions):");
+    println!("\nFormatting (same format conversions):\n");
     println!("  json -> json     Format/prettify JSON");
     println!("  yaml -> yaml     Format/prettify YAML");
     println!("  xml -> xml       Format/prettify XML");
@@ -565,9 +612,14 @@ fn print_timeround_help() {
 }
 fn print_show_help() {
     println!("show: Print result as CSV\n");
-    println!("Usage: show\n");
-    println!("Examples:");
+    println!("Usage: show [options]\n");
+    println!("Options:");
+    println!("  --batch-size <size>  Memory batch size for streaming (default: 1GB)");
+    println!("                       Accepts values like: 512MB, 2GB, 1024MB");
+    println!("\nExamples:");
     println!("  qsv load data.csv - show");
+    println!("  qsv load huge.csv - show --batch-size 2GB");
+    println!("  qsv load data.csv - select col1,col2 - show --batch-size 256MB");
 }
 fn print_showtable_help() {
     println!("showtable: Print result as a table\n");
@@ -598,14 +650,17 @@ fn print_showquery_help() {
 }
 fn print_dump_help() {
     println!("dump: Save DataFrame as CSV\n");
-    println!("Usage: dump -o|--output <file> [-s|--separator <char>]\n");
+    println!("Usage: dump -o|--output <file> [-s|--separator <char>] [--batch-size <size>]\n");
     println!("Options:");
     println!("  -o, --output <file>     Output file path (required)");
     println!("  -s, --separator <char>  Field separator character (default: ',')");
+    println!("  --batch-size <size>     Memory batch size for streaming (default: 1GB)");
+    println!("                          Accepts values like: 512MB, 2GB, 1024MB");
     println!("\nExamples:");
     println!("  qsv load data.csv - dump -o results.csv");
     println!("  qsv load data.csv - dump --output results.csv");
     println!("  qsv load data.csv - dump -o results.csv -s ';'");
+    println!("  qsv load huge.csv - dump -o output.csv --batch-size 2GB");
 }
 fn print_dumpcache_help() {
     println!("dumpcache: Save DataFrame as parquet cache file\n");
@@ -623,6 +678,7 @@ fn print_dumpcache_help() {
     println!("  - Parquet format is highly compressed and preserves data types");
     println!("  - Cache files can be loaded back using: qsv load cache.parquet - show");
 }
+
 fn print_quilt_help() {
     println!("quilt: Execute a quilt (data processing pipeline from YAML)\n");
     println!("Usage: quilt <config_path> [csv_file_paths...] [-o <output_file>]\n");
@@ -635,4 +691,64 @@ fn print_quilt_help() {
     println!("Examples:");
     println!("  qsv quilt my_pipeline.yaml");
     println!("  qsv quilt my_pipeline.yaml -o result.csv");
+}
+
+/// Parse batch size string like "512MB", "2GB" into bytes
+pub fn parse_batch_size(size_str: &str) -> Result<usize, String> {
+    let size_str = size_str.trim().to_uppercase();
+
+    // Default 1GB if empty
+    if size_str.is_empty() {
+        return Ok(1_073_741_824); // 1GB
+    }
+
+    // Extract number and unit
+    let (number_str, unit) = if size_str.ends_with("GB") {
+        (&size_str[..size_str.len() - 2], "GB")
+    } else if size_str.ends_with("MB") {
+        (&size_str[..size_str.len() - 2], "MB")
+    } else if size_str.ends_with("KB") {
+        (&size_str[..size_str.len() - 2], "KB")
+    } else if size_str.ends_with("B") {
+        (&size_str[..size_str.len() - 1], "B")
+    } else {
+        // No unit specified, assume bytes
+        (size_str.as_str(), "B")
+    };
+
+    // Parse the number
+    let number: f64 = number_str
+        .parse()
+        .map_err(|_| format!("Invalid number in batch size: {size_str}"))?;
+
+    if number < 0.0 {
+        return Err("Batch size cannot be negative".to_string());
+    }
+
+    // Convert to bytes
+    let bytes = match unit {
+        "B" => number as usize,
+        "KB" => (number * 1_024.0) as usize,
+        "MB" => (number * 1_048_576.0) as usize,
+        "GB" => (number * 1_073_741_824.0) as usize,
+        _ => return Err(format!("Unknown unit: {unit}")),
+    };
+
+    // Validate reasonable bounds
+    const MIN_BATCH_SIZE: usize = 1_048_576; // 1MB minimum
+    const MAX_BATCH_SIZE: usize = 10_737_418_240; // 10GB maximum
+
+    if bytes < MIN_BATCH_SIZE {
+        return Err(format!(
+            "Batch size too small (minimum: 1MB), got: {size_str}"
+        ));
+    }
+
+    if bytes > MAX_BATCH_SIZE {
+        return Err(format!(
+            "Batch size too large (maximum: 10GB), got: {size_str}"
+        ));
+    }
+
+    Ok(bytes)
 }
